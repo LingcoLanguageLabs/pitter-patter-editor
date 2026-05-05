@@ -1,0 +1,43 @@
+{
+  "name": "pitter-patter-editor",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@floating-ui/react": "^0.27.0",
+    "@handlewithcare/react-prosemirror": "^3.0.5",
+    "@phosphor-icons/react": "^2.1.7",
+    "@radix-ui/react-dropdown-menu": "^2.1.6",
+    "@radix-ui/react-popover": "^1.1.6",
+    "@radix-ui/react-tooltip": "^1.1.8",
+    "prosemirror-commands": "^1.7.1",
+    "prosemirror-history": "^1.4.1",
+    "prosemirror-inputrules": "^1.5.0",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.3",
+    "prosemirror-schema-basic": "^1.2.4",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-state": "^1.4.3",
+    "prosemirror-tables": "^1.7.1",
+    "prosemirror-transform": "^1.10.4",
+    "prosemirror-view": "1.41.7",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-reconciler": "^0.32.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@types/react-reconciler": "^0.32.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^8.0.5"
+  },
+  "resolutions": {
+    "prosemirror-view": "1.41.7"
+  }
+}
