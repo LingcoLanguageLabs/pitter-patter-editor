@@ -1,11 +1,10 @@
 # Pitter Patter Editor
 
-<img width="1090" height="632" alt="image" src="https://github.com/user-attachments/assets/d530db90-b129-4f42-b7c8-636533633a8f" />
-
-
 A small, opinionated rich-text editor built on [ProseMirror](https://prosemirror.dev/) and React 19, using [`@handlewithcare/react-prosemirror`](https://github.com/handlewithcare/react-prosemirror) for the React bindings. Everything visible in the editor — marks, nodes, keymaps, toolbar buttons, slash menu, suggestions, input rules — is contributed by an **extension**. There is no monolithic config; you compose an editor by passing a list of extensions to `createEditor`.
 
 The architecture is intentionally close to ProseMirror primitives. There is no "framework layer" hiding the schema or plugin system — extensions return raw `NodeSpec` / `MarkSpec` / `Plugin` / `Command` values, and the editor wires them together.
+
+<img width="1090" height="632" alt="image" src="https://github.com/user-attachments/assets/d530db90-b129-4f42-b7c8-636533633a8f" />
 
 ## Quick start
 
