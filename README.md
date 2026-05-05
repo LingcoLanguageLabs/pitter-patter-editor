@@ -23,27 +23,28 @@ The dev entry point is `src/main.tsx`, which mounts the demo app from `index.htm
 ## Mental model
 
 ```
-┌───────────────────────────────────────────────────────────┐
-│ createEditor([Bold, Heading, Lists, Image, …])            │ ← compose
-└───────────────────────────────────────────────────────────┘
-              │
-              ▼
-┌─────────────────────┐  ┌───────────────────┐  ┌───────────────────┐
-│ buildSchema         │  │ buildCommands     │  │ buildPlugins      │
-│  - marks/nodes      │  │  - factory(schema)│  │  - ext.plugins    │
-│  - patchNodes/Marks │  │    → Command      │  │  - inputRules     │
-└─────────────────────┘  └───────────────────┘  │  - history        │
-                                                 │  - keymap (undo)  │
-                                                 │  - keymap (ext)   │
-                                                 │  - baseKeymap     │
-                                                 │  - reactKeys()    │
-                                                 └───────────────────┘
-              │
-              ▼
-        <ProseMirror state dispatchTransaction>
-              │
-              ▼
-        <Toolbar/>, <BubbleMenu/>, <SlashMenuPopover/>, etc.
+  ┌───────────────────────────────────────────────────────────┐
+  │ createEditor([Bold, Heading, Lists, Image, …])            │ ← compose
+  └─────────────────────────────┬─────────────────────────────┘
+                                │
+          ┌─────────────────────┼─────────────────────┐
+          ▼                     ▼                     ▼
+  ┌─────────────────────┐ ┌───────────────────┐ ┌───────────────────┐
+  │ buildSchema         │ │ buildCommands     │ │ buildPlugins      │
+  │  - marks/nodes      │ │  - factory(schema)│ │  - ext.plugins    │
+  │  - patchNodes/Marks │ │    → Command      │ │  - inputRules     │
+  └──────────┬──────────┘ └─────────┬─────────┘ │  - history        │
+             │                      │           │  - keymap (undo)  │
+             │                      │           │  - keymap (ext)   │
+             │                      │           │  - baseKeymap     │
+             │                      │           │  - reactKeys()    │
+             │                      │           └─────────┬─────────┘
+             └──────────────────────┼─────────────────────┘
+                                    ▼
+                <ProseMirror state dispatchTransaction>
+                                    │
+                                    ▼
+          <Toolbar/>, <BubbleMenu/>, <SlashMenuPopover/>, etc.
 ```
 
 Each extension is a single object with optional fields — most extensions only set a few of them.
