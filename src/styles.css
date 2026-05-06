@@ -479,6 +479,92 @@ body {
   padding-left: 12px;
 }
 
+.pp-empty-block::before {
+  content: attr(data-placeholder);
+  color: #b8b8b0;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+.ProseMirror div[data-youtube-video] {
+  position: relative;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.ProseMirror div[data-youtube-video] iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 6px;
+}
+
+.pp-popover-error {
+  font-size: 0.78rem;
+  color: #b91c1c;
+  padding: 2px 0;
+}
+
+.pp-font-trigger {
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.pp-dropdown-section-label {
+  padding: 6px 10px 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #999;
+  user-select: none;
+}
+
+.pp-dropdown-separator {
+  height: 1px;
+  background: #ececea;
+  margin: 4px 6px;
+}
+
+.pp-font-item {
+  gap: 8px;
+}
+
+.pp-font-item[data-active] {
+  background: transparent;
+  color: #1a1a1a;
+}
+
+.pp-font-item[data-active]:hover:not(:disabled) {
+  background: #efefea;
+}
+
+.pp-font-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  flex: 0 0 14px;
+  color: #1a1a1a;
+}
+
+.pp-font-name {
+  flex: 1 1 auto;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pp-font-more {
+  gap: 8px;
+  color: #555;
+}
+
 .pp-highlight-swatches {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
