@@ -890,3 +890,53 @@ li[data-type="task-item"][data-checked="true"] > div {
 .ProseMirror details[open] > summary {
   margin-bottom: 0.25rem;
 }
+
+.editor-surface--shuffle {
+  background: #f6efde;
+  border-color: #e8dfc6;
+  --shuffle-skeleton-color: rgba(20, 24, 31, 0.025);
+}
+
+.editor-surface--shuffle .ProseMirror {
+  color: #2a1f33;
+  font-family: "Helvetica Neue", "Inter", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.editor-surface--shuffle .ProseMirror h1,
+.editor-surface--shuffle .ProseMirror h2,
+.editor-surface--shuffle .ProseMirror h3 {
+  font-family: "Iowan Old Style", "Source Serif Pro", Georgia, serif;
+  font-weight: 600;
+  color: #3a1f33;
+}
+
+.editor-surface--shuffle .ProseMirror h1 {
+  font-size: 3.25rem;
+  line-height: 1.05;
+}
+
+.editor-surface--shuffle .ProseMirror h2 {
+  font-size: 1.75rem;
+}
+
+.editor-surface--shuffle .ProseMirror h3 {
+  font-size: 1.15rem;
+}
+
+.editor-surface--shuffle .ProseMirror p {
+  color: #4a3845;
+}
+
+.editor-surface--shuffle .ProseMirror img {
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px -12px rgba(58, 31, 51, 0.25);
+  cursor: grab;
+}
+
+html:has([data-shuffle-clone]),
+html:has([data-shuffle-clone]) * {
+  cursor: grabbing !important;
+}
+
