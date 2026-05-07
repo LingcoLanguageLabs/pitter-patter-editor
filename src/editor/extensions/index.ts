@@ -1,3 +1,4 @@
+export { Anchor } from "./Anchor";
 export { Audio } from "./Audio";
 export { Bold } from "./Bold";
 export { BulletList } from "./BulletList";
@@ -13,10 +14,14 @@ export { Code } from "./Code";
 export { CodeBlock } from "./CodeBlock";
 export { ColorChip, createColorChip } from "./ColorChip";
 export type { ColorChipOptions } from "./ColorChip";
+export { Date } from "./Date";
+export { DefinitionList } from "./DefinitionList";
 export { Details } from "./Details";
 export { Dropcursor, createDropcursor } from "./Dropcursor";
 export type { DropcursorOptions } from "./Dropcursor";
 export { Emoji, EmojiPopover } from "./Emoji";
+export { FileHandler, createFileHandler } from "./FileHandler";
+export type { FileHandlerOptions } from "./FileHandler";
 export { FontFamily, createFontFamily, DEFAULT_FONT_FAMILIES } from "./FontFamily";
 export type { FontFamilyOption, FontFamilyOptions } from "./FontFamily";
 export { FontSize, createFontSize, DEFAULT_FONT_SIZES } from "./FontSize";
@@ -29,12 +34,21 @@ export { HardBreak } from "./HardBreak";
 export { Heading } from "./Heading";
 export { Highlight } from "./Highlight";
 export { HorizontalRule } from "./HorizontalRule";
+export { HoverLink, LinkHoverPopover } from "./HoverLink";
 export { Image } from "./Image";
+export {
+  InvisibleCharacters,
+  createInvisibleCharacters,
+  invisibleCharsKey,
+} from "./InvisibleCharacters";
+export type { InvisibleCharactersOptions } from "./InvisibleCharacters";
 export { Italic } from "./Italic";
+export { Kbd } from "./Kbd";
 export { Language, createLanguage, DEFAULT_LANGUAGES } from "./Language";
 export type { LanguageChoice, LanguageOptions } from "./Language";
 export { LineHeight, createLineHeight, DEFAULT_LINE_HEIGHTS } from "./LineHeight";
 export type { LineHeightOptions } from "./LineHeight";
+export { Linkify } from "./Linkify";
 export { Link } from "./Link";
 export { LinkCard, createLinkCard } from "./LinkCard";
 export type { LinkCardMetadata, LinkCardOptions } from "./LinkCard";
@@ -55,12 +69,20 @@ export type { MentionItem, MentionOptions } from "./Mention";
 export { OrderedList } from "./OrderedList";
 export { Placeholder, createPlaceholder } from "./Placeholder";
 export type { PlaceholderOptions } from "./Placeholder";
+export { PullQuote } from "./PullQuote";
 export { Quote } from "./Quote";
 export { Redo } from "./Redo";
 export { Separator } from "./Separator";
 export { SlashMenu, SlashMenuPopover } from "./SlashMenu";
 export { SmartPaste, createSmartPaste } from "./SmartPaste";
 export type { SmartPasteOptions } from "./SmartPaste";
+export {
+  Statistics,
+  createStatistics,
+  statisticsKey,
+  useStatistics,
+} from "./Statistics";
+export type { DocumentStatistics, StatisticsOptions } from "./Statistics";
 export { Strike } from "./Strike";
 export {
   StripFormatting,

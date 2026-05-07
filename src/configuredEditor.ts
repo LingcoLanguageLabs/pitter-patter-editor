@@ -2,6 +2,7 @@ import type { Schema } from "prosemirror-model";
 
 import { createEditor } from "./editor";
 import {
+  Anchor,
   Audio,
   Bold,
   BulletList,
@@ -10,9 +11,12 @@ import {
   Code,
   CodeBlock,
   ColorChip,
+  Date as DateExtension,
+  DefinitionList,
   Details,
   Dropcursor,
   Emoji,
+  FileHandler,
   Focus,
   FontFamily,
   FontSize,
@@ -22,12 +26,16 @@ import {
   Heading,
   Highlight,
   HorizontalRule,
+  HoverLink,
   Image,
+  InvisibleCharacters,
   Italic,
+  Kbd,
   Language,
   LineHeight,
   Link,
   LinkCard,
+  Linkify,
   ListItem,
   Lists,
   MaintainSelection,
@@ -35,11 +43,13 @@ import {
   Mention,
   OrderedList,
   Placeholder,
+  PullQuote,
   Quote,
   Redo,
   Separator,
   SlashMenu,
   SmartPaste,
+  Statistics,
   Strike,
   StripFormatting,
   Subscript,
@@ -85,6 +95,7 @@ export const editor = createEditor([
   Underline,
   Strike,
   Code,
+  Kbd,
   Separator,
 
   // Color
@@ -108,9 +119,11 @@ export const editor = createEditor([
 
   // Block-level structures
   Quote,
+  PullQuote,
   CodeBlock,
   Callout,
   Details,
+  DefinitionList,
   Separator,
 
   // Insert (media + content blocks)
@@ -121,6 +134,8 @@ export const editor = createEditor([
   LinkCard,
   Math,
   Variables,
+  DateExtension,
+  Anchor,
   Table,
   Separator,
   Footnote,
@@ -129,6 +144,7 @@ export const editor = createEditor([
 
   // Formatting tools
   StripFormatting,
+  InvisibleCharacters,
   LineHeight,
   Separator,
 
@@ -150,12 +166,16 @@ export const editor = createEditor([
   Placeholder,
   TrailingNode,
   CharacterCount,
+  Statistics,
   Focus,
   UniqueID,
   TableOfContents,
   MaintainSelection,
   ColorChip,
   SmartPaste,
+  Linkify,
+  HoverLink,
+  FileHandler,
   SlashMenu,
   Mention,
   Emoji,

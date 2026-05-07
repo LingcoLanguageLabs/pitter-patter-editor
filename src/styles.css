@@ -1674,3 +1674,243 @@ html:has([data-shuffle-clone]) * {
   cursor: grabbing !important;
 }
 
+/* ----------------------------- Kbd mark ------------------------------- */
+
+.ProseMirror kbd,
+kbd.pp-kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 1px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  line-height: 1;
+  color: #1f2937;
+  background: linear-gradient(180deg, #fafafa 0%, #f0f0ec 100%);
+  border: 1px solid #d6d6cf;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+/* ---------------------------- Pull quote ------------------------------ */
+
+.ProseMirror aside.pp-pullquote {
+  margin: 1.4rem 0;
+  padding: 0.5rem 0 0.5rem 1.25rem;
+  border-left: 4px solid #4338ca;
+  font-size: 1.4rem;
+  line-height: 1.4;
+  font-weight: 500;
+  font-style: italic;
+  color: #2a2a26;
+  position: relative;
+}
+
+.ProseMirror aside.pp-pullquote::before {
+  content: "“";
+  position: absolute;
+  left: 0.4rem;
+  top: -0.3rem;
+  font-size: 2.4rem;
+  line-height: 1;
+  color: #c7d2fe;
+  font-style: normal;
+}
+
+.ProseMirror aside.pp-pullquote p {
+  margin: 0.25rem 0;
+}
+
+/* -------------------------- Definition list --------------------------- */
+
+.ProseMirror dl.pp-dl {
+  margin: 0.75rem 0;
+  padding: 0;
+}
+
+.ProseMirror dl.pp-dl dt {
+  font-weight: 600;
+  margin-top: 0.5rem;
+  color: #1f2937;
+}
+
+.ProseMirror dl.pp-dl dt:first-child {
+  margin-top: 0;
+}
+
+.ProseMirror dl.pp-dl dd {
+  margin: 0.15rem 0 0.5rem 1.4rem;
+  color: #4a4a44;
+}
+
+.ProseMirror dl.pp-dl dd p {
+  margin: 0.15rem 0;
+}
+
+/* ------------------------------ Anchor -------------------------------- */
+
+.ProseMirror a.pp-anchor {
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  vertical-align: text-bottom;
+  position: relative;
+}
+
+.ProseMirror a.pp-anchor::before {
+  content: "⚓";
+  position: absolute;
+  left: -2px;
+  top: 0;
+  font-size: 0.85em;
+  color: #9ca3af;
+  background: #fef3c7;
+  padding: 0 2px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: none;
+}
+
+.ProseMirror:focus-within a.pp-anchor::before,
+.ProseMirror:hover a.pp-anchor::before {
+  opacity: 1;
+}
+
+.ProseMirror a.pp-anchor.ProseMirror-selectednode::before {
+  opacity: 1;
+  background: #2563eb;
+  color: #fff;
+}
+
+/* -------------------------- Invisible chars --------------------------- */
+
+.ProseMirror .pp-inv-space {
+  position: relative;
+}
+
+.ProseMirror .pp-inv-space::before {
+  content: "·";
+  position: absolute;
+  inset: 0;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.ProseMirror .pp-inv-tab {
+  position: relative;
+}
+
+.ProseMirror .pp-inv-tab::before {
+  content: "→";
+  position: absolute;
+  inset: 0;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.ProseMirror .pp-inv-pilcrow,
+.ProseMirror .pp-inv-break {
+  color: #9ca3af;
+  font-weight: 400;
+  margin-left: 1px;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ---------------------------- Link hover ------------------------------ */
+
+.pp-link-hover {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #1f2937;
+  color: #f9fafb;
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 60;
+  font-size: 0.82rem;
+  max-width: 480px;
+}
+
+.pp-link-hover-href {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #f9fafb;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.pp-link-hover-href:hover {
+  color: #93c5fd;
+}
+
+.pp-link-hover-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 360px;
+}
+
+.pp-link-hover-actions {
+  display: flex;
+  gap: 2px;
+  padding-left: 8px;
+  margin-left: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.pp-link-hover-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: #d1d5db;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.pp-link-hover-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f9fafb;
+}
+
+.pp-link-hover-btn-danger:hover {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fecaca;
+}
+
+/* ----------------------------- Date pill ------------------------------ */
+
+.ProseMirror time.pp-date {
+  display: inline-block;
+  padding: 0 8px;
+  margin: 0 1px;
+  background: #ecfeff;
+  color: #155e75;
+  border: 1px solid #a5f3fc;
+  border-radius: 999px;
+  font-size: 0.85em;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: baseline;
+}
+
+.ProseMirror time.pp-date:hover {
+  background: #cffafe;
+  border-color: #67e8f9;
+}
+
+.ProseMirror time.pp-date.ProseMirror-selectednode {
+  background: #155e75;
+  color: #fff;
+  border-color: #155e75;
+}
+

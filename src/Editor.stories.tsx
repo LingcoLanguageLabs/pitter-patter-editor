@@ -7,6 +7,7 @@ import { buildInitialDoc, editor } from "./configuredEditor";
 import { DragDropEditor } from "./DragDropEditor";
 import {
   EmojiPopover,
+  LinkHoverPopover,
   MathInlinePopover,
   MentionPopover,
   SlashMenuPopover,
@@ -45,6 +46,7 @@ export const FixedToolbar: Story = {
           <EmojiPopover />
           <MathInlinePopover />
           <VariableEditPopover />
+          <LinkHoverPopover />
         </editor.Editor>
       </div>
     </div>
@@ -67,6 +69,7 @@ export const FloatingToolbar: Story = {
           <EmojiPopover />
           <MathInlinePopover />
           <VariableEditPopover />
+          <LinkHoverPopover />
         </editor.Editor>
       </div>
     </div>
