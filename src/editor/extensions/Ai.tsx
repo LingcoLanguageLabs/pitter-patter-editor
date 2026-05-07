@@ -11,6 +11,7 @@ import {
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import * as RadixPopover from "@radix-ui/react-popover";
+import { Slice } from "prosemirror-model";
 import {
   Plugin,
   PluginKey,
@@ -43,8 +44,14 @@ export type AiPresetMode =
 
 export interface AiState {
   status: AiStatus;
-  /** Range the user originally had selected, if any. Mapped forward across edits. */
-  originalRange: { from: number; to: number } | null;
+  /**
+   * The original content the AI is replacing. Captured at start time
+   * and restored on reject (and reused as the source on regenerate).
+   * `null` for prompt-mode requests with no selection.
+   */
+  replacedSlice: Slice | null;
+  /** Plain-text version of `replacedSlice` — what we send to the model. */
+  sourceText: string;
   /** Where the streamed text lives. `from`==`to` until the first chunk arrives. */
   streamRange: { from: number; to: number } | null;
   /** What we asked for — used by aiRegenerate. */
@@ -70,6 +77,11 @@ export interface AiRequestOptions {
   baseUrl?: string;
   /** Abort the request mid-stream. */
   signal?: AbortSignal;
+  /**
+   * Re-run the previous request, reusing its replacedSlice and source
+   * text. Replaces the existing streamed range in place.
+   */
+  regenerate?: boolean;
 }
 
 interface AiMeta {
@@ -81,7 +93,8 @@ interface AiMeta {
     | "accept"
     | "reject"
     | "reset";
-  originalRange?: { from: number; to: number } | null;
+  replacedSlice?: Slice | null;
+  sourceText?: string;
   streamPos?: number;
   message?: string;
   generatedWith?: AiState["generatedWith"];
@@ -89,7 +102,8 @@ interface AiMeta {
 
 const INITIAL_STATE: AiState = {
   status: "idle",
-  originalRange: null,
+  replacedSlice: null,
+  sourceText: "",
   streamRange: null,
   generatedWith: null,
   error: null,
@@ -120,24 +134,19 @@ function aiPlugin(): Plugin<AiState> {
     state: {
       init: () => INITIAL_STATE,
       apply(tr, prev) {
-        // Map ranges forward across every transaction so the
+        // Map streamRange forward across every transaction so the
         // decoration tracks edits made while a stream is in flight.
+        // bias=-1 on `from` keeps the start anchored; bias=+1 on `to`
+        // expands the range to include text inserted at that boundary.
         const mapStream = prev.streamRange
           ? {
               from: tr.mapping.map(prev.streamRange.from, -1),
               to: tr.mapping.map(prev.streamRange.to, 1),
             }
           : null;
-        const mapOriginal = prev.originalRange
-          ? {
-              from: tr.mapping.map(prev.originalRange.from, -1),
-              to: tr.mapping.map(prev.originalRange.to, 1),
-            }
-          : null;
         const next: AiState = {
           ...prev,
           streamRange: mapStream,
-          originalRange: mapOriginal,
         };
 
         const meta = tr.getMeta(aiPluginKey) as AiMeta | undefined;
@@ -147,7 +156,8 @@ function aiPlugin(): Plugin<AiState> {
           case "start":
             return {
               status: "streaming",
-              originalRange: meta.originalRange ?? null,
+              replacedSlice: meta.replacedSlice ?? null,
+              sourceText: meta.sourceText ?? "",
               streamRange: {
                 from: meta.streamPos ?? 0,
                 to: meta.streamPos ?? 0,
@@ -190,36 +200,52 @@ const DEFAULT_BASE_URL = "http://localhost:3001/api/ai";
 
 export async function runAiRequest(
   view: EditorView,
-  options: AiRequestOptions & { baseUrl?: string },
+  options: AiRequestOptions & { baseUrl?: string; regenerate?: boolean },
 ): Promise<void> {
   const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
 
-  // Pull the source text from the current selection (or fall back to
-  // the freeform instruction if there is none).
-  const { selection } = view.state;
-  let originalRange: { from: number; to: number } | null = null;
+  let replacedSlice: Slice | null = null;
   let sourceText = "";
-  if (!selection.empty) {
-    sourceText = view.state.doc.textBetween(
-      selection.from,
-      selection.to,
-      "\n",
-      "\n",
-    );
-    originalRange = { from: selection.from, to: selection.to };
-  }
+  let streamPos: number;
 
-  // Streamed output is inserted immediately after the selection so the
-  // user can see the original and the proposed replacement side by
-  // side. On accept we delete the original; on reject we delete the
-  // stream.
-  const insertPos = selection.to;
+  if (options.regenerate) {
+    // Reuse the slice + source text from the previous request, delete
+    // the existing streamed output, and start over at the same anchor.
+    const prev = aiPluginKey.getState(view.state);
+    if (!prev?.streamRange) return;
+    const { from, to } = prev.streamRange;
+    if (to > from) {
+      view.dispatch(view.state.tr.delete(from, to));
+    }
+    streamPos = from;
+    replacedSlice = prev.replacedSlice;
+    sourceText = prev.sourceText;
+  } else {
+    const { selection } = view.state;
+    if (!selection.empty) {
+      // Selection-driven request — replace it in place. Capture the
+      // original slice so reject can restore it cleanly.
+      replacedSlice = view.state.doc.slice(selection.from, selection.to);
+      sourceText = view.state.doc.textBetween(
+        selection.from,
+        selection.to,
+        "\n",
+        "\n",
+      );
+      streamPos = selection.from;
+      view.dispatch(view.state.tr.delete(selection.from, selection.to));
+    } else {
+      // Empty cursor — generate at the caret with no source content.
+      streamPos = selection.from;
+    }
+  }
 
   view.dispatch(
     view.state.tr.setMeta(aiPluginKey, {
       type: "start",
-      originalRange,
-      streamPos: insertPos,
+      replacedSlice,
+      sourceText,
+      streamPos,
       generatedWith: {
         mode: options.mode,
         instruction: options.instruction,
@@ -298,21 +324,29 @@ export async function runAiRequest(
 
 // ─────────────────────────────────────────────────── Commands
 
+/**
+ * Keep the streamed text in place — no doc edit needed because the
+ * original was already deleted at start time. Just clear the AI state
+ * so the preview decoration disappears.
+ */
 export function aiAccept(): Command {
   return (state, dispatch) => {
     const ai = aiPluginKey.getState(state);
     if (!ai || ai.status !== "done") return false;
     if (!dispatch) return true;
-    let tr = state.tr;
-    if (ai.originalRange && ai.originalRange.to > ai.originalRange.from) {
-      tr = tr.delete(ai.originalRange.from, ai.originalRange.to);
-    }
-    tr.setMeta(aiPluginKey, { type: "accept" } satisfies AiMeta);
-    dispatch(tr.scrollIntoView());
+    dispatch(
+      state.tr
+        .setMeta(aiPluginKey, { type: "accept" } satisfies AiMeta)
+        .scrollIntoView(),
+    );
     return true;
   };
 }
 
+/**
+ * Delete the streamed range and restore the original content if the
+ * request replaced a selection.
+ */
 export function aiReject(): Command {
   return (state, dispatch) => {
     const ai = aiPluginKey.getState(state);
@@ -328,6 +362,13 @@ export function aiReject(): Command {
     let tr = state.tr;
     if (ai.streamRange && ai.streamRange.to > ai.streamRange.from) {
       tr = tr.delete(ai.streamRange.from, ai.streamRange.to);
+    }
+    if (ai.replacedSlice && ai.streamRange) {
+      tr = tr.replace(
+        ai.streamRange.from,
+        ai.streamRange.from,
+        ai.replacedSlice,
+      );
     }
     tr.setMeta(aiPluginKey, { type: "reject" } satisfies AiMeta);
     dispatch(tr.scrollIntoView());
@@ -409,13 +450,14 @@ export function useAi(options: AiOptions = {}): UseAiResult {
     regenerate: async () => {
       const generatedWith = ai.generatedWith;
       if (!generatedWith) return;
-      // Reject any current preview first so the regenerated stream
-      // starts from a clean slate.
-      reject();
+      // `regenerate: true` reuses the captured replacedSlice + source
+      // text and overwrites the previous streamed output in place —
+      // no need to round-trip through reject + restart.
       await start({
         mode: generatedWith.mode,
         instruction: generatedWith.instruction,
         language: generatedWith.language,
+        regenerate: true,
       });
     },
     accept,
