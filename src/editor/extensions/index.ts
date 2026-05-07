@@ -45,6 +45,12 @@ export { Redo } from "./Redo";
 export { Separator } from "./Separator";
 export { SlashMenu, SlashMenuPopover } from "./SlashMenu";
 export { Strike } from "./Strike";
+export {
+  StripFormatting,
+  createStripFormatting,
+  clearFormattingCommand,
+} from "./StripFormatting";
+export type { StripFormattingOptions } from "./StripFormatting";
 export { Subscript } from "./Subscript";
 export { Superscript } from "./Superscript";
 export { Table } from "./Table";
