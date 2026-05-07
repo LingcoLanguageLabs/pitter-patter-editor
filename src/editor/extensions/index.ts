@@ -31,6 +31,8 @@ export { Italic } from "./Italic";
 export { LineHeight, createLineHeight, DEFAULT_LINE_HEIGHTS } from "./LineHeight";
 export type { LineHeightOptions } from "./LineHeight";
 export { Link } from "./Link";
+export { LinkCard, createLinkCard } from "./LinkCard";
+export type { LinkCardMetadata, LinkCardOptions } from "./LinkCard";
 export { ListItem } from "./ListItem";
 export { Lists } from "./Lists";
 export { Mention, MentionPopover, createMention } from "./Mention";
