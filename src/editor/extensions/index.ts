@@ -38,6 +38,12 @@ export { HoverLink, LinkHoverPopover } from "./HoverLink";
 export { Image, setImageAlign, setImageWidth } from "./Image";
 export type { ImageAlign } from "./Image";
 export {
+  createImageUpload,
+  insertImageUploadCommand,
+  simulateUpload,
+} from "./ImageUpload";
+export type { ImageUploadOptions } from "./ImageUpload";
+export {
   InvisibleCharacters,
   createInvisibleCharacters,
   invisibleCharsKey,

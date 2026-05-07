@@ -2018,3 +2018,66 @@ kbd.pp-kbd {
   font-size: 0.7rem;
 }
 
+/* ----------------------------- Image upload ----------------------------- */
+
+.ProseMirror .pp-image-upload-view {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px;
+  margin: 0.75rem 0;
+  border: 2px dashed #d6d6cf;
+  border-radius: 8px;
+  background: #fafaf9;
+  color: #4a4a44;
+  cursor: pointer;
+  font-size: 0.92rem;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.ProseMirror .pp-image-upload-view:hover {
+  background: #f4f4f1;
+  border-color: #b9b9b1;
+  color: #2a2a26;
+}
+
+.ProseMirror .pp-image-upload-view[data-dragover="true"] {
+  background: #eff6ff;
+  border-color: #2a6df4;
+  color: #1f2937;
+}
+
+.ProseMirror .pp-image-upload-view[data-state="uploading"] {
+  cursor: progress;
+  background: #f3f4f6;
+  border-style: solid;
+  border-color: #2a6df4;
+  color: #1f2937;
+}
+
+.ProseMirror .pp-image-upload-view[data-state="uploading"] .pp-image-upload-icon svg {
+  animation: pp-image-upload-spin 1.4s linear infinite;
+}
+
+.ProseMirror .pp-image-upload-view[data-state="error"] {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.ProseMirror .pp-image-upload-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: currentColor;
+}
+
+.ProseMirror .pp-image-upload-label {
+  flex: 1 1 auto;
+}
+
+@keyframes pp-image-upload-spin {
+  from { transform: translateY(-2px); }
+  50%  { transform: translateY(2px); }
+  to   { transform: translateY(-2px); }
+}
+

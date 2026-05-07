@@ -11,6 +11,7 @@ import {
   Code,
   CodeBlock,
   ColorChip,
+  createImageUpload,
   Date as DateExtension,
   DefinitionList,
   Details,
@@ -47,6 +48,7 @@ import {
   Quote,
   Redo,
   Separator,
+  simulateUpload,
   SlashMenu,
   SmartPaste,
   Statistics,
@@ -70,6 +72,12 @@ import {
   Video,
   YouTube,
 } from "./editor/extensions";
+
+// Default ImageUpload uses simulateUpload — consumers should pass their
+// own upload callback (e.g. an S3 signed URL flow) when composing their
+// own editor. The simulator just FileReader's the file into a data URL
+// after a delay, which is fine for demos but not production.
+const DemoImageUpload = createImageUpload({ upload: simulateUpload(1200) });
 
 // Toolbar order is Google Docs-flavored: history → style → font → inline marks
 // → color → link → align → lists → block formatters → insert blocks →
@@ -128,6 +136,7 @@ export const editor = createEditor([
 
   // Insert (media + content blocks)
   Image,
+  DemoImageUpload,
   YouTube,
   Video,
   Audio,
