@@ -542,6 +542,86 @@ body {
   padding-left: 12px;
 }
 
+.pp-variable {
+  display: inline-block;
+  padding: 0 6px;
+  margin: 0 1px;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: baseline;
+}
+
+.pp-variable:hover {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+}
+
+.pp-variable.ProseMirror-selectednode {
+  background: #4338ca;
+  color: #fff;
+  border-color: #4338ca;
+}
+
+.pp-variable-menu {
+  min-width: 280px;
+}
+
+.pp-variable-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pp-variable-chip {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8em;
+}
+
+.pp-variable-label {
+  flex: 1 1 auto;
+  color: #4a4a44;
+  font-size: 0.88rem;
+}
+
+.pp-variable-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-top: 1px solid #ececea;
+}
+
+.pp-variable-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 280px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #d6d6cf;
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.pp-variable-popover-hint {
+  font-size: 0.72rem;
+  color: #999;
+  text-align: right;
+  margin-top: 2px;
+}
+
 .pp-blur-selection {
   background: rgba(37, 99, 235, 0.18);
   border-radius: 1px;
@@ -941,6 +1021,33 @@ a.pp-link-card.ProseMirror-selectednode {
   /* keep the swatch readable when the row is dark/active */
   background: var(--pp-callout-color, #6b7280);
   color: var(--pp-callout-bg, #f3f4f6);
+}
+
+.ProseMirror .pp-audio {
+  display: block;
+  width: 100%;
+  margin: 0.75rem 0;
+  border-radius: 6px;
+}
+
+.ProseMirror .pp-audio.ProseMirror-selectednode {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.ProseMirror .pp-video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 0.75rem 0;
+  border-radius: 6px;
+  background: #000;
+}
+
+.ProseMirror .pp-video.ProseMirror-selectednode {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .ProseMirror div[data-youtube-video] {

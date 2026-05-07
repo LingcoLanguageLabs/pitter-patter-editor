@@ -2,6 +2,7 @@ import type { Schema } from "prosemirror-model";
 
 import { createEditor } from "./editor";
 import {
+  Audio,
   Bold,
   BulletList,
   Callout,
@@ -38,6 +39,7 @@ import {
   Redo,
   Separator,
   SlashMenu,
+  SmartPaste,
   Strike,
   StripFormatting,
   Subscript,
@@ -54,6 +56,8 @@ import {
   Underline,
   Undo,
   UniqueID,
+  Variables,
+  Video,
   YouTube,
 } from "./editor/extensions";
 
@@ -112,8 +116,11 @@ export const editor = createEditor([
   // Insert (media + content blocks)
   Image,
   YouTube,
+  Video,
+  Audio,
   LinkCard,
   Math,
+  Variables,
   Table,
   Separator,
   Footnote,
@@ -148,6 +155,7 @@ export const editor = createEditor([
   TableOfContents,
   MaintainSelection,
   ColorChip,
+  SmartPaste,
   SlashMenu,
   Mention,
   Emoji,

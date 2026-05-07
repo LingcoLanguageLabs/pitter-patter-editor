@@ -11,6 +11,7 @@ import {
   MentionPopover,
   SlashMenuPopover,
   TableOfContentsView,
+  VariableEditPopover,
 } from "./editor/extensions";
 import { BubbleMenu } from "./BubbleMenu";
 import { ImageBubbleMenu } from "./ImageBubbleMenu";
@@ -43,6 +44,7 @@ export const FixedToolbar: Story = {
           <MentionPopover />
           <EmojiPopover />
           <MathInlinePopover />
+          <VariableEditPopover />
         </editor.Editor>
       </div>
     </div>
@@ -64,6 +66,7 @@ export const FloatingToolbar: Story = {
           <MentionPopover />
           <EmojiPopover />
           <MathInlinePopover />
+          <VariableEditPopover />
         </editor.Editor>
       </div>
     </div>

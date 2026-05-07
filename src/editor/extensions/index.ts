@@ -1,3 +1,4 @@
+export { Audio } from "./Audio";
 export { Bold } from "./Bold";
 export { BulletList } from "./BulletList";
 export { Callout, CALLOUT_VARIANTS, setCallout, unsetCallout } from "./Callout";
@@ -58,6 +59,8 @@ export { Quote } from "./Quote";
 export { Redo } from "./Redo";
 export { Separator } from "./Separator";
 export { SlashMenu, SlashMenuPopover } from "./SlashMenu";
+export { SmartPaste, createSmartPaste } from "./SmartPaste";
+export type { SmartPasteOptions } from "./SmartPaste";
 export { Strike } from "./Strike";
 export {
   StripFormatting,
@@ -96,5 +99,12 @@ export { Underline } from "./Underline";
 export { Undo } from "./Undo";
 export { UniqueID, createUniqueID } from "./UniqueID";
 export type { UniqueIDOptions } from "./UniqueID";
+export {
+  Variables,
+  VariableEditPopover,
+  createVariables,
+} from "./Variables";
+export type { VariableDefinition, VariableOptions } from "./Variables";
+export { Video } from "./Video";
 export { YouTube, createYouTube } from "./YouTube";
 export type { YouTubeOptions } from "./YouTube";
