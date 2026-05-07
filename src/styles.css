@@ -487,6 +487,148 @@ body {
   height: 0;
 }
 
+.pp-callout {
+  --pp-callout-color: #6b7280;
+  --pp-callout-bg: #f3f4f6;
+  border-left: 4px solid var(--pp-callout-color);
+  background: var(--pp-callout-bg);
+  padding: 0.85rem 1rem 0.85rem 0.85rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+.pp-callout::before {
+  content: attr(data-callout);
+  display: block;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--pp-callout-color);
+  margin-bottom: 0.4rem;
+}
+
+.pp-callout > *:first-child {
+  margin-top: 0;
+}
+
+.pp-callout > *:last-child {
+  margin-bottom: 0;
+}
+
+.pp-callout--note {
+  --pp-callout-color: #6b7280;
+  --pp-callout-bg: #f3f4f6;
+}
+
+.pp-callout--info {
+  --pp-callout-color: #2563eb;
+  --pp-callout-bg: #eff6ff;
+}
+
+.pp-callout--tip {
+  --pp-callout-color: #16a34a;
+  --pp-callout-bg: #f0fdf4;
+}
+
+.pp-callout--warning {
+  --pp-callout-color: #d97706;
+  --pp-callout-bg: #fffbeb;
+}
+
+.pp-callout--danger {
+  --pp-callout-color: #dc2626;
+  --pp-callout-bg: #fef2f2;
+}
+
+.pp-callout-menu-item {
+  gap: 8px;
+}
+
+.pp-callout-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  flex: 0 0 18px;
+  background: var(--pp-callout-bg, #f3f4f6);
+  color: var(--pp-callout-color, #6b7280);
+  border: 1px solid var(--pp-callout-color, #6b7280);
+}
+
+.pp-footnote-ref-host {
+  font-size: 0.7em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.pp-footnote-ref {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0 1px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.pp-footnote-ref:hover {
+  background: #dbeafe;
+}
+
+.ProseMirror-selectednode .pp-footnote-ref,
+.ProseMirror .pp-footnote-ref-host.ProseMirror-selectednode .pp-footnote-ref {
+  background: #2563eb;
+  color: #fff;
+}
+
+.pp-footnotes-list {
+  list-style: none;
+  counter-reset: pp-footnote;
+  padding: 0;
+  margin: 2.5rem 0 1rem;
+  border-top: 1px solid #ececea;
+  font-size: 0.92rem;
+}
+
+.pp-footnotes-list > li[data-footnote] {
+  counter-increment: pp-footnote;
+  position: relative;
+  padding: 0.4rem 0 0.4rem 2rem;
+}
+
+.pp-footnotes-list > li[data-footnote]::before {
+  content: counter(pp-footnote) ".";
+  position: absolute;
+  left: 0.5rem;
+  top: 0.4rem;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+  min-width: 1.25rem;
+  font-weight: 500;
+}
+
+.pp-footnotes-list > li[data-footnote] > p:first-child {
+  margin-top: 0;
+}
+
+.pp-footnotes-list > li[data-footnote] > p:last-child {
+  margin-bottom: 0;
+}
+
+.pp-callout-swatch--note { --pp-callout-color: #6b7280; --pp-callout-bg: #f3f4f6; }
+.pp-callout-swatch--info { --pp-callout-color: #2563eb; --pp-callout-bg: #eff6ff; }
+.pp-callout-swatch--tip { --pp-callout-color: #16a34a; --pp-callout-bg: #f0fdf4; }
+.pp-callout-swatch--warning { --pp-callout-color: #d97706; --pp-callout-bg: #fffbeb; }
+.pp-callout-swatch--danger { --pp-callout-color: #dc2626; --pp-callout-bg: #fef2f2; }
+
+.pp-dropdown-item[data-active] .pp-callout-swatch {
+  /* keep the swatch readable when the row is dark/active */
+  background: var(--pp-callout-color, #6b7280);
+  color: var(--pp-callout-bg, #f3f4f6);
+}
+
 .ProseMirror div[data-youtube-video] {
   position: relative;
   max-width: 100%;

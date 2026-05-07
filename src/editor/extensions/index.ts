@@ -1,5 +1,7 @@
 export { Bold } from "./Bold";
 export { BulletList } from "./BulletList";
+export { Callout, CALLOUT_VARIANTS, setCallout, unsetCallout } from "./Callout";
+export type { CalloutVariant } from "./Callout";
 export {
   CharacterCount,
   characterCountKey,
@@ -15,6 +17,7 @@ export { Emoji, EmojiPopover } from "./Emoji";
 export { FontFamily, createFontFamily, DEFAULT_FONT_FAMILIES } from "./FontFamily";
 export type { FontFamilyOption, FontFamilyOptions } from "./FontFamily";
 export { FontSize, createFontSize, DEFAULT_FONT_SIZES } from "./FontSize";
+export { Footnote } from "./Footnote";
 export type { FontSizeOptions } from "./FontSize";
 export { Focus, createFocus } from "./Focus";
 export type { FocusOptions } from "./Focus";

@@ -3,14 +3,19 @@ import {
   CodeBlock as CodeBlockIcon,
   Folder,
   GridNine,
+  Info,
+  Lightbulb,
   ListBullets,
   ListNumbers,
   Minus,
+  Note,
   Quotes,
   TextHOne,
   TextHThree,
   TextHTwo,
   TextT,
+  Warning,
+  WarningOctagon,
 } from "@phosphor-icons/react";
 import { setBlockType, wrapIn } from "prosemirror-commands";
 import type { Schema } from "prosemirror-model";
@@ -120,6 +125,48 @@ function buildItems(schema: Schema): SlashItem[] {
       keywords: ["blockquote", "citation"],
       command: (view) => runCommand(view, () => wrapIn(blockquote)),
     });
+  }
+  const footnoteReference = schema.nodes["footnote_reference"];
+  if (footnoteReference) {
+    items.push({
+      id: "footnote",
+      label: "Footnote",
+      description: "Add a numbered reference",
+      Icon: ListNumbers,
+      keywords: ["footnote", "ref", "reference", "citation"],
+      command: (view) => {
+        const node = footnoteReference.create({
+          "data-id":
+            typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+              ? crypto.randomUUID()
+              : `fn-${Math.random().toString(36).slice(2, 10)}`,
+          referenceNumber: "",
+        });
+        view.dispatch(view.state.tr.replaceSelectionWith(node, false).scrollIntoView());
+        view.focus();
+      },
+    });
+  }
+  const callout = schema.nodes["callout"];
+  if (callout) {
+    const variants = [
+      { id: "note", label: "Note callout", Icon: Note, keywords: ["callout", "note", "admonition"] },
+      { id: "info", label: "Info callout", Icon: Info, keywords: ["callout", "info", "admonition"] },
+      { id: "tip", label: "Tip callout", Icon: Lightbulb, keywords: ["callout", "tip", "hint"] },
+      { id: "warning", label: "Warning callout", Icon: Warning, keywords: ["callout", "warning", "caution"] },
+      { id: "danger", label: "Danger callout", Icon: WarningOctagon, keywords: ["callout", "danger", "alert", "error"] },
+    ] as const;
+    for (const v of variants) {
+      items.push({
+        id: `callout-${v.id}`,
+        label: v.label,
+        description: "Highlighted block",
+        Icon: v.Icon,
+        keywords: [...v.keywords],
+        command: (view) =>
+          runCommand(view, () => wrapIn(callout, { variant: v.id })),
+      });
+    }
   }
   if (codeBlock) {
     items.push({
