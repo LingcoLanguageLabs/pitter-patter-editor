@@ -111,13 +111,15 @@ export function createUniqueID({
         // them. appendTransaction can't fire until something dispatches, so
         // we kick a transaction ourselves on mount.
         view(view) {
-          const tr = ensureIDs(view.state, types, attrName, generateID);
-          if (tr) {
-            queueMicrotask(() => {
-              if (view.isDestroyed) return;
-              view.dispatch(tr);
-            });
-          }
+          // Build tr from view.state AT fire time, not at view-construction
+          // time. Other plugins (e.g. Footnote) also dispatch on the first
+          // microtask; if we built the tr now, theirs would land first and
+          // ours would be a mismatched transaction.
+          queueMicrotask(() => {
+            if (view.isDestroyed) return;
+            const tr = ensureIDs(view.state, types, attrName, generateID);
+            if (tr) view.dispatch(tr);
+          });
           return {};
         },
         // Ongoing pass: catch new nodes and de-dupe IDs after paste.

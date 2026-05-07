@@ -310,6 +310,21 @@ function buildFootnotePlugin(
       return tr;
     },
 
+    // Initial pass on mount: appendTransaction won't fire for the starting
+    // doc, so refs in initial content would render with empty numbers and
+    // no list. Run the same rebuild on first frame to fix both.
+    view(view) {
+      queueMicrotask(() => {
+        if (view.isDestroyed) return;
+        const tr = view.state.tr;
+        rebuildFootnotes(tr, view.state, refType, footnoteType, footnotesType);
+        if (tr.docChanged) {
+          view.dispatch(tr.setMeta("addToHistory", false));
+        }
+      });
+      return {};
+    },
+
     props: {
       // Pasted refs need fresh data-ids so they don't collide.
       transformPasted(slice) {
