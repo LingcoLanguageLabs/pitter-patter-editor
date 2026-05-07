@@ -1,3 +1,21 @@
+export {
+  Ai,
+  AiPreviewActions,
+  aiAccept,
+  aiPluginKey,
+  aiReject,
+  createAi,
+  runAiRequest,
+  useAi,
+} from "./Ai";
+export type {
+  AiOptions,
+  AiPresetMode,
+  AiRequestOptions,
+  AiState,
+  AiStatus,
+  UseAiResult,
+} from "./Ai";
 export { Anchor } from "./Anchor";
 export { Audio } from "./Audio";
 export { Bold } from "./Bold";

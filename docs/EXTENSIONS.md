@@ -334,6 +334,19 @@ Auto-assigns stable IDs to selected node types; de-dupes after paste; doesn't po
 
 ## Productivity & polish (system plugins)
 
+### Ai
+Streaming AI assistant. The editor sends the current selection to a backend that proxies an LLM (Anthropic via Vercel AI SDK in the bundled `dev:server`) and inserts streamed chunks into the doc with a preview decoration. Accept replaces the original; Reject deletes the streamed range.
+- Schema: none — state lives in a plugin
+- Plugin: `aiPluginKey` carries `{ status, originalRange, streamRange, generatedWith, error }`. State maps forward across edits so the preview decoration tracks the streamed range correctly.
+- Decorations: paints the streamed range with `pp-ai-preview-streaming` / `-done` / `-error` class while the flow is active
+- Toolbar: yes (Sparkle icon → popover with prompt input + 8 preset modes)
+- Companion: pair with `AiPreviewActions` (rendered alongside `<editor.Editor>`) for the floating Accept / Regenerate / Reject controls
+- Companion exports: `useAi(options)` hook returning `{ status, prompt, transform, accept, reject, regenerate, cancel }`; `runAiRequest(view, options)` for direct integration; `aiAccept()` / `aiReject()` Commands for keymap binding
+- Options (`createAi({...})`):
+  - `baseUrl?: string` — backend URL, defaults to `http://localhost:3001/api/ai` (the bundled dev server)
+- Preset modes: `rephrase`, `shorten`, `extend`, `fix-grammar`, `summarize`, `tldr`, `tone-formal`, `tone-casual`, `translate`. Each maps to a system prompt server-side.
+- Backend: see `scripts/dev-server.ts` and `scripts/server/ai.ts`. Run `yarn dev:server` and set `ANTHROPIC_API_KEY` in `.env`.
+
 ### Typography
 As-you-type symbol substitutions.
 - Input rules: `--` → en dash, `---` → em dash, `->`/`<-`/`<->`/`=>`/`<<`/`>>` → arrows, `...` → ellipsis, `(c)`/`(r)`/`(tm)`/`+-` → `©`/`®`/`™`/`±`, straight quotes → curly quotes (context-aware)

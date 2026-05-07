@@ -7,6 +7,7 @@ import { buildInitialDoc, editor } from "./configuredEditor";
 import { buildProductivityDoc } from "./demoDocs/productivity";
 import { DragDropEditor } from "./DragDropEditor";
 import {
+  AiPreviewActions,
   EmojiPopover,
   LinkHoverPopover,
   MathInlinePopover,
@@ -37,6 +38,7 @@ function EditorOverlays() {
       <MathInlinePopover />
       <VariableEditPopover />
       <LinkHoverPopover />
+      <AiPreviewActions />
     </>
   );
 }

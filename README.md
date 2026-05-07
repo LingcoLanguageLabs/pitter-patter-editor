@@ -13,11 +13,20 @@ yarn install
 yarn storybook    # open http://localhost:6006
 yarn dev          # vite dev server (src/main.tsx)
 yarn build        # tsc -b && vite build
+
+cp .env.example .env  # then drop in ANTHROPIC_API_KEY=... for AI
+yarn dev:server       # Hono backend on :3001 — used by the Ai extension
 ```
 
 The Storybook entry has the editor in five flavours — Fixed Toolbar, Floating Toolbar, Drag and Drop, Productivity (variables/dates/anchors), Stats panel, Table of Contents — plus the dev `index.html` mounts the same configured editor.
 
 > Yarn PnP: this repo uses Yarn Plug'n'Play (`.pnp.cjs`, `.pnp.loader.mjs`). Use `yarn` rather than `npm`.
+
+## Dev backend
+
+`scripts/dev-server.ts` is a Hono server (running on port 3001) that hosts any endpoint the editor needs from a server: AI streaming today, Unsplash search and comments down the road. Routes mount under `/api/<module>` so adding a new one is a one-line `app.route()` in `dev-server.ts`.
+
+The AI route uses Vercel AI SDK + Anthropic. Drop your key in `.env` (`ANTHROPIC_API_KEY=sk-ant-...`), run `yarn dev:server`, and the `Ai` extension's toolbar button will stream completions into the doc. Without a key the route returns a clear 500 — the rest of the editor still works.
 
 ## What's in the box
 
@@ -28,7 +37,7 @@ Roughly seventy extensions covering the surface area you'd expect from a modern 
 - **Inline atoms** — Image (with resize + alignment), YouTube, Audio, Video, Math (KaTeX), Variables, Date, Anchor, Mention, Emoji
 - **Tables** — Table (prosemirror-tables) + a cell bubble menu
 - **Text styling (schema patches)** — TextStyle, TextAlign, TextColor, TextDirection, FontFamily, FontSize, LineHeight, UniqueID
-- **Productivity & polish** — Typography, Placeholder, TrailingNode, Gapcursor, Dropcursor, CharacterCount, Statistics, Focus, MaintainSelection, ColorChip, SmartPaste, Linkify, HoverLink, FileHandler, ImageUpload, InvisibleCharacters, StripFormatting
+- **Productivity & polish** — Ai, Typography, Placeholder, TrailingNode, Gapcursor, Dropcursor, CharacterCount, Statistics, Focus, MaintainSelection, ColorChip, SmartPaste, Linkify, HoverLink, FileHandler, ImageUpload, InvisibleCharacters, StripFormatting
 - **Suggestion / surface** — SlashMenu, TableOfContents, LinkCard
 - **Toolbar utilities** — Undo, Redo, Separator
 
@@ -222,6 +231,7 @@ A handful of extensions install a ProseMirror plugin but expose their UI as a Re
 | `MathInlinePopover` | `Math` | Edit-in-place popover for inline `inline_math` selections. |
 | `VariableEditPopover` | `Variables` | Edit-in-place popover for selected variable chips. |
 | `LinkHoverPopover` | `HoverLink` | Hover preview over any link with open / edit / remove buttons. |
+| `AiPreviewActions` | `Ai` | Floating Accept / Regenerate / Reject controls anchored to the streamed range. |
 | `TableOfContentsView` | `TableOfContents` | Standalone outline component reading the live TOC plugin state. |
 
 Bubble-menu wrappers (`BubbleMenu`, `ImageBubbleMenu`, `TableBubbleMenu`) live in `src/` — render them inside `<editor.Editor>` to enable selection-anchored / image-anchored / table-anchored menus.

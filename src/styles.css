@@ -2081,3 +2081,187 @@ kbd.pp-kbd {
   to   { transform: translateY(-2px); }
 }
 
+/* ----------------------------- AI assistant ----------------------------- */
+
+.ProseMirror .pp-ai-preview {
+  background: linear-gradient(
+    90deg,
+    rgba(99, 102, 241, 0.08),
+    rgba(168, 85, 247, 0.08)
+  );
+  color: #4338ca;
+  border-radius: 2px;
+  padding: 0 1px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.ProseMirror .pp-ai-preview-streaming {
+  background: linear-gradient(
+    90deg,
+    rgba(99, 102, 241, 0.18),
+    rgba(168, 85, 247, 0.18)
+  );
+  border-bottom: 2px solid #6366f1;
+}
+
+.ProseMirror .pp-ai-preview-done {
+  background: linear-gradient(
+    90deg,
+    rgba(99, 102, 241, 0.12),
+    rgba(168, 85, 247, 0.12)
+  );
+  border-bottom: 1px dashed #6366f1;
+}
+
+.ProseMirror .pp-ai-preview-error {
+  background: rgba(248, 113, 113, 0.18);
+  color: #991b1b;
+  border-bottom: 1px dashed #ef4444;
+}
+
+.pp-ai-popover {
+  width: 320px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pp-ai-form {
+  display: flex;
+  gap: 6px;
+}
+
+.pp-ai-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid #d6d6cf;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.pp-ai-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18);
+}
+
+.pp-ai-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pp-ai-section-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #888;
+  padding: 6px 6px 2px;
+}
+
+.pp-ai-preset {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 0.86rem;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.pp-ai-preset:hover {
+  background: #efefea;
+}
+
+.pp-ai-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px;
+  background: #1a1a1a;
+  color: #f3f3ee;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.06);
+  z-index: 50;
+  font-size: 0.78rem;
+}
+
+.pp-ai-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: #d1d5db;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.pp-ai-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f9fafb;
+}
+
+.pp-ai-action-accept {
+  color: #86efac;
+}
+
+.pp-ai-action-accept:hover {
+  background: rgba(134, 239, 172, 0.15);
+  color: #bbf7d0;
+}
+
+.pp-ai-action-reject,
+.pp-ai-action-cancel {
+  color: #fca5a5;
+}
+
+.pp-ai-action-reject:hover,
+.pp-ai-action-cancel:hover {
+  background: rgba(252, 165, 165, 0.15);
+  color: #fecaca;
+}
+
+.pp-ai-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  color: #d1d5db;
+}
+
+.pp-ai-status-error {
+  color: #fca5a5;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-ai-spinner {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(168, 85, 247, 0.4);
+  border-top-color: #a855f7;
+  animation: pp-ai-spin 0.8s linear infinite;
+}
+
+@keyframes pp-ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
