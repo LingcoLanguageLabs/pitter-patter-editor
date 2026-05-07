@@ -3,6 +3,7 @@ import {
   Code,
   ArrowBendDownLeft,
   LinkSimple,
+  Sparkle,
   TextB,
   TextItalic,
   TextStrikethrough,
@@ -23,6 +24,7 @@ import {
   ToolbarSeparator,
   TooltipProvider,
 } from "./editor/menu";
+import { aiOpenDock, aiPluginKey } from "./editor/extensions/Ai";
 import { applyLink, getActiveHref, removeLink } from "./editor/extensions/Link";
 
 function MarkButton({
@@ -174,6 +176,22 @@ const shouldShow = (state: EditorState) => {
   return true;
 };
 
+function AiBubbleButton() {
+  const editorState = useEditorState();
+  const aiInstalled =
+    editorState ? aiPluginKey.getState(editorState) != null : false;
+  const open = useEditorEventCallback((view) => {
+    if (!view) return;
+    aiOpenDock()(view.state, view.dispatch);
+  });
+  if (!aiInstalled) return null;
+  return (
+    <MenuItem onClick={() => open()} tooltip="Ask AI" shortcut="⌘J">
+      <Sparkle size={16} weight="bold" />
+    </MenuItem>
+  );
+}
+
 export function BubbleMenu() {
   const [linkOpen, setLinkOpen] = useState(false);
 
@@ -182,6 +200,10 @@ export function BubbleMenu() {
       <FloatingMenu shouldShow={shouldShow}>
         <div className="pp-bubble-stack">
           <ToolbarPrimitive variant="floating">
+            <ToolbarGroup>
+              <AiBubbleButton />
+            </ToolbarGroup>
+            <ToolbarSeparator />
             <ToolbarGroup>
               <MarkButton markName="strong" Icon={TextB} tooltip="Bold" shortcut="⌘B" />
               <MarkButton markName="em" Icon={TextItalic} tooltip="Italic" shortcut="⌘I" />

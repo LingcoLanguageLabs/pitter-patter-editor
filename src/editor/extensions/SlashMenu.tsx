@@ -10,6 +10,7 @@ import {
   Minus,
   Note,
   Quotes,
+  Sparkle,
   TextHOne,
   TextHThree,
   TextHTwo,
@@ -27,6 +28,7 @@ import { useEditor } from "../Editor";
 import { toggleList } from "../helpers";
 import { createSuggestionPlugin, SuggestionPopover } from "../menu";
 import { Extension } from "../types";
+import { aiOpenDock, aiPluginKey } from "./Ai";
 
 const { plugin, key } = createSuggestionPlugin({ char: "/" });
 
@@ -47,6 +49,26 @@ function runCommand(view: EditorView, factory: (schema: Schema) => Command) {
 
 function buildItems(schema: Schema): SlashItem[] {
   const items: SlashItem[] = [];
+
+  // The AI extension reads its plugin state from the live editor view
+  // — surface "Ask AI..." as the first slash entry whenever the
+  // extension is installed (regardless of node-level features).
+  if (schema.cached["aiInstalledChecked"] !== true) {
+    schema.cached["aiInstalledChecked"] = true;
+  }
+  items.push({
+    id: "ask-ai",
+    label: "Ask AI…",
+    description: "Open the AI dock",
+    Icon: Sparkle,
+    keywords: ["ai", "assistant", "prompt", "rewrite"],
+    command: (view) => {
+      // No-op if the AI extension isn't installed.
+      if (!aiPluginKey.getState(view.state)) return;
+      aiOpenDock()(view.state, view.dispatch);
+    },
+  });
+
   const heading = schema.nodes["heading"];
   const paragraph = schema.nodes["paragraph"];
   const blockquote = schema.nodes["blockquote"];

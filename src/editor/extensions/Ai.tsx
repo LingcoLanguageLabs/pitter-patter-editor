@@ -1,8 +1,15 @@
 import {
   ArrowClockwise,
+  ArrowUp,
   Check,
+  ListBullets,
+  MagnifyingGlass,
+  PencilSimple,
+  Plus,
   Sparkle,
   Stop,
+  Subtract,
+  TextAa,
   X,
 } from "@phosphor-icons/react";
 import {
@@ -10,7 +17,6 @@ import {
   useEditorEventCallback,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
-import * as RadixPopover from "@radix-ui/react-popover";
 import { Slice } from "prosemirror-model";
 import {
   Plugin,
@@ -20,10 +26,16 @@ import {
 } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { createPortal } from "react-dom";
 
-import { useEditor } from "../Editor";
 import { MenuItem } from "../menu/MenuItem";
 import { Extension } from "../types";
 
@@ -59,11 +71,46 @@ export interface AiState {
     | { mode?: AiPresetMode; instruction?: string; language?: string }
     | null;
   error: string | null;
+  /**
+   * Monotonically-incrementing tick. Bumped by `aiOpenDock` so the
+   * `<AiDock />` component's effect can react and focus its textarea
+   * even when the dock was already expanded.
+   */
+  focusTick: number;
+  /**
+   * Selection range remembered when the dock was opened. The dock
+   * loses selection focus when the textarea takes it, so we stash the
+   * range here and read it back when the user submits a preset mode.
+   * Mapped forward across edits.
+   */
+  dockSelection: { from: number; to: number } | null;
+}
+
+export interface AiExample {
+  /** Stable id for the example. */
+  value: string;
+  /** Label shown in the popover. */
+  label: string;
+  /** Optional icon component (Phosphor or any SVG-emitting component). */
+  icon?: React.ComponentType<{ size?: number; weight?: "regular" | "bold" }>;
+  /** Search keywords for typeahead filtering. */
+  keywords?: string[];
+  /** Hard-coded prompt sent as the user instruction. Ignored if `mode` is set. */
+  prompt?: string;
+  /** Preset mode — uses the server-side preset system prompt. */
+  mode?: AiPresetMode;
+  /** Optional language hint for translate-mode examples. */
+  language?: string;
 }
 
 export interface AiOptions {
   /** Backend URL. Defaults to the local dev-server. */
   baseUrl?: string;
+  /**
+   * Examples surfaced in the popover above the dock. When omitted,
+   * the editor's default presets are used (Rephrase / Shorten / etc.).
+   */
+  examples?: AiExample[];
 }
 
 export interface AiRequestOptions {
@@ -92,12 +139,15 @@ interface AiMeta {
     | "error"
     | "accept"
     | "reject"
-    | "reset";
+    | "reset"
+    | "open-dock"
+    | "close-dock";
   replacedSlice?: Slice | null;
   sourceText?: string;
   streamPos?: number;
   message?: string;
   generatedWith?: AiState["generatedWith"];
+  selection?: { from: number; to: number } | null;
 }
 
 const INITIAL_STATE: AiState = {
@@ -107,6 +157,8 @@ const INITIAL_STATE: AiState = {
   streamRange: null,
   generatedWith: null,
   error: null,
+  focusTick: 0,
+  dockSelection: null,
 };
 
 export const aiPluginKey = new PluginKey<AiState>("pp-ai");
@@ -134,19 +186,24 @@ function aiPlugin(): Plugin<AiState> {
     state: {
       init: () => INITIAL_STATE,
       apply(tr, prev) {
-        // Map streamRange forward across every transaction so the
-        // decoration tracks edits made while a stream is in flight.
-        // bias=-1 on `from` keeps the start anchored; bias=+1 on `to`
-        // expands the range to include text inserted at that boundary.
+        // Map streamRange + dockSelection forward across every
+        // transaction so they track edits.
         const mapStream = prev.streamRange
           ? {
               from: tr.mapping.map(prev.streamRange.from, -1),
               to: tr.mapping.map(prev.streamRange.to, 1),
             }
           : null;
+        const mapDockSelection = prev.dockSelection
+          ? {
+              from: tr.mapping.map(prev.dockSelection.from, -1),
+              to: tr.mapping.map(prev.dockSelection.to, 1),
+            }
+          : null;
         const next: AiState = {
           ...prev,
           streamRange: mapStream,
+          dockSelection: mapDockSelection,
         };
 
         const meta = tr.getMeta(aiPluginKey) as AiMeta | undefined;
@@ -164,6 +221,8 @@ function aiPlugin(): Plugin<AiState> {
               },
               generatedWith: meta.generatedWith ?? null,
               error: null,
+              focusTick: next.focusTick,
+              dockSelection: next.dockSelection,
             };
           case "chunk":
             return next;
@@ -178,7 +237,15 @@ function aiPlugin(): Plugin<AiState> {
           case "accept":
           case "reject":
           case "reset":
-            return INITIAL_STATE;
+            return { ...INITIAL_STATE, focusTick: next.focusTick };
+          case "open-dock":
+            return {
+              ...next,
+              focusTick: next.focusTick + 1,
+              dockSelection: meta.selection ?? next.dockSelection,
+            };
+          case "close-dock":
+            return { ...next, dockSelection: null };
           default:
             return next;
         }
@@ -221,22 +288,28 @@ export async function runAiRequest(
     replacedSlice = prev.replacedSlice;
     sourceText = prev.sourceText;
   } else {
-    const { selection } = view.state;
-    if (!selection.empty) {
-      // Selection-driven request — replace it in place. Capture the
-      // original slice so reject can restore it cleanly.
-      replacedSlice = view.state.doc.slice(selection.from, selection.to);
+    // Prefer the live PM selection; if the dock has the focus, the live
+    // selection is empty so fall back to the dockSelection we stashed
+    // when the dock opened.
+    const ai = aiPluginKey.getState(view.state);
+    const liveSelection = view.state.selection.empty
+      ? null
+      : { from: view.state.selection.from, to: view.state.selection.to };
+    const range = liveSelection ?? ai?.dockSelection ?? null;
+
+    if (range && range.to > range.from) {
+      replacedSlice = view.state.doc.slice(range.from, range.to);
       sourceText = view.state.doc.textBetween(
-        selection.from,
-        selection.to,
+        range.from,
+        range.to,
         "\n",
         "\n",
       );
-      streamPos = selection.from;
-      view.dispatch(view.state.tr.delete(selection.from, selection.to));
+      streamPos = range.from;
+      view.dispatch(view.state.tr.delete(range.from, range.to));
     } else {
       // Empty cursor — generate at the caret with no source content.
-      streamPos = selection.from;
+      streamPos = view.state.selection.from;
     }
   }
 
@@ -325,6 +398,42 @@ export async function runAiRequest(
 // ─────────────────────────────────────────────────── Commands
 
 /**
+ * Open (and focus) the persistent AI dock. Captures the current
+ * non-empty selection so preset modes can still operate on it after
+ * focus shifts to the dock textarea.
+ */
+export function aiOpenDock(): Command {
+  return (state, dispatch) => {
+    if (!dispatch) return true;
+    const { selection } = state;
+    const stored = !selection.empty
+      ? { from: selection.from, to: selection.to }
+      : null;
+    dispatch(
+      state.tr.setMeta(aiPluginKey, {
+        type: "open-dock",
+        selection: stored,
+      } satisfies AiMeta),
+    );
+    return true;
+  };
+}
+
+export function aiCloseDock(): Command {
+  return (state, dispatch) => {
+    const ai = aiPluginKey.getState(state);
+    if (!ai || ai.dockSelection == null) return false;
+    if (!dispatch) return true;
+    dispatch(
+      state.tr.setMeta(aiPluginKey, {
+        type: "close-dock",
+      } satisfies AiMeta),
+    );
+    return true;
+  };
+}
+
+/**
  * Keep the streamed text in place — no doc edit needed because the
  * original was already deleted at start time. Just clear the AI state
  * so the preview decoration disappears.
@@ -396,6 +505,10 @@ export interface UseAiResult {
   reject: () => void;
   /** Abort the in-flight request and roll back any partial output. */
   cancel: () => void;
+  /** Open and focus the AI dock, stashing the current selection. */
+  openDock: () => void;
+  /** Close the dock without running a request. */
+  closeDock: () => void;
 }
 
 export function useAi(options: AiOptions = {}): UseAiResult {
@@ -439,6 +552,16 @@ export function useAi(options: AiOptions = {}): UseAiResult {
     }
   });
 
+  const openDock = useEditorEventCallback((view: EditorView | null) => {
+    if (!view) return;
+    aiOpenDock()(view.state, view.dispatch);
+  });
+
+  const closeDock = useEditorEventCallback((view: EditorView | null) => {
+    if (!view) return;
+    aiCloseDock()(view.state, view.dispatch);
+  });
+
   return {
     state: ai,
     status: ai.status,
@@ -447,6 +570,8 @@ export function useAi(options: AiOptions = {}): UseAiResult {
     hasError: ai.status === "error",
     prompt: (instruction) => start({ instruction }),
     transform: (mode, opts) => start({ mode, language: opts?.language }),
+    openDock,
+    closeDock,
     regenerate: async () => {
       const generatedWith = ai.generatedWith;
       if (!generatedWith) return;
@@ -468,114 +593,255 @@ export function useAi(options: AiOptions = {}): UseAiResult {
 
 // ─────────────────────────────────────────────────── Toolbar trigger
 
-const PRESET_LABELS: Array<{ mode: AiPresetMode; label: string; group?: "tone" }> = [
-  { mode: "rephrase", label: "Rephrase" },
-  { mode: "shorten", label: "Shorten" },
-  { mode: "extend", label: "Extend" },
-  { mode: "fix-grammar", label: "Fix grammar & spelling" },
-  { mode: "summarize", label: "Summarize" },
-  { mode: "tldr", label: "TL;DR" },
-  { mode: "tone-formal", label: "More formal", group: "tone" },
-  { mode: "tone-casual", label: "More casual", group: "tone" },
-];
-
 interface AiToolbarItemProps {
   baseUrl?: string;
 }
 
+/**
+ * The toolbar Sparkle button. Click → opens (and focuses) the
+ * persistent `<AiDock />`. Active styling reflects the in-flight stream.
+ */
 function AiToolbarItem({ baseUrl }: AiToolbarItemProps) {
   const ai = useAi({ baseUrl: baseUrl ?? DEFAULT_BASE_URL });
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  // Close the popover on any non-idle state so the editor surface and
-  // floating actions panel are unobstructed.
-  useEffect(() => {
-    if (ai.status !== "idle") setOpen(false);
-  }, [ai.status]);
-
   return (
-    <RadixPopover.Root
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setDraft("");
-      }}
+    <MenuItem
+      active={ai.isStreaming || ai.isDone}
+      onClick={ai.openDock}
+      tooltip="Ask AI"
+      shortcut="⌘J"
     >
-      <RadixPopover.Trigger asChild>
-        <MenuItem
-          active={ai.isStreaming || ai.isDone}
-          tooltip="Ask AI"
-          shortcut="⌘J"
-        >
-          <Sparkle size={18} weight="bold" />
-        </MenuItem>
-      </RadixPopover.Trigger>
-      <RadixPopover.Portal>
-        <RadixPopover.Content
-          className="pp-popover pp-ai-popover"
-          side="bottom"
-          align="start"
-          sideOffset={6}
-        >
-          <form
-            className="pp-ai-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const text = draft.trim();
-              if (!text) return;
-              void ai.prompt(text);
-              setDraft("");
-            }}
-          >
-            <input
-              type="text"
-              className="pp-ai-input"
-              placeholder="Ask the AI to write or rewrite…"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              autoFocus
-            />
-            <button
-              type="submit"
-              className="pp-popover-btn pp-popover-btn-primary"
-              disabled={!draft.trim()}
-            >
-              Ask
-            </button>
-          </form>
-          <div className="pp-ai-presets">
-            <div className="pp-ai-section-label">Quick actions</div>
-            {PRESET_LABELS.filter((p) => p.group !== "tone").map((preset) => (
-              <button
-                key={preset.mode}
-                type="button"
-                className="pp-ai-preset"
-                onClick={() => {
-                  void ai.transform(preset.mode);
-                }}
-              >
-                {preset.label}
-              </button>
-            ))}
-            <div className="pp-ai-section-label">Tone</div>
-            {PRESET_LABELS.filter((p) => p.group === "tone").map((preset) => (
-              <button
-                key={preset.mode}
-                type="button"
-                className="pp-ai-preset"
-                onClick={() => {
-                  void ai.transform(preset.mode);
-                }}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        </RadixPopover.Content>
-      </RadixPopover.Portal>
-    </RadixPopover.Root>
+      <Sparkle size={18} weight="bold" />
+    </MenuItem>
   );
+}
+
+// ─────────────────────────────────────────────────── AI dock
+
+const DEFAULT_EXAMPLES: AiExample[] = [
+  { value: "rephrase", label: "Rephrase", mode: "rephrase", icon: PencilSimple, keywords: ["reword", "paraphrase"] },
+  { value: "shorten", label: "Shorten", mode: "shorten", icon: Subtract, keywords: ["trim", "tighten"] },
+  { value: "extend", label: "Extend", mode: "extend", icon: Plus, keywords: ["expand", "lengthen"] },
+  { value: "fix-grammar", label: "Fix grammar & spelling", mode: "fix-grammar", icon: MagnifyingGlass, keywords: ["proofread", "grammar", "spelling"] },
+  { value: "summarize", label: "Summarize", mode: "summarize", icon: ListBullets, keywords: ["summary"] },
+  { value: "tldr", label: "TL;DR", mode: "tldr", icon: TextAa, keywords: ["tldr", "tl;dr"] },
+];
+
+interface AiDockProps {
+  /** Override the backend URL. */
+  baseUrl?: string;
+  /** Custom example list. Defaults to the editor's preset modes. */
+  examples?: AiExample[];
+}
+
+/**
+ * Persistent bottom dock. Three states:
+ *   collapsed — small pill with sparkle + placeholder text
+ *   focused   — textarea + submit + examples popover above
+ *   processing — spinner + thinking text + stop button
+ *
+ * Render alongside `<editor.Editor>` like the other companion popovers.
+ */
+export function AiDock({ baseUrl, examples }: AiDockProps = {}) {
+  const ai = useAi({ baseUrl, examples });
+  const items = examples ?? DEFAULT_EXAMPLES;
+
+  const [collapsed, setCollapsed] = useState(true);
+  const [draft, setDraft] = useState("");
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const focusTick = ai.state.focusTick;
+
+  // External focus requests (toolbar click, slash menu, bubble menu) bump
+  // focusTick — react by expanding and focusing the textarea.
+  useEffect(() => {
+    if (focusTick === 0) return;
+    setCollapsed(false);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [focusTick]);
+
+  // Auto-grow the textarea up to a maxRows-equivalent height.
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
+  }, [draft, collapsed]);
+
+  // Collapse when focus leaves the dock and the textarea is empty.
+  useEffect(() => {
+    if (collapsed) return;
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onFocusOut = (event: FocusEvent) => {
+      const next = event.relatedTarget as Node | null;
+      if (next && el.contains(next)) return;
+      if (draft.trim()) return;
+      setCollapsed(true);
+    };
+    el.addEventListener("focusout", onFocusOut);
+    return () => el.removeEventListener("focusout", onFocusOut);
+  }, [collapsed, draft]);
+
+  // Auto-collapse on stream start so the actions panel is unobstructed.
+  useEffect(() => {
+    if (ai.isStreaming || ai.isDone) {
+      setCollapsed(true);
+      setDraft("");
+    }
+  }, [ai.isStreaming, ai.isDone]);
+
+  const submit = useCallback(() => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft("");
+    void ai.prompt(text);
+  }, [draft, ai]);
+
+  const onKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setDraft("");
+        textareaRef.current?.blur();
+        ai.closeDock();
+        setCollapsed(true);
+        return;
+      }
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        if (!draft.trim()) return;
+        submit();
+      }
+    },
+    [draft, submit, ai],
+  );
+
+  const runExample = useCallback(
+    (example: AiExample) => {
+      setDraft("");
+      setCollapsed(true);
+      if (example.mode) {
+        void ai.transform(example.mode, { language: example.language });
+      } else if (example.prompt) {
+        void ai.prompt(example.prompt);
+      }
+    },
+    [ai],
+  );
+
+  // Processing branch.
+  if (ai.isStreaming) {
+    return createPortal(
+      <div className="pp-ai-dock-floating" data-position="bottom">
+        <div className="pp-ai-dock pp-ai-dock-processing">
+          <div className="pp-ai-spinner-dots" aria-hidden="true">
+            <span /><span /><span />
+          </div>
+          <span className="pp-ai-dock-status">AI is thinking…</span>
+          <button
+            type="button"
+            className="pp-ai-dock-btn pp-ai-dock-btn-ghost"
+            onClick={ai.cancel}
+            title="Stop"
+          >
+            <Stop size={14} weight="bold" />
+            Stop
+          </button>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
+  // Collapsed pill.
+  if (collapsed) {
+    return createPortal(
+      <div className="pp-ai-dock-floating" data-position="bottom">
+        <button
+          type="button"
+          className="pp-ai-dock pp-ai-dock-collapsed"
+          onClick={() => {
+            setCollapsed(false);
+            requestAnimationFrame(() => textareaRef.current?.focus());
+          }}
+        >
+          <Sparkle size={16} weight="bold" className="pp-ai-dock-icon" />
+          <span className="pp-ai-dock-placeholder">
+            Tell AI what else needs to be changed…
+          </span>
+          <span className="pp-ai-dock-btn pp-ai-dock-btn-primary pp-ai-dock-btn-disabled" aria-hidden="true">
+            <ArrowUp size={14} weight="bold" />
+          </span>
+        </button>
+      </div>,
+      document.body,
+    );
+  }
+
+  // Focused / expanded.
+  const filteredItems = filterExamples(items, draft);
+  const showExamples = filteredItems.length > 0;
+
+  return createPortal(
+    <div className="pp-ai-dock-floating" data-position="bottom">
+      {showExamples && (
+        <div className="pp-ai-dock-examples" role="listbox" aria-label="AI Toolkit examples">
+          <div className="pp-ai-dock-examples-label">AI Toolkit examples</div>
+          {filteredItems.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              role="option"
+              aria-selected="false"
+              className="pp-ai-dock-example"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => runExample(item)}
+            >
+              {item.icon ? (
+                <span className="pp-ai-dock-example-icon">
+                  <item.icon size={14} weight="bold" />
+                </span>
+              ) : (
+                <span className="pp-ai-dock-example-icon" aria-hidden="true" />
+              )}
+              <span className="pp-ai-dock-example-label">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div ref={wrapperRef} className="pp-ai-dock pp-ai-dock-active" data-focused="true">
+        <textarea
+          ref={textareaRef}
+          className="pp-ai-dock-input"
+          placeholder="Edit this document with AI…"
+          rows={1}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onKeyDown}
+        />
+        <button
+          type="button"
+          className="pp-ai-dock-btn pp-ai-dock-btn-primary"
+          onClick={submit}
+          disabled={!draft.trim()}
+          aria-label="Submit prompt"
+        >
+          <ArrowUp size={14} weight="bold" />
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function filterExamples(items: AiExample[], query: string): AiExample[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter((item) => {
+    if (item.label.toLowerCase().includes(q)) return true;
+    if (item.value.includes(q)) return true;
+    return item.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
+  });
 }
 
 // ─────────────────────────────────────────────────── Preview action panel

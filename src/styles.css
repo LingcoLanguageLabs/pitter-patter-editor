@@ -2119,66 +2119,221 @@ kbd.pp-kbd {
   border-bottom: 1px dashed #ef4444;
 }
 
-.pp-ai-popover {
-  width: 320px;
-  padding: 10px;
+/* ---- Persistent AI dock (Tiptap-style) ---- */
+
+.pp-ai-dock-floating {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 50;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.pp-ai-form {
-  display: flex;
+  align-items: stretch;
   gap: 6px;
+  width: min(640px, calc(100vw - 32px));
 }
 
-.pp-ai-input {
-  flex: 1;
-  min-width: 0;
-  padding: 7px 10px;
-  border: 1px solid #d6d6cf;
-  border-radius: 5px;
-  font: inherit;
-  font-size: 0.85rem;
-  outline: none;
-}
-
-.pp-ai-input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18);
-}
-
-.pp-ai-presets {
+.pp-ai-dock {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.pp-ai-section-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #888;
-  padding: 6px 6px 2px;
-}
-
-.pp-ai-preset {
-  display: block;
+  align-items: center;
+  gap: 8px;
   width: 100%;
+  padding: 10px 10px 10px 14px;
+  background: #fff;
+  border: 1px solid #d6d6cf;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.05);
+  font-size: 0.92rem;
+}
+
+.pp-ai-dock-collapsed {
+  cursor: text;
   text-align: left;
+  background: #fff;
+  border: 1px solid #d6d6cf;
+  color: #6b6b66;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pp-ai-dock-collapsed:hover {
+  border-color: #b9b9b1;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.pp-ai-dock-icon {
+  flex: 0 0 auto;
+  color: #6366f1;
+}
+
+.pp-ai-dock-placeholder {
+  flex: 1 1 auto;
+  text-align: left;
+  color: #6b6b66;
+}
+
+.pp-ai-dock-active {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 12px 32px rgba(0, 0, 0, 0.12);
+  align-items: flex-end;
+}
+
+.pp-ai-dock-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  resize: none;
+  outline: none;
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  padding: 4px 0;
+  color: #1f2937;
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+.pp-ai-dock-input::placeholder {
+  color: #9a9a92;
+}
+
+.pp-ai-dock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+  width: 28px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  background: #ececea;
+  color: #4a4a44;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.pp-ai-dock-btn:hover:not(:disabled):not(.pp-ai-dock-btn-disabled) {
+  background: #e0e0dc;
+  color: #1f2937;
+}
+
+.pp-ai-dock-btn-primary {
+  background: #1f2937;
+  color: #fff;
+}
+
+.pp-ai-dock-btn-primary:hover:not(:disabled):not(.pp-ai-dock-btn-disabled) {
+  background: #111827;
+  color: #fff;
+}
+
+.pp-ai-dock-btn-primary:disabled,
+.pp-ai-dock-btn-disabled {
+  background: #e7e5e0;
+  color: #b9b9b1;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.pp-ai-dock-btn-ghost {
+  width: auto;
+  padding: 0 10px;
+}
+
+.pp-ai-dock-status {
+  flex: 1 1 auto;
+  color: #4a4a44;
+}
+
+.pp-ai-dock-processing {
+  align-items: center;
+}
+
+.pp-ai-spinner-dots {
+  display: inline-flex;
+  gap: 4px;
+  margin-right: 4px;
+}
+
+.pp-ai-spinner-dots > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6366f1;
+  animation: pp-ai-bounce 1s infinite ease-in-out both;
+}
+
+.pp-ai-spinner-dots > span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.pp-ai-spinner-dots > span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes pp-ai-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* ---- Examples popover above the dock ---- */
+
+.pp-ai-dock-examples {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #d6d6cf;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.pp-ai-dock-examples-label {
+  padding: 8px 10px 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #6b6b66;
+}
+
+.pp-ai-dock-example {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
   background: transparent;
   border: 0;
-  border-radius: 4px;
-  padding: 7px 8px;
+  border-radius: 6px;
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   color: #1f2937;
   cursor: pointer;
+  text-align: left;
 }
 
-.pp-ai-preset:hover {
-  background: #efefea;
+.pp-ai-dock-example:hover {
+  background: #f4f4f1;
+}
+
+.pp-ai-dock-example-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  color: #4a4a44;
+}
+
+.pp-ai-dock-example-label {
+  flex: 1 1 auto;
 }
 
 .pp-ai-actions {

@@ -1,7 +1,10 @@
 export {
   Ai,
+  AiDock,
   AiPreviewActions,
   aiAccept,
+  aiCloseDock,
+  aiOpenDock,
   aiPluginKey,
   aiReject,
   createAi,
@@ -9,6 +12,7 @@ export {
   useAi,
 } from "./Ai";
 export type {
+  AiExample,
   AiOptions,
   AiPresetMode,
   AiRequestOptions,
