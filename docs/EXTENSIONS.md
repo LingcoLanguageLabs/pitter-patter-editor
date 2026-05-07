@@ -184,9 +184,23 @@ Inserts a `<br>`.
 ## Inline atoms
 
 ### Image
-Image node with toolbar popover supporting URL or local file upload (read as data URL).
-- Schema: adds node `image` (from prosemirror-schema-basic)
-- Toolbar: yes (Radix popover for URL/alt + file upload)
+Block-level image node with width, alignment, and an in-editor resize NodeView.
+- Schema: adds node `image` (block, atom, draggable; attrs `src`, `alt`, `title`, `width`, `align`)
+- Commands: `setImageAlign(align)`, `setImageWidth(percent)` — exported as named functions, not via the `commands` map
+- Input rules: `![alt](src "title")` at line start
+- Toolbar: yes (popover with URL + alt + file upload — the Add button)
+- Companion: pair with `ImageBubbleMenu` (in `src/`) for align toggles + width slider on selection
+- Resize: side handles appear when an image is selected; drag to resize between 15–100%
+
+### ImageUpload
+Drop-zone placeholder block driven by a consumer-supplied upload callback.
+- Schema: adds node `image_upload` (block, atom; attrs `id`, `label`, `state`)
+- Plugin handlers: `handlePaste` / `handleDrop` route raw image files anywhere in the doc through the same uploader
+- Toolbar: yes (Upload image button)
+- Options (`createImageUpload({...})`):
+  - `upload(file: File): Promise<string>` — required; resolve to the URL the placeholder will be replaced with
+  - `accept?: string` — file picker MIME filter, default `image/*`
+- Companion exports: `simulateUpload(delayMs)` — dev helper that data-URLs the file after a delay; `insertImageUploadCommand(uploadType)` for slash-menu integration
 
 ### YouTube
 Embeds a YouTube video (iframe) inserted via toolbar popover or auto-embed on paste of a bare URL.

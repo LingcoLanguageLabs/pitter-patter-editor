@@ -1,6 +1,6 @@
 # Pitter Patter Editor
 
-A small, opinionated rich-text editor built on [ProseMirror](https://prosemirror.dev/) and React 19, using [`@handlewithcare/react-prosemirror`](https://github.com/handlewithcare/react-prosemirror) for the React bindings. Everything visible in the editor — marks, nodes, keymaps, toolbar buttons, slash menu, suggestions, input rules — is contributed by an **extension**. There is no monolithic config; you compose an editor by passing a list of extensions to `createEditor`.
+A modular rich-text editor built on [ProseMirror](https://prosemirror.dev/) and React 19, using [`@handlewithcare/react-prosemirror`](https://github.com/handlewithcare/react-prosemirror) for the React bindings. Everything visible in the editor — every mark, node, keymap, toolbar button, slash menu, suggestion, and input rule — is contributed by an **extension**. There is no monolithic config; you compose an editor by passing a list of extensions to `createEditor`.
 
 The architecture is intentionally close to ProseMirror primitives. There is no "framework layer" hiding the schema or plugin system — extensions return raw `NodeSpec` / `MarkSpec` / `Plugin` / `Command` values, and the editor wires them together.
 
@@ -10,14 +10,29 @@ The architecture is intentionally close to ProseMirror primitives. There is no "
 
 ```bash
 yarn install
-yarn dev        # vite dev server
-yarn build      # tsc -b && vite build
-yarn preview
+yarn storybook    # open http://localhost:6006
+yarn dev          # vite dev server (src/main.tsx)
+yarn build        # tsc -b && vite build
 ```
 
-The dev entry point is `src/main.tsx`, which mounts the demo app from `index.html`.
+The Storybook entry has the editor in five flavours — Fixed Toolbar, Floating Toolbar, Drag and Drop, Productivity (variables/dates/anchors), Stats panel, Table of Contents — plus the dev `index.html` mounts the same configured editor.
 
 > Yarn PnP: this repo uses Yarn Plug'n'Play (`.pnp.cjs`, `.pnp.loader.mjs`). Use `yarn` rather than `npm`.
+
+## What's in the box
+
+Roughly seventy extensions covering the surface area you'd expect from a modern WYSIWYG editor. The full per-extension cheatsheet — schema, commands, keymap, options, companion components — lives in [`docs/EXTENSIONS.md`](docs/EXTENSIONS.md). High-level groupings:
+
+- **Inline marks** — Bold, Italic, Strike, Code, Underline, Subscript, Superscript, Highlight, Link, Kbd, Language
+- **Block nodes** — Heading, Quote, PullQuote, CodeBlock, BulletList, OrderedList, ListItem, Lists, TaskList, Callout, Details, DefinitionList, HorizontalRule, Footnote, HardBreak
+- **Inline atoms** — Image (with resize + alignment), YouTube, Audio, Video, Math (KaTeX), Variables, Date, Anchor, Mention, Emoji
+- **Tables** — Table (prosemirror-tables) + a cell bubble menu
+- **Text styling (schema patches)** — TextStyle, TextAlign, TextColor, TextDirection, FontFamily, FontSize, LineHeight, UniqueID
+- **Productivity & polish** — Typography, Placeholder, TrailingNode, Gapcursor, Dropcursor, CharacterCount, Statistics, Focus, MaintainSelection, ColorChip, SmartPaste, Linkify, HoverLink, FileHandler, ImageUpload, InvisibleCharacters, StripFormatting
+- **Suggestion / surface** — SlashMenu, TableOfContents, LinkCard
+- **Toolbar utilities** — Undo, Redo, Separator
+
+A handful of extensions need a paired React component (popover, panel) rendered alongside `<editor.Editor>` — see [Companion components](#companion-components) below.
 
 ## Mental model
 
@@ -107,7 +122,7 @@ export const Bold = Extension.create({
 - Installs a Plugin with a custom `NodeView` (`DetailsNodeView`) that wires the `<details>` toggle event back into a transaction that updates the `open` attribute.
 - Exports a `commands` entry (`insert-details`) so the slash menu / keymap can trigger it.
 
-This is the pattern to copy when your extension owns DOM that the user can interact with directly.
+For an image-style NodeView with mouse-driven resize + a bubble menu, see `src/editor/extensions/Image.tsx`. For an asynchronous placeholder driven by a consumer-supplied callback (insert → upload → replace), see `src/editor/extensions/ImageUpload.tsx`.
 
 ### Patching another extension's node (`TextAlign`)
 
@@ -139,19 +154,43 @@ To add a new triggered popover:
 
 ### Wiring an extension into the editor
 
-`src/main.tsx`:
+`src/configuredEditor.ts` shows the canonical composition:
 
 ```tsx
 const editor = createEditor([
+  // History
   Undo, Redo, Separator,
-  TextStyle, Heading, Lists, BulletList, OrderedList, ListItem, TaskList,
-  Quote, CodeBlock, Details, Separator,
-  Bold, Italic, Strike, Code, Underline,
-  TextColor, Highlight, Link, Separator,
+
+  // Block style + font
+  TextStyle, Separator, FontFamily, FontSize, Separator,
+
+  // Inline marks
+  Bold, Italic, Underline, Strike, Code, Kbd, Separator,
+
+  // Color / Link / Align
+  TextColor, Highlight, Separator, Link, Separator, TextAlign, Separator,
+
+  // Lists
+  Lists, BulletList, OrderedList, ListItem, TaskList, Separator,
+
+  // Block-level structures
+  Quote, PullQuote, CodeBlock, Callout, Details, DefinitionList, Separator,
+
+  // Insert (media + content blocks)
+  Image, DemoImageUpload, YouTube, Video, Audio,
+  LinkCard, Math, Variables, DateExtension, Anchor, Table, Separator,
+  Footnote, HorizontalRule, Separator,
+
+  // Formatting tools + niche marks
+  StripFormatting, InvisibleCharacters, LineHeight, Separator,
   Superscript, Subscript, Separator,
-  TextAlign, Separator,
-  HorizontalRule, HardBreak,
-  Table, Image, Typography, SlashMenu, Mention, Emoji,
+  Language, TextDirection, HardBreak,
+
+  // System / no-toolbar
+  Heading, Typography, Gapcursor, Dropcursor, Placeholder, TrailingNode,
+  CharacterCount, Statistics, Focus, UniqueID, TableOfContents,
+  MaintainSelection, ColorChip, SmartPaste, Linkify, HoverLink, FileHandler,
+  SlashMenu, Mention, Emoji,
 ] as const);
 ```
 
@@ -171,7 +210,47 @@ editor.useEditor()                  // EditorHandle: { schema, commands, isActiv
 
 `useRunCommand` / `useCanRunCommand` are typed against the union of every command name across all extensions in the array — so `editor.useRunCommand("typo")` is a TypeScript error.
 
-## What the menu primitives give you
+## Companion components
+
+A handful of extensions install a ProseMirror plugin but expose their UI as a React component you render alongside `<ProseMirrorDoc/>`. Mount these inside `<editor.Editor>` so they can subscribe to editor state.
+
+| Component | Pairs with | What it does |
+|-----------|------------|--------------|
+| `SlashMenuPopover` | `SlashMenu` | `/`-trigger floating menu of insertable blocks. |
+| `MentionPopover` | `Mention` | `@`-trigger floating picker; pluggable item source. |
+| `EmojiPopover` | `Emoji` | `:`-trigger emoji picker. |
+| `MathInlinePopover` | `Math` | Edit-in-place popover for inline `inline_math` selections. |
+| `VariableEditPopover` | `Variables` | Edit-in-place popover for selected variable chips. |
+| `LinkHoverPopover` | `HoverLink` | Hover preview over any link with open / edit / remove buttons. |
+| `TableOfContentsView` | `TableOfContents` | Standalone outline component reading the live TOC plugin state. |
+
+Bubble-menu wrappers (`BubbleMenu`, `ImageBubbleMenu`, `TableBubbleMenu`) live in `src/` — render them inside `<editor.Editor>` to enable selection-anchored / image-anchored / table-anchored menus.
+
+## Configurable extensions
+
+Many extensions expose a `createXxx({...})` factory for options. Pattern:
+
+```ts
+import {
+  createImageUpload,
+  createMath,
+  createMention,
+  createTypography,
+  Math,
+} from "./editor/extensions";
+
+createEditor([
+  createTypography({ smartQuotes: false }),
+  createMath({ katexOptions: { trust: true } }),
+  createMention({ items: async (q) => fetchUsers(q) }),
+  createImageUpload({ upload: async (file) => uploadToS3(file) }),
+  // …
+]);
+```
+
+The full options surface for every configurable extension is documented in [`docs/EXTENSIONS.md`](docs/EXTENSIONS.md).
+
+## Menu primitives
 
 Most extensions don't need to render raw buttons. The `menu/` folder has these building blocks:
 
@@ -183,7 +262,7 @@ Most extensions don't need to render raw buttons. The `menu/` folder has these b
 | `Dropdown` / `DropdownItem` | Radix dropdown menu with editor-aware `disabled` state. |
 | `Tooltip` / `TooltipProvider` | Radix tooltip wrapper with shortcut display. |
 | `FloatingMenu` | Anchors content to the current selection or a node — used by every bubble menu. |
-| `Toolbar` / `ToolbarGroup` / `ToolbarSeparator` | Container with arrow-key roving focus. |
+| `Toolbar` / `ToolbarGroup` / `ToolbarSeparator` | Container with arrow-key roving focus and overflow-popover support. |
 | `SuggestionPopover` + `createSuggestionPlugin` | Trigger-character popovers (`/`, `@`, `:`). |
 
 These all use `useEditorState` / `useEditorEventCallback` from `@handlewithcare/react-prosemirror` — so call them from inside `<editor.Editor>`.
@@ -204,12 +283,20 @@ Utilities you'll reach for when writing extensions:
 
 ```
 src/
-  main.tsx                  # demo app: composes the editor, renders toolbar + menus
+  configuredEditor.ts       # composes the default editor + re-exports the demo doc
+  Editor.stories.tsx        # the Fixed/Floating/DragDrop/Productivity/Stats/TOC stories
   styles.css                # all .pp-* styles for the editor and menus
   Toolbar.tsx               # walks editor.extensions and renders ext.toolbar in order
   BubbleMenu.tsx            # selection-anchored mark menu (Bold/Italic/.../Link)
-  ImageBubbleMenu.tsx       # appears when an image is selected (alt text + delete)
+  ImageBubbleMenu.tsx       # image controls — alt, align, width slider, delete
   TableBubbleMenu.tsx       # appears inside a table cell (row/col ops)
+  StatsBar.tsx              # demo status bar wrapping useStatistics()
+  DragDropEditor.tsx        # the @pitter-patter/shuffle drag-and-drop story
+
+  demoDocs/
+    helpers.ts              # makeDocHelpers(schema) — node/text/mark/para/h/li builders
+    featureTour.ts          # the default "Fixed Toolbar" demo doc
+    productivity.ts         # the template-style "Productivity" demo doc
 
   editor/
     Editor.tsx              # createEditor, schema/command/plugin assembly, EditorContext
@@ -221,77 +308,18 @@ src/
     menu/                   # toolbar + popover primitives (see table above)
       Suggestion.tsx        # plugin + popover for trigger-char menus
 
-    extensions/             # one file per extension, each export named
-      Bold/Italic/Underline/Strike/Code        # marks (toggleMark)
-      Subscript/Superscript                    # marks
-      Heading/Quote/CodeBlock/HorizontalRule   # blocks
-      BulletList/OrderedList/ListItem/Lists    # lists; Lists is the toolbar dropdown
-      TaskList                                 # custom list with a checkbox node view
-      TextStyle                                # block-style picker (Paragraph / H1–H4)
-      TextAlign                                # patches paragraph + heading with align attr
-      TextColor / Highlight                    # colored marks with swatch dropdowns
-      Link                                     # mark + popover + paste-to-link plugin
-      Image                                    # node + popover (URL or file upload)
-      Table                                    # prosemirror-tables nodes + plugin + dropdown
-      Details                                  # collapsible node + node view + input rule
-      Typography                               # input rules: dashes, arrows, smart quotes, …
-      SlashMenu                                # `/`-trigger popover; commands derived from schema
-      Mention                                  # `@`-trigger; node + popover (configurable items)
-      Emoji                                    # `:`-trigger; inserts unicode characters
-      Undo / Redo / Separator / HardBreak      # toolbar-only or behavior-only
+    extensions/             # one file per extension, each export named — see
+                            # docs/EXTENSIONS.md for the full per-extension reference
 ```
-
-## Built-in extensions reference
-
-| Name | Adds | Commands | Notes |
-|------|------|----------|-------|
-| `Bold`, `Italic`, `Strike`, `Code`, `Underline` | `strong`, `em`, `s`, `code`, `underline` marks | `bold`, `italic`, `strike`, `code`, `underline` | `Mod-b/i/etc.` |
-| `Superscript`, `Subscript` | marks | `superscript`, `subscript` | mutually exclusive when toggled |
-| `Heading` | uses `heading` from base schema | `heading-1`…`heading-4` | `# `…`#### ` input rule, `Mod-Alt-1`…`4` |
-| `Quote` | uses `blockquote` | `quote` | `> ` input rule |
-| `CodeBlock` | uses `code_block` | `code-block` | ```` ``` ```` input rule, `Mod-Alt-c` |
-| `BulletList`, `OrderedList`, `ListItem` | `bullet_list`, `ordered_list`, `list_item` | various toggle/sink/lift | Smart input rules; ordered list reads `1. `, etc. |
-| `Lists` | toolbar only | — | Dropdown that picks among installed list types |
-| `TaskList` | `task_list`, `task_item` w/ checkbox node view | `task-list-toggle`, sink/lift/split | `[ ] ` / `[x] ` input rule |
-| `TextStyle` | toolbar only | `paragraph` | Block-style dropdown |
-| `TextAlign` | patches `paragraph` + `heading` with `align` attr | — | Four toolbar buttons |
-| `TextColor`, `Highlight` | `text_color`, `highlight` marks | `highlight` | Swatch dropdowns + remove button |
-| `Link` | `link` mark | `link` | Popover, `Mod-K`, paste-URL-onto-selection plugin |
-| `Image` | uses `image` from base schema | — | URL or file upload via popover; data-URL for files |
-| `Table` | `prosemirror-tables` nodes + `tableEditing()` | row/col/cell ops | `Tab`/`Shift-Tab` to navigate cells |
-| `Details` | `details`, `details_summary`, `details_content` + node view | `insert-details` | `>>>␣` input rule |
-| `Typography` | input rules only | — | Configurable: `dashes`, `arrows`, `ellipsis`, `symbols`, `smartQuotes` |
-| `HorizontalRule` | uses `horizontal_rule` | (toolbar action) | `---` input rule |
-| `HardBreak` | uses `hard_break` | `hard-break` | `Shift-Enter` / `Mod-Enter` |
-| `SlashMenu` | suggestion plugin | — | Items built from `schema.nodes` at render time |
-| `Mention` | `mention` atom node + suggestion plugin | — | `Mention.configure({ items })` for custom item source |
-| `Emoji` | suggestion plugin only | — | Inserts plain unicode |
-| `Undo`, `Redo` | toolbar buttons | — | History plugin is added by `Editor.tsx` unconditionally |
-| `Separator` | toolbar separator | — | Use multiple times to group toolbar buttons |
-
-### Configurable extensions
-
-A few extensions expose a `configure()` factory that returns a fresh extension with custom options. Pattern:
-
-```ts
-import { Mention, Typography, Link } from "./editor/extensions";
-
-createEditor([
-  Link.configure({ linkOnPaste: false }),
-  Typography.configure({ smartQuotes: false }),
-  Mention.configure({ items: async (q) => fetchUsers(q) }),
-] as const);
-```
-
-Today the configurable extensions are `Link`, `Typography`, and `Mention`. Adopt the same `Object.assign(createXxx(), { configure: (opts) => createXxx(opts) })` shape for new extensions that need options.
 
 ## Adding your own extension — checklist
 
 1. Drop a new file in `src/editor/extensions/MyThing.tsx`.
 2. Export `export const MyThing = Extension.create({ name: "my-thing", … })`.
 3. Re-export from `src/editor/extensions/index.ts`.
-4. Add to the `createEditor([...])` array in `src/main.tsx` (or wherever you compose the editor for your downstream app).
+4. Add to the `createEditor([...])` array in `src/configuredEditor.ts` (or wherever you compose the editor for your downstream app).
 5. If it owns a popover, render it as a child of `<editor.Editor>` alongside `<ProseMirrorDoc/>`.
 6. If it adds CSS, append to `src/styles.css` using the `pp-` prefix convention.
+7. If it has options, expose a `createMyThing({...})` factory and document the options in `docs/EXTENSIONS.md`.
 
 The schema, plugins, commands, and toolbar slot all wire up automatically.
