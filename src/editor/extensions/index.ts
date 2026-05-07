@@ -43,6 +43,22 @@ export { Strike } from "./Strike";
 export { Subscript } from "./Subscript";
 export { Superscript } from "./Superscript";
 export { Table } from "./Table";
+export {
+  TableOfContents,
+  TableOfContentsView,
+  createTableOfContents,
+  hierarchicalIndexer,
+  linearIndexer,
+  tocKey,
+  useScrolledOverItems,
+  useTableOfContents,
+} from "./TableOfContents";
+export type {
+  TableOfContentsOptions,
+  TableOfContentsState,
+  TocIndexer,
+  TocItem,
+} from "./TableOfContents";
 export { TrailingNode, createTrailingNode } from "./TrailingNode";
 export type { TrailingNodeOptions } from "./TrailingNode";
 export { TaskList } from "./TaskList";

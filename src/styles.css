@@ -506,6 +506,91 @@ body {
   padding: 2px 0;
 }
 
+.editor-shell--toc {
+  max-width: 1200px;
+}
+
+.editor-toc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 2rem;
+  align-items: start;
+}
+
+.editor-toc-main {
+  /* Inherits .editor-surface */
+}
+
+.editor-toc-sidebar {
+  position: sticky;
+  top: 2rem;
+  padding: 1rem;
+  border-left: 1px solid #ececea;
+}
+
+.editor-toc-heading {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #888;
+  margin: 0 0 0.75rem;
+}
+
+.pp-toc {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #6b6b66;
+}
+
+.pp-toc-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #b8b8b0;
+}
+
+.pp-toc-item {
+  padding-left: calc((var(--level, 1) - 1) * 0.9rem);
+}
+
+.pp-toc-item > a {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.pp-toc-number {
+  flex: 0 0 auto;
+  color: #b8b8b0;
+  font-variant-numeric: tabular-nums;
+  min-width: 1.5em;
+}
+
+.pp-toc-text {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pp-toc-item > a:hover {
+  background: #efefea;
+  color: #1a1a1a;
+}
+
+.pp-toc-item.is-active > a {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.pp-toc-item.is-scrolled-over > a {
+  color: #b8b8b0;
+}
+
 .pp-font-trigger {
   display: inline-block;
   white-space: nowrap;
