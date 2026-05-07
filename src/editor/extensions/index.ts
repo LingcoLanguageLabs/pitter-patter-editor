@@ -10,6 +10,8 @@ export {
 export type { CharacterCountState } from "./CharacterCount";
 export { Code } from "./Code";
 export { CodeBlock } from "./CodeBlock";
+export { ColorChip, createColorChip } from "./ColorChip";
+export type { ColorChipOptions } from "./ColorChip";
 export { Details } from "./Details";
 export { Dropcursor, createDropcursor } from "./Dropcursor";
 export type { DropcursorOptions } from "./Dropcursor";
@@ -28,6 +30,8 @@ export { Highlight } from "./Highlight";
 export { HorizontalRule } from "./HorizontalRule";
 export { Image } from "./Image";
 export { Italic } from "./Italic";
+export { Language, createLanguage, DEFAULT_LANGUAGES } from "./Language";
+export type { LanguageChoice, LanguageOptions } from "./Language";
 export { LineHeight, createLineHeight, DEFAULT_LINE_HEIGHTS } from "./LineHeight";
 export type { LineHeightOptions } from "./LineHeight";
 export { Link } from "./Link";
@@ -35,6 +39,8 @@ export { LinkCard, createLinkCard } from "./LinkCard";
 export type { LinkCardMetadata, LinkCardOptions } from "./LinkCard";
 export { ListItem } from "./ListItem";
 export { Lists } from "./Lists";
+export { MaintainSelection, createMaintainSelection } from "./MaintainSelection";
+export type { MaintainSelectionOptions } from "./MaintainSelection";
 export {
   Math,
   MathInlinePopover,

@@ -170,7 +170,7 @@ export interface LineHeightOptions {
 
 export function createLineHeight({
   values = DEFAULT_LINE_HEIGHTS,
-  defaultLabel = "Default",
+  defaultLabel = "Line",
 }: LineHeightOptions = {}) {
   return Extension.create({
     name: "line-height",

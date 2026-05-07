@@ -452,7 +452,7 @@ export interface FontFamilyOptions {
 
 export function createFontFamily({
   options = DEFAULT_FONT_FAMILIES,
-  defaultLabel = "Default",
+  defaultLabel = "Font",
 }: FontFamilyOptions = {}) {
   return Extension.create({
     name: "font-family",

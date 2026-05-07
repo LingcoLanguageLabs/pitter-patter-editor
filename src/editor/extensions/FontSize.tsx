@@ -199,7 +199,7 @@ export interface FontSizeOptions {
 
 export function createFontSize({
   sizes = DEFAULT_FONT_SIZES,
-  defaultLabel = "Default",
+  defaultLabel = "Size",
 }: FontSizeOptions = {}) {
   return Extension.create({
     name: "font-size",

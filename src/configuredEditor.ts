@@ -8,6 +8,7 @@ import {
   CharacterCount,
   Code,
   CodeBlock,
+  ColorChip,
   Details,
   Dropcursor,
   Emoji,
@@ -22,11 +23,13 @@ import {
   HorizontalRule,
   Image,
   Italic,
+  Language,
   LineHeight,
   Link,
   LinkCard,
   ListItem,
   Lists,
+  MaintainSelection,
   Math,
   Mention,
   OrderedList,
@@ -54,50 +57,86 @@ import {
   YouTube,
 } from "./editor/extensions";
 
+// Toolbar order is Google Docs-flavored: history → style → font → inline marks
+// → color → link → align → lists → block formatters → insert blocks →
+// formatting tools → niche/sub-sup/language. Earlier-in-array means
+// higher-priority and stays visible longer; later items are first to land in
+// the overflow popover when the toolbar is narrow.
 export const editor = createEditor([
+  // History
   Undo,
   Redo,
   Separator,
+
+  // Block style + font (Docs has these adjacent: "Normal text" then font/size)
   TextStyle,
-  Heading,
+  Separator,
+  FontFamily,
+  FontSize,
+  Separator,
+
+  // Inline marks
+  Bold,
+  Italic,
+  Underline,
+  Strike,
+  Code,
+  Separator,
+
+  // Color
+  TextColor,
+  Highlight,
+  Separator,
+
+  // Link
+  Link,
+  Separator,
+
+  // Block alignment + lists
+  TextAlign,
+  Separator,
   Lists,
   BulletList,
   OrderedList,
   ListItem,
   TaskList,
+  Separator,
+
+  // Block-level structures
   Quote,
   CodeBlock,
-  Details,
   Callout,
+  Details,
   Separator,
-  Bold,
-  Italic,
-  Strike,
-  Code,
-  Underline,
-  Separator,
-  FontFamily,
-  FontSize,
-  TextColor,
-  Highlight,
-  Link,
-  Separator,
-  Superscript,
-  Subscript,
-  StripFormatting,
-  Separator,
-  TextAlign,
-  TextDirection,
-  LineHeight,
-  Separator,
-  HorizontalRule,
-  HardBreak,
-  Table,
+
+  // Insert (media + content blocks)
   Image,
   YouTube,
   LinkCard,
   Math,
+  Table,
+  Separator,
   Footnote,
+  HorizontalRule,
+  Separator,
+
+  // Formatting tools
+  StripFormatting,
+  LineHeight,
+  Separator,
+
+  // Less-common inline marks (overflow first)
+  Superscript,
+  Subscript,
+  Separator,
+
+  // Niche
+  Language,
+  TextDirection,
+  HardBreak,
+
+  // Schema-only / system extensions (no toolbar items)
+  Heading,
   Typography,
   Gapcursor,
   Dropcursor,
@@ -107,6 +146,8 @@ export const editor = createEditor([
   Focus,
   UniqueID,
   TableOfContents,
+  MaintainSelection,
+  ColorChip,
   SlashMenu,
   Mention,
   Emoji,
