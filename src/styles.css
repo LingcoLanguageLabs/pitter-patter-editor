@@ -1494,16 +1494,85 @@ a.pp-link-card.ProseMirror-selectednode {
   bottom: -0.25em;
 }
 
-.ProseMirror img {
-  max-width: 100%;
-  height: auto;
+.ProseMirror figure.pp-image {
   display: block;
+  position: relative;
   margin: 0.75rem 0;
+  max-width: 100%;
   border-radius: 4px;
+  /* By default we let the image fill its container; explicit width
+     attrs override via inline style. */
+  width: 100%;
 }
 
-.ProseMirror img.ProseMirror-selectednode {
+.ProseMirror figure.pp-image[data-align="left"] {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.ProseMirror figure.pp-image[data-align="center"] {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ProseMirror figure.pp-image[data-align="right"] {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.ProseMirror figure.pp-image > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.ProseMirror figure.pp-image.ProseMirror-selectednode {
   outline: 2px solid #2a6df4;
+  outline-offset: 2px;
+}
+
+.ProseMirror .pp-image-handle {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 32px;
+  margin-top: -16px;
+  background: #2a6df4;
+  border: 2px solid #fff;
+  border-radius: 3px;
+  cursor: ew-resize;
+  z-index: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.ProseMirror .pp-image-handle-left {
+  left: -5px;
+}
+
+.ProseMirror .pp-image-handle-right {
+  right: -5px;
+}
+
+.pp-image-width {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.pp-image-width-slider {
+  width: 110px;
+  accent-color: #2a6df4;
+}
+
+.pp-image-width-value {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: #4a4a44;
+  min-width: 36px;
+  text-align: right;
 }
 
 ul[data-type="task-list"] {
@@ -1663,7 +1732,8 @@ li[data-type="task-item"][data-checked="true"] > div {
   color: #4a3845;
 }
 
-.editor-surface--shuffle .ProseMirror img {
+.editor-surface--shuffle .ProseMirror img,
+.editor-surface--shuffle .ProseMirror figure.pp-image > img {
   border-radius: 0.75rem;
   box-shadow: 0 10px 30px -12px rgba(58, 31, 51, 0.25);
   cursor: grab;

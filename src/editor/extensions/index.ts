@@ -35,7 +35,8 @@ export { Heading } from "./Heading";
 export { Highlight } from "./Highlight";
 export { HorizontalRule } from "./HorizontalRule";
 export { HoverLink, LinkHoverPopover } from "./HoverLink";
-export { Image } from "./Image";
+export { Image, setImageAlign, setImageWidth } from "./Image";
+export type { ImageAlign } from "./Image";
 export {
   InvisibleCharacters,
   createInvisibleCharacters,

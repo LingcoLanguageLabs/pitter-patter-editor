@@ -202,13 +202,13 @@ export function buildInitialDoc(schema: Schema) {
 
     // ────────────────────────────────────────────────── Media
     h(2, "Media"),
-    para(text("Images drop in via paste, drag, or the toolbar:")),
-    para(
-      node("image", {
-        src: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop",
-        alt: "Code on a screen",
-      }),
-    ),
+    para(text("Images drop in via paste, drag, or the toolbar. Click any image to align (left / center / right) or resize via the corner handles:")),
+    node("image", {
+      src: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop",
+      alt: "Code on a screen",
+      width: "75%",
+      align: "center",
+    }),
     para(
       text("Paste any YouTube URL on its own line and it auto-converts to an embed:"),
     ),
