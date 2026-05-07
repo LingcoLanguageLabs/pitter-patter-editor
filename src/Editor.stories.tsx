@@ -4,6 +4,7 @@ import { schema as basicSchema } from "prosemirror-schema-basic";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { buildInitialDoc, editor } from "./configuredEditor";
+import { buildProductivityDoc } from "./demoDocs/productivity";
 import { DragDropEditor } from "./DragDropEditor";
 import {
   EmojiPopover,
@@ -16,8 +17,29 @@ import {
 } from "./editor/extensions";
 import { BubbleMenu } from "./BubbleMenu";
 import { ImageBubbleMenu } from "./ImageBubbleMenu";
+import { StatsBar } from "./StatsBar";
 import { TableBubbleMenu } from "./TableBubbleMenu";
 import { Toolbar } from "./Toolbar";
+
+/**
+ * The full popover stack the editor exposes. Stories that mount the
+ * configured editor reach for this so each one doesn't have to remember
+ * which popovers go with which extensions.
+ */
+function EditorOverlays() {
+  return (
+    <>
+      <TableBubbleMenu />
+      <ImageBubbleMenu />
+      <SlashMenuPopover />
+      <MentionPopover />
+      <EmojiPopover />
+      <MathInlinePopover />
+      <VariableEditPopover />
+      <LinkHoverPopover />
+    </>
+  );
+}
 
 const meta: Meta = {
   title: "Editor/Editor",
@@ -39,14 +61,7 @@ export const FixedToolbar: Story = {
         <editor.Editor baseSchema={basicSchema} initialDoc={buildInitialDoc}>
           <Toolbar />
           <ProseMirrorDoc />
-          <TableBubbleMenu />
-          <ImageBubbleMenu />
-          <SlashMenuPopover />
-          <MentionPopover />
-          <EmojiPopover />
-          <MathInlinePopover />
-          <VariableEditPopover />
-          <LinkHoverPopover />
+          <EditorOverlays />
         </editor.Editor>
       </div>
     </div>
@@ -62,14 +77,45 @@ export const FloatingToolbar: Story = {
         <editor.Editor baseSchema={basicSchema} initialDoc={buildInitialDoc}>
           <ProseMirrorDoc />
           <BubbleMenu />
-          <TableBubbleMenu />
-          <ImageBubbleMenu />
-          <SlashMenuPopover />
-          <MentionPopover />
-          <EmojiPopover />
-          <MathInlinePopover />
-          <VariableEditPopover />
-          <LinkHoverPopover />
+          <EditorOverlays />
+        </editor.Editor>
+      </div>
+    </div>
+  ),
+};
+
+export const Productivity: Story = {
+  name: "Productivity (variables, dates, anchors)",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">Productivity — template-style authoring</h2>
+      <div className="editor-surface">
+        <editor.Editor
+          baseSchema={basicSchema}
+          initialDoc={buildProductivityDoc}
+        >
+          <Toolbar />
+          <ProseMirrorDoc />
+          <EditorOverlays />
+        </editor.Editor>
+      </div>
+    </div>
+  ),
+};
+
+export const StatsPanel: Story = {
+  name: "Stats panel",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">
+        Stats panel — useStatistics() in a status bar
+      </h2>
+      <div className="editor-surface">
+        <editor.Editor baseSchema={basicSchema} initialDoc={buildInitialDoc}>
+          <Toolbar />
+          <ProseMirrorDoc />
+          <EditorOverlays />
+          <StatsBar />
         </editor.Editor>
       </div>
     </div>
@@ -167,11 +213,7 @@ export const TableOfContents: Story = {
             <Toolbar />
             <ProseMirrorDoc />
             <BubbleMenu />
-            <TableBubbleMenu />
-            <ImageBubbleMenu />
-            <SlashMenuPopover />
-            <MentionPopover />
-            <EmojiPopover />
+            <EditorOverlays />
           </div>
           <aside className="editor-toc-sidebar">
             <h3 className="editor-toc-heading">Table of contents</h3>

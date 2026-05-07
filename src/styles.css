@@ -1914,3 +1914,37 @@ kbd.pp-kbd {
   border-color: #155e75;
 }
 
+/* ------------------------------ Stats bar ------------------------------ */
+
+.pp-stats-bar {
+  display: flex;
+  gap: 1.25rem;
+  padding: 10px 14px;
+  margin-top: -1px;
+  background: #fafaf9;
+  border-top: 1px solid #ececea;
+  border-radius: 0 0 8px 8px;
+  font-size: 0.78rem;
+  color: #4a4a44;
+  flex-wrap: wrap;
+}
+
+.pp-stats-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.pp-stats-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.pp-stats-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b6b66;
+  font-size: 0.7rem;
+}
+
