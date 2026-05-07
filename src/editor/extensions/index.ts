@@ -35,6 +35,14 @@ export { LinkCard, createLinkCard } from "./LinkCard";
 export type { LinkCardMetadata, LinkCardOptions } from "./LinkCard";
 export { ListItem } from "./ListItem";
 export { Lists } from "./Lists";
+export {
+  Math,
+  MathInlinePopover,
+  createMath,
+  migrateMathStrings,
+  migrateMathStringsTransaction,
+} from "./Math";
+export type { MathOptions } from "./Math";
 export { Mention, MentionPopover, createMention } from "./Mention";
 export type { MentionItem, MentionOptions } from "./Mention";
 export { OrderedList } from "./OrderedList";

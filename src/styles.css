@@ -558,6 +558,157 @@ body {
   border: 1px solid var(--pp-callout-color, #6b7280);
 }
 
+.pp-math {
+  display: inline-block;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.pp-math--block {
+  display: block;
+  text-align: center;
+  margin: 0.75rem 0;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.pp-math--editable.pp-math--inline:hover {
+  outline: 1px dashed #c8c8c0;
+  outline-offset: 1px;
+}
+
+.pp-math--editable.pp-math--block:hover {
+  background: #f5f5f1;
+}
+
+.pp-math.ProseMirror-selectednode {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  background: #eef2ff;
+}
+
+.pp-math--empty {
+  color: #b8b8b0;
+  font-style: italic;
+  font-size: 0.85em;
+}
+
+.pp-math--error {
+  color: #b91c1c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: #fef2f2;
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+.pp-math-popover {
+  min-width: 320px;
+}
+
+.pp-math-mode {
+  display: flex;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.pp-math-mode-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: #4a4a44;
+  cursor: pointer;
+}
+
+.pp-math-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.pp-math-preview {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ececea;
+  border-radius: 4px;
+  background: #fafaf7;
+  text-align: center;
+  min-height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pp-math--editing {
+  background: #fafaf7;
+  border: 1px solid #d6d6cf;
+  outline: none !important;
+  cursor: text;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pp-math-edit-input {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #ececea;
+  border-radius: 4px;
+  background: #fff;
+  box-sizing: border-box;
+  resize: vertical;
+  outline: none;
+}
+
+.pp-math-edit-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.pp-math-edit-preview {
+  min-height: 1.75rem;
+  padding: 0.4rem 0.55rem;
+  background: #fff;
+  border: 1px dashed #ececea;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.pp-math-edit-preview--empty {
+  color: #b8b8b0;
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+.pp-math-edit-hint {
+  font-size: 0.72rem;
+  color: #999;
+  text-align: right;
+}
+
+.pp-math-inline-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 280px;
+  max-width: 360px;
+  padding: 0.5rem 0.6rem;
+  background: #fff;
+  border: 1px solid #d6d6cf;
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.pp-math-preview--empty {
+  color: #b8b8b0;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
 a.pp-link-card,
 .ProseMirror a.pp-link-card {
   display: flex;
