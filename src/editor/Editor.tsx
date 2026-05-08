@@ -1,6 +1,5 @@
 import { ProseMirror, reactKeys } from "@handlewithcare/react-prosemirror";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
-import { history, redo, undo } from "prosemirror-history";
 import { inputRules } from "prosemirror-inputrules";
 import type { InputRule } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
@@ -136,8 +135,9 @@ function buildPlugins(
   if (allInputRules.length > 0) {
     plugins.push(inputRules({ rules: allInputRules }));
   }
-  plugins.push(history());
-  plugins.push(keymap({ "Mod-z": undo, "Mod-y": redo, "Shift-Mod-z": redo }));
+  // Note: history()'s ProseMirror plugin and the Mod-z / Mod-y /
+  // Shift-Mod-z keymap come from the Undo and Redo Extensions — make
+  // sure both are in the extension list when you want history.
   plugins.push(keymap(buildKeymapBindings(commands, extensions)));
   plugins.push(keymap(baseKeymap));
   plugins.push(reactKeys());

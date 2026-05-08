@@ -30,7 +30,13 @@ import { useMemo, useState } from "react";
 
 import "@pitter-patter/shuffle/style/shuffle.css";
 
-import { Bold, Italic, Strike, Underline } from "./editor/extensions";
+import {
+  Bold,
+  History,
+  Italic,
+  Strike,
+  Underline,
+} from "./editor/extensions";
 import type { Extension } from "./editor/types";
 
 /**
@@ -45,6 +51,13 @@ export const formBuilderMarkExtensions: readonly Extension[] = [
   Underline,
   Strike,
 ];
+
+/**
+ * Extensions that aren't marks but contribute plugins / commands /
+ * keymap to the editor. Right now that's just History (the
+ * prosemirror-history plugin + Mod-z / Mod-y / Shift-Mod-z keymap).
+ */
+const formBuilderSystemExtensions: readonly Extension[] = [History];
 
 const imageSpec = basic.spec.nodes.get("image")!;
 
@@ -202,19 +215,29 @@ export function FormBuilderEditor({
 }: FormBuilderEditorProps) {
   const editorState = useMemo(() => {
     const schema = buildShuffleSchema(extendSchema);
-    // Build the keymap directly from each extension's `keymap` +
-    // `commands` declaration. Keeps shortcuts in lockstep with the
-    // configured editor — change Bold's `Mod-b` there and it changes
-    // here too.
-    const markKeymap: Record<string, Command> = {};
-    for (const ext of formBuilderMarkExtensions) {
+
+    // Collect plugins + keymap bindings from every reused Extension.
+    // History contributes its prosemirror-history plugin; Bold/Italic/
+    // Underline/Strike contribute Mod-b/i/u/⇧s. Everything stays in
+    // lockstep with the configured editor — the same Extension
+    // objects power both.
+    const reusedExtensions: readonly Extension[] = [
+      ...formBuilderSystemExtensions,
+      ...formBuilderMarkExtensions,
+    ];
+    const reusedPlugins = reusedExtensions.flatMap(
+      (ext) => ext.plugins?.(schema) ?? [],
+    );
+    const reusedKeymap: Record<string, Command> = {};
+    for (const ext of reusedExtensions) {
       if (!ext.commands || !ext.keymap) continue;
       for (const [stroke, commandName] of Object.entries(ext.keymap)) {
         const factory = ext.commands[commandName];
         if (!factory) continue;
-        markKeymap[stroke] = factory(schema);
+        reusedKeymap[stroke] = factory(schema);
       }
     }
+
     return EditorState.create({
       doc: initialDoc(schema),
       plugins: [
@@ -222,7 +245,8 @@ export function FormBuilderEditor({
         shuffle({
           dragHandles: { ...baseDragHandles, ...extraDragHandles },
         }),
-        keymap(markKeymap),
+        ...reusedPlugins,
+        keymap(reusedKeymap),
         ...(extraPlugins ?? []),
         keymap(baseKeymap),
       ],

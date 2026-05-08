@@ -47,10 +47,10 @@ import {
   Mention,
   OrderedList,
   PageBreak,
+  History,
   Placeholder,
   PullQuote,
   Quote,
-  Redo,
   Separator,
   simulateUpload,
   SlashMenu,
@@ -70,7 +70,6 @@ import {
   TextStyle,
   Typography,
   Underline,
-  Undo,
   UniqueID,
   Unsplash,
   Variables,
@@ -91,8 +90,7 @@ const DemoImageUpload = createImageUpload({ upload: simulateUpload(1200) });
 // the overflow popover when the toolbar is narrow.
 export const editor = createEditor([
   // History
-  Undo,
-  Redo,
+  History,
   Separator,
 
   // AI assistant
@@ -211,8 +209,7 @@ export type EditorCommand = Parameters<typeof editor.useRunCommand>[0];
  * default `editor` rather than enabling it everywhere.
  */
 export const pagesEditor = createEditor([
-  Undo,
-  Redo,
+  History,
   Separator,
   TextStyle,
   Separator,

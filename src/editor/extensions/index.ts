@@ -138,7 +138,7 @@ export { Placeholder, createPlaceholder } from "./Placeholder";
 export type { PlaceholderOptions } from "./Placeholder";
 export { PullQuote } from "./PullQuote";
 export { Quote } from "./Quote";
-export { Redo } from "./Redo";
+export { History } from "./History";
 export { Separator } from "./Separator";
 export { SlashMenu, SlashMenuPopover } from "./SlashMenu";
 export { SmartPaste, createSmartPaste } from "./SmartPaste";
@@ -185,7 +185,6 @@ export { TextDirection } from "./TextDirection";
 export { TextStyle } from "./TextStyle";
 export { Typography } from "./Typography";
 export { Underline } from "./Underline";
-export { Undo } from "./Undo";
 export { UniqueID, createUniqueID } from "./UniqueID";
 export type { UniqueIDOptions } from "./UniqueID";
 export {
