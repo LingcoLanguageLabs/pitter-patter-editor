@@ -16,6 +16,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import { aiRoutes } from "./server/ai";
+import { collabRoutes } from "./server/collab";
 
 const app = new Hono();
 
@@ -23,12 +24,11 @@ app.use("/*", cors({ origin: "*" }));
 
 app.get("/health", (c) => c.json({ ok: true, time: Date.now() }));
 
-// ── /api/ai/...   — Vercel AI SDK + Anthropic streaming
+// ── /api/ai/...     — Vercel AI SDK + Anthropic streaming
 app.route("/api/ai", aiRoutes);
 
-// Future:
-// app.route("/api/unsplash", unsplashRoutes);
-// app.route("/api/comments", commentsRoutes);
+// ── /api/docs/...   — pitter-patter collab + presence + comments + snapshots
+app.route("/api/docs", collabRoutes);
 
 const port = Number(process.env["PORT"] ?? 3001);
 
@@ -37,6 +37,10 @@ serve({ fetch: app.fetch, port }, (info) => {
   console.log(`[dev-server] listening on http://localhost:${info.port}`);
   // eslint-disable-next-line no-console
   console.log(`              POST  /api/ai`);
+  // eslint-disable-next-line no-console
+  console.log(`              POST  /api/docs/:id/commits`);
+  // eslint-disable-next-line no-console
+  console.log(`              POST  /api/docs/:id/comments/threads`);
   // eslint-disable-next-line no-console
   console.log(`              GET   /health`);
 });

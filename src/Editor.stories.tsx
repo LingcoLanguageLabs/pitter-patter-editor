@@ -4,6 +4,7 @@ import { schema as basicSchema } from "prosemirror-schema-basic";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { buildInitialDoc, editor } from "./configuredEditor";
+import { CollabEditor } from "./CollabEditor";
 import { buildProductivityDoc } from "./demoDocs/productivity";
 import { DragDropEditor } from "./DragDropEditor";
 import {
@@ -132,6 +133,18 @@ export const DragAndDrop: Story = {
       <div className="editor-surface editor-surface--shuffle">
         <DragDropEditor />
       </div>
+    </div>
+  ),
+};
+
+export const Collaboration: Story = {
+  name: "Collaboration (multi-tab + comments + history)",
+  render: () => (
+    <div className="editor-shell editor-shell--collab">
+      <h2 className="editor-title">
+        Collaboration — open this story in two tabs · run <code>yarn dev:server</code> first
+      </h2>
+      <CollabEditor docId="demo" />
     </div>
   ),
 };

@@ -2446,3 +2446,377 @@ kbd.pp-kbd {
   flex: 1 1 auto;
 }
 
+/* --------------------------- CollabEditor --------------------------- */
+
+.collab-editor {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+  min-height: 70vh;
+  background: white;
+  border: 1px solid #e3e3df;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.collab-editor__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.collab-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #fbfbf9;
+  border-bottom: 1px solid #ececea;
+  font-size: 0.82rem;
+  color: #4a4a44;
+}
+
+.collab-editor__doc-label,
+.collab-editor__user-label {
+  color: #6b6b66;
+}
+
+.collab-editor__doc-label code,
+.collab-editor__user-label code {
+  background: #efefea;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: #1f2937;
+}
+
+.collab-editor__spacer {
+  flex: 1;
+}
+
+.collab-editor__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #1f2937;
+  color: #fff;
+  border: 0;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.collab-editor__btn:hover:not(:disabled) {
+  background: #111827;
+}
+
+.collab-editor__btn:disabled {
+  background: #d6d6cf;
+  color: #9a9a92;
+  cursor: not-allowed;
+}
+
+.collab-editor__doc {
+  flex: 1;
+  padding: 24px 32px;
+  overflow-y: auto;
+  position: relative;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.collab-editor__doc .ProseMirror {
+  outline: none;
+  min-height: 100%;
+}
+
+/* Comment marks — soft yellow underline so users can spot them. */
+.collab-editor__doc span[data-mark-type="comment"] {
+  background: rgba(250, 204, 21, 0.18);
+  border-bottom: 2px solid #facc15;
+  cursor: pointer;
+}
+
+.collab-editor__doc [data-active-comment-thread] {
+  background: rgba(250, 204, 21, 0.36) !important;
+}
+
+.collab-editor__doc [data-new-comment-thread] {
+  background: rgba(250, 204, 21, 0.36);
+}
+
+/* ---- Comment composer ---- */
+
+.comment-composer {
+  position: sticky;
+  bottom: 0;
+  margin-top: 12px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #d6d6cf;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comment-composer__input {
+  border: 1px solid #d6d6cf;
+  border-radius: 5px;
+  padding: 8px 10px;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.92rem;
+  outline: none;
+}
+
+.comment-composer__input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18);
+}
+
+.comment-composer__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.comment-composer__btn {
+  padding: 5px 12px;
+  border: 1px solid #d6d6cf;
+  background: #fff;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.comment-composer__btn--primary {
+  background: #1f2937;
+  color: #fff;
+  border-color: #1f2937;
+}
+
+.comment-composer__btn--primary:disabled {
+  background: #d6d6cf;
+  color: #9a9a92;
+  border-color: #d6d6cf;
+  cursor: not-allowed;
+}
+
+/* ---- Sidebar shell ---- */
+
+.collab-editor__sidebar {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #ececea;
+  background: #fafaf9;
+  overflow-y: auto;
+}
+
+.collab-sidebar {
+  padding: 14px;
+  border-bottom: 1px solid #ececea;
+}
+
+.collab-sidebar__title {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #6b6b66;
+}
+
+.collab-sidebar__empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #888;
+}
+
+.collab-sidebar__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---- Thread cards ---- */
+
+.thread-card {
+  background: #fff;
+  border: 1px solid #ececea;
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+
+.thread-card:hover {
+  border-color: #d6d6cf;
+}
+
+.thread-card--active {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.thread-card--resolved {
+  opacity: 0.6;
+}
+
+.thread-card__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  margin-bottom: 6px;
+}
+
+.thread-card__author {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.thread-card__time {
+  color: #888;
+}
+
+.thread-card__spacer {
+  flex: 1;
+}
+
+.thread-card__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: #888;
+  cursor: pointer;
+}
+
+.thread-card__icon-btn:hover {
+  background: #f4f4f1;
+  color: #1f2937;
+}
+
+.thread-card__comment {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.thread-card__author-inline {
+  font-weight: 600;
+  color: #4a4a44;
+  margin-right: 4px;
+}
+
+.thread-card__body {
+  color: #1f2937;
+}
+
+.thread-card__reply {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.thread-card__reply-input {
+  flex: 1;
+  border: 1px solid #d6d6cf;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 0.82rem;
+  outline: none;
+}
+
+.thread-card__reply-input:focus {
+  border-color: #6366f1;
+}
+
+.thread-card__reply-btn {
+  background: #1f2937;
+  color: #fff;
+  border: 0;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.thread-card__reply-btn:disabled {
+  background: #d6d6cf;
+  color: #9a9a92;
+  cursor: not-allowed;
+}
+
+/* ---- Snapshot cards ---- */
+
+.snapshot-card {
+  background: #fff;
+  border: 1px solid #ececea;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.snapshot-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+}
+
+.snapshot-card__version {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.snapshot-card__time {
+  color: #888;
+}
+
+.snapshot-card__spacer {
+  flex: 1;
+}
+
+.snapshot-card__btn {
+  background: transparent;
+  border: 1px solid #d6d6cf;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 0.75rem;
+  color: #4a4a44;
+  cursor: pointer;
+}
+
+.snapshot-card__btn:hover {
+  background: #f4f4f1;
+  color: #1f2937;
+}
+
+.editor-shell--collab {
+  max-width: 1200px;
+}
+
+.editor-shell--collab .editor-title code {
+  background: #efefea;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
