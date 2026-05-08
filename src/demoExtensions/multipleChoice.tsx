@@ -122,8 +122,18 @@ export function buildQuiz(
 /**
  * Quiz block — contentDOM holds prompt + choice children. The
  * "Add choice" button sits below them (outside contentDOM).
+ *
+ * `...props` carries decoration-derived attrs (class / style / data-*)
+ * onto the outer element. Without spreading, the shuffle plugin's
+ * `start-X end-Y` grid-placement classes get dropped and the block
+ * collapses to 1 column wide.
  */
-export function QuizView({ nodeProps, ref, children }: NodeViewComponentProps) {
+export function QuizView({
+  nodeProps,
+  ref,
+  children,
+  ...props
+}: NodeViewComponentProps) {
   const { node, getPos, contentDOMRef } = nodeProps;
 
   const addChoice = useEditorEventCallback((view) => {
@@ -138,8 +148,12 @@ export function QuizView({ nodeProps, ref, children }: NodeViewComponentProps) {
     view.dispatch(view.state.tr.insert(endOfContent, newChoice).scrollIntoView());
   });
 
+  const className = ["pp-quiz", (props as { className?: string }).className]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div ref={ref} className="pp-quiz">
+    <div ref={ref} {...props} className={className}>
       <div className="pp-quiz-label" contentEditable={false}>
         Multiple choice
       </div>
@@ -159,9 +173,20 @@ export function QuizView({ nodeProps, ref, children }: NodeViewComponentProps) {
 }
 
 /** Prompt — labeled editable text field. */
-export function QuizPromptView({ nodeProps, ref, children }: NodeViewComponentProps) {
+export function QuizPromptView({
+  nodeProps,
+  ref,
+  children,
+  ...props
+}: NodeViewComponentProps) {
+  const className = [
+    "pp-quiz-prompt-wrapper",
+    (props as { className?: string }).className,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <div ref={ref} className="pp-quiz-prompt-wrapper">
+    <div ref={ref} {...props} className={className}>
       <div ref={nodeProps.contentDOMRef} className="pp-quiz-prompt">
         {children}
       </div>
@@ -174,6 +199,7 @@ export function QuizChoiceView({
   nodeProps,
   ref,
   children,
+  ...props
 }: NodeViewComponentProps) {
   const { node, getPos } = nodeProps;
   const correct = !!node.attrs["correct"];
@@ -229,11 +255,16 @@ export function QuizChoiceView({
     canDelete = count > 1;
   }
 
+  const className = [
+    "pp-quiz-choice",
+    correct ? "pp-quiz-choice--correct" : "",
+    (props as { className?: string }).className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div
-      ref={ref}
-      className={`pp-quiz-choice${correct ? " pp-quiz-choice--correct" : ""}`}
-    >
+    <div ref={ref} {...props} className={className}>
       <input
         type="radio"
         checked={correct}

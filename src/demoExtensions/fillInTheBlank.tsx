@@ -145,9 +145,20 @@ export function ClozeView({
   ref,
   nodeProps,
   children,
+  ...props
 }: NodeViewComponentProps) {
+  // `...props` carries the shuffle plugin's `start-X end-Y` grid-
+  // placement classes onto the outer element. Without spreading them
+  // the cloze block collapses to a single grid column.
+  const className = [
+    "pp-item",
+    "pp-cloze",
+    (props as { className?: string }).className,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <div ref={ref} className="pp-item pp-cloze">
+    <div ref={ref} {...props} className={className}>
       <div className="pp-item-label" contentEditable={false}>
         Fill in the blanks
       </div>
@@ -162,9 +173,16 @@ export function ClozePromptView({
   ref,
   nodeProps,
   children,
+  ...props
 }: NodeViewComponentProps) {
+  const className = [
+    "pp-cloze-prompt-wrapper",
+    (props as { className?: string }).className,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <div ref={ref} className="pp-cloze-prompt-wrapper">
+    <div ref={ref} {...props} className={className}>
       <div ref={nodeProps.contentDOMRef} className="pp-cloze-prompt">
         {children}
       </div>
