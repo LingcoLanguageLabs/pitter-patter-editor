@@ -25,7 +25,7 @@ import { baseKeymap } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import { Schema, type Node as PmNode } from "prosemirror-model";
 import { schema as basic } from "prosemirror-schema-basic";
-import { EditorState } from "prosemirror-state";
+import { EditorState, type Plugin } from "prosemirror-state";
 import { useMemo, useState } from "react";
 
 import "@pitter-patter/shuffle/style/shuffle.css";
@@ -148,12 +148,16 @@ export interface FormBuilderEditorProps {
    * those additions too.
    */
   initialDoc: (schema: Schema) => PmNode;
-  /** Optional schema extension (e.g. addQuizToSchema). */
+  /** Optional schema extension (e.g. addQuizToSchema, addBlankToSchema). */
   extendSchema?: (schema: Schema) => Schema;
   /** Additional nodeViewComponents to merge with the defaults. */
   extraNodeViewComponents?: Record<string, React.ComponentType<NodeViewComponentProps>>;
   /** Additional drag handles, keyed by node name. */
   extraDragHandles?: Record<string, React.ComponentType<HandleProps>>;
+  /** Extra plugins (e.g. keymaps for story-only commands). */
+  extraPlugins?: Plugin[];
+  /** Optional bubble/overlay components mounted inside <ProseMirror>. */
+  overlays?: React.ReactNode;
 }
 
 export function FormBuilderEditor({
@@ -161,6 +165,8 @@ export function FormBuilderEditor({
   extendSchema,
   extraNodeViewComponents,
   extraDragHandles,
+  extraPlugins,
+  overlays,
 }: FormBuilderEditorProps) {
   const editorState = useMemo(() => {
     const schema = buildShuffleSchema(extendSchema);
@@ -171,6 +177,7 @@ export function FormBuilderEditor({
         shuffle({
           dragHandles: { ...baseDragHandles, ...extraDragHandles },
         }),
+        ...(extraPlugins ?? []),
         keymap(baseKeymap),
       ],
     });
@@ -191,6 +198,7 @@ export function FormBuilderEditor({
         <ProseMirrorDoc />
         <ResizeHandles />
       </ShuffleSkeleton>
+      {overlays}
     </ProseMirror>
   );
 }

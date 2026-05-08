@@ -1,6 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { Schema } from "prosemirror-model";
 
+import "./demoExtensions/formBuilder.css";
+
+import {
+  addClozeToSchema,
+  blankKeymap,
+  buildCloze,
+  clozeNodeViewComponents,
+  FillInTheBlankBubbleMenu,
+} from "./demoExtensions/fillInTheBlank";
 import {
   addQuizToSchema,
   buildQuiz,
@@ -8,7 +17,22 @@ import {
 } from "./demoExtensions/multipleChoice";
 import { createHandle, FormBuilderEditor } from "./FormBuilderEditor";
 
-const quizDragHandles = { quiz: createHandle("Quiz") };
+/** Combined schema extender — quiz items + cloze items. */
+const addFormBuilderSchema = (schema: Schema) =>
+  addClozeToSchema(addQuizToSchema(schema));
+
+const formItemDragHandles = {
+  quiz: createHandle("Quiz"),
+  cloze: createHandle("Cloze"),
+};
+
+const formItemNodeViewComponents = {
+  ...quizNodeViewComponents,
+  ...clozeNodeViewComponents,
+};
+
+const formItemPlugins = [blankKeymap()];
+const formItemOverlays = <FillInTheBlankBubbleMenu />;
 
 const meta: Meta = {
   title: "Form Builder",
@@ -106,9 +130,80 @@ export const ReadingWithQuiz: Story = {
       <div className="editor-surface editor-surface--shuffle">
         <FormBuilderEditor
           initialDoc={buildReadingQuizDoc}
-          extendSchema={addQuizToSchema}
-          extraNodeViewComponents={quizNodeViewComponents}
-          extraDragHandles={quizDragHandles}
+          extendSchema={addFormBuilderSchema}
+          extraNodeViewComponents={formItemNodeViewComponents}
+          extraDragHandles={formItemDragHandles}
+          extraPlugins={formItemPlugins}
+          overlays={formItemOverlays}
+        />
+      </div>
+    </div>
+  ),
+};
+
+// ─────────────────────────────────────────── Reading + fill-in-the-blanks
+
+const buildClozeDoc = (schema: Schema) => {
+  const p = (text: string) =>
+    schema.nodes["paragraph"]!.create(null, schema.text(text));
+  const h = (level: number, text: string) =>
+    schema.nodes["heading"]!.create({ level }, schema.text(text));
+
+  return schema.nodes["doc"]!.create(null, [
+    schema.nodes["row"]!.create({ shuffleStart: 0, shuffleEnd: 13 }, [
+      schema.nodes["container"]!.create({ shuffleStart: 1, shuffleEnd: 12 }, [
+        h(1, "Photosynthesis"),
+        p(
+          "Plants make their own food using sunlight. They store the food as sugar and release oxygen as a side product. The two cloze items below ask you to fill in the missing terms.",
+        ),
+        h(2, "Practice"),
+        buildCloze(
+          schema,
+          [
+            "Plants make their own food through a process called ",
+            { blank: "photosynthesis" },
+            ". This happens mostly inside organelles called ",
+            { blank: "chloroplasts" },
+            ", which contain a green pigment named ",
+            { blank: "chlorophyll" },
+            ".",
+          ],
+          { shuffleStart: 1, shuffleEnd: 12 },
+        ),
+        buildCloze(
+          schema,
+          [
+            "The basic reaction takes carbon dioxide and water, plus energy from sunlight, and produces ",
+            { blank: "glucose" },
+            " and ",
+            { blank: "oxygen" },
+            ". Animals breathe in the oxygen plants release.",
+          ],
+          { shuffleStart: 1, shuffleEnd: 12 },
+        ),
+        p(
+          "Click inside any cloze prompt above, highlight a word, and the bubble lets you mark it as a blank (or remove an existing one). Highlighting elsewhere in the document does nothing — the action is scoped to cloze prompts.",
+        ),
+      ]),
+    ]),
+  ]);
+};
+
+export const ReadingWithBlanks: Story = {
+  name: "Reading + fill-in-the-blanks",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">
+        Fill-in-the-blanks — highlight inside a prompt to toggle a blank
+      </h2>
+      <div className="editor-surface editor-surface--shuffle">
+        <FormBuilderEditor
+          initialDoc={buildClozeDoc}
+          extendSchema={addFormBuilderSchema}
+          extraNodeViewComponents={formItemNodeViewComponents}
+          extraDragHandles={formItemDragHandles}
+          extraPlugins={formItemPlugins}
+          overlays={formItemOverlays}
         />
       </div>
     </div>
