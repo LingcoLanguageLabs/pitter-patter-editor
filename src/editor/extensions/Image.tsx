@@ -272,7 +272,16 @@ class ImageNodeView implements NodeView {
         parentWidth,
       );
       const nextPercent = Math.round((nextWidthPx / parentWidth) * 100);
-      const clamped = clamp(nextPercent, MIN_WIDTH_PERCENT, MAX_WIDTH_PERCENT);
+      let clamped = clamp(nextPercent, MIN_WIDTH_PERCENT, MAX_WIDTH_PERCENT);
+      // Hold Shift to snap to common widths (matches the slider in the
+      // bubble menu). Image height is intrinsic so aspect ratio is
+      // already preserved by the layout.
+      if (moveEvent.shiftKey) {
+        const snaps = [25, 50, 75, 100];
+        clamped = snaps.reduce((best, snap) =>
+          Math.abs(snap - clamped) < Math.abs(best - clamped) ? snap : best,
+        snaps[0]!);
+      }
       this.figure.style.width = `${clamped}%`;
     };
 

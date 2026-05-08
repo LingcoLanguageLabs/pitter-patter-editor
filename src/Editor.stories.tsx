@@ -15,10 +15,12 @@ import {
   MentionPopover,
   SlashMenuPopover,
   TableOfContentsView,
+  UnsplashPicker,
   VariableEditPopover,
 } from "./editor/extensions";
 import { BubbleMenu } from "./BubbleMenu";
 import { ImageBubbleMenu } from "./ImageBubbleMenu";
+import { ImageContextMenu } from "./ImageContextMenu";
 import { StatsBar } from "./StatsBar";
 import { TableBubbleMenu } from "./TableBubbleMenu";
 import { Toolbar } from "./Toolbar";
@@ -33,6 +35,7 @@ function EditorOverlays() {
     <>
       <TableBubbleMenu />
       <ImageBubbleMenu />
+      <ImageContextMenu />
       <SlashMenuPopover />
       <MentionPopover />
       <EmojiPopover />
@@ -40,6 +43,7 @@ function EditorOverlays() {
       <VariableEditPopover />
       <LinkHoverPopover />
       <AiDock />
+      <UnsplashPicker />
     </>
   );
 }

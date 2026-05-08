@@ -2,6 +2,7 @@ import {
   AlignCenterHorizontalSimple,
   AlignLeft,
   AlignRight,
+  MagicWand,
   Trash,
 } from "@phosphor-icons/react";
 import {
@@ -21,6 +22,8 @@ import {
   ToolbarSeparator,
   TooltipProvider,
 } from "./editor/menu";
+
+const AI_ALT_ENDPOINT = "http://localhost:3001/api/ai/alt";
 
 export function isImageNode(state: EditorState): boolean {
   return (
@@ -73,6 +76,7 @@ function ImageMenuContents() {
   const current = readImageState(editorState);
   const [draftAlt, setDraftAlt] = useState(current.alt);
   const [draftWidth, setDraftWidth] = useState(current.widthPercent);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     setDraftAlt(current.alt);
@@ -113,6 +117,49 @@ function ImageMenuContents() {
     view.dispatch(view.state.tr.deleteSelection());
   });
 
+  const generateAlt = useEditorEventCallback(async (view) => {
+    if (!view) return;
+    const { selection } = view.state;
+    if (!(selection instanceof NodeSelection)) return;
+    if (selection.node.type.name !== "image") return;
+    const src = selection.node.attrs["src"] as string | undefined;
+    if (!src) return;
+    setGenerating(true);
+    setDraftAlt("");
+    try {
+      const response = await fetch(AI_ALT_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ src }),
+      });
+      if (!response.ok || !response.body) return;
+      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffered = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
+        buffered += value;
+        setDraftAlt(buffered);
+      }
+      // Persist final alt onto the node.
+      const finalAlt = buffered.trim();
+      if (finalAlt) {
+        const sel = view.state.selection;
+        if (sel instanceof NodeSelection && sel.node.type.name === "image") {
+          view.dispatch(
+            view.state.tr.setNodeMarkup(sel.from, undefined, {
+              ...sel.node.attrs,
+              alt: finalAlt,
+            }),
+          );
+        }
+      }
+    } finally {
+      setGenerating(false);
+    }
+  });
+
   return (
     <ToolbarPrimitive variant="floating">
       <ToolbarGroup>
@@ -130,7 +177,16 @@ function ImageMenuContents() {
               (e.target as HTMLInputElement).blur();
             }
           }}
+          disabled={generating}
         />
+        <MenuItem
+          onClick={() => generateAlt()}
+          tooltip="Generate alt text with AI"
+          disabled={generating}
+          active={generating}
+        >
+          <MagicWand size={14} weight="bold" />
+        </MenuItem>
       </ToolbarGroup>
       <ToolbarSeparator />
       <ToolbarGroup>

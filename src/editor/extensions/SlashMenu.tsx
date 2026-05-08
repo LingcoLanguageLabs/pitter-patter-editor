@@ -3,6 +3,7 @@ import {
   CodeBlock as CodeBlockIcon,
   Folder,
   GridNine,
+  ImageSquare,
   Info,
   Lightbulb,
   ListBullets,
@@ -29,6 +30,7 @@ import { toggleList } from "../helpers";
 import { createSuggestionPlugin, SuggestionPopover } from "../menu";
 import { Extension } from "../types";
 import { aiOpenDock, aiPluginKey } from "./Ai";
+import { unsplashOpen, unsplashPluginKey } from "./Unsplash";
 
 const { plugin, key } = createSuggestionPlugin({ char: "/" });
 
@@ -66,6 +68,18 @@ function buildItems(schema: Schema): SlashItem[] {
       // No-op if the AI extension isn't installed.
       if (!aiPluginKey.getState(view.state)) return;
       aiOpenDock()(view.state, view.dispatch);
+    },
+  });
+
+  items.push({
+    id: "unsplash",
+    label: "Insert from Unsplash",
+    description: "Search and insert a photo",
+    Icon: ImageSquare,
+    keywords: ["unsplash", "photo", "image", "picture", "stock"],
+    command: (view) => {
+      if (!unsplashPluginKey.getState(view.state)) return;
+      unsplashOpen()(view.state, view.dispatch);
     },
   });
 

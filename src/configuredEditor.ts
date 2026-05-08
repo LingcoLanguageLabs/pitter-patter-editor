@@ -70,6 +70,7 @@ import {
   Underline,
   Undo,
   UniqueID,
+  Unsplash,
   Variables,
   Video,
   YouTube,
@@ -144,6 +145,7 @@ export const editor = createEditor([
   // Insert (media + content blocks)
   Image,
   DemoImageUpload,
+  Unsplash,
   YouTube,
   Video,
   Audio,

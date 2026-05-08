@@ -65,6 +65,16 @@ export { Highlight } from "./Highlight";
 export { HorizontalRule } from "./HorizontalRule";
 export { HoverLink, LinkHoverPopover } from "./HoverLink";
 export { Image, setImageAlign, setImageWidth } from "./Image";
+export {
+  Unsplash,
+  UnsplashPicker,
+  createUnsplash,
+  unsplashClose,
+  unsplashOpen,
+  unsplashPluginKey,
+  useUnsplash,
+} from "./Unsplash";
+export type { UnsplashOptions, UnsplashPhoto, UseUnsplashResult } from "./Unsplash";
 export type { ImageAlign } from "./Image";
 export {
   createImageUpload,

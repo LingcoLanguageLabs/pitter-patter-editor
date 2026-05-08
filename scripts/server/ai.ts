@@ -168,6 +168,53 @@ interface EditRequestBody {
   schemaAwareness?: string;
 }
 
+aiRoutes.post("/alt", async (c) => {
+  if (!process.env["ANTHROPIC_API_KEY"]) {
+    return c.json(
+      {
+        error:
+          "ANTHROPIC_API_KEY is not set. Add it to .env or your shell env.",
+      },
+      500,
+    );
+  }
+  const body = (await c.req.json().catch(() => null)) as {
+    src?: string;
+  } | null;
+  const src = body?.src?.trim();
+  if (!src) {
+    return c.json({ error: "Body must include { src: string }" }, 400);
+  }
+
+  let imageUrl: URL;
+  try {
+    imageUrl = new URL(src);
+  } catch {
+    return c.json({ error: "src must be a valid URL" }, 400);
+  }
+
+  const result = streamText({
+    model: anthropic("claude-haiku-4-5"),
+    system:
+      "You generate concise, accessible alt text for images. Return only the alt text — no preamble, no markdown, no quotes. Aim for under 140 characters. Describe the visible subject and notable context. Skip phrases like 'image of' or 'picture of'.",
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Generate accessible alt text for this image.",
+          },
+          { type: "image", image: imageUrl },
+        ],
+      },
+    ],
+    maxOutputTokens: 256,
+  });
+
+  return result.toTextStreamResponse();
+});
+
 aiRoutes.post("/edit", async (c) => {
   if (!process.env["ANTHROPIC_API_KEY"]) {
     return c.json(

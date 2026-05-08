@@ -17,6 +17,7 @@ import { cors } from "hono/cors";
 
 import { aiRoutes } from "./server/ai";
 import { collabRoutes } from "./server/collab";
+import { unsplashRoutes } from "./server/unsplash";
 
 const app = new Hono();
 
@@ -29,6 +30,9 @@ app.route("/api/ai", aiRoutes);
 
 // ── /api/docs/...   — pitter-patter collab + presence + comments + snapshots
 app.route("/api/docs", collabRoutes);
+
+// ── /api/unsplash/...  — Unsplash photo search proxy
+app.route("/api/unsplash", unsplashRoutes);
 
 const port = Number(process.env["PORT"] ?? 3001);
 
