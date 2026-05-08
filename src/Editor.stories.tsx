@@ -254,12 +254,14 @@ export const Pages: Story = {
   render: () => (
     <div className="editor-shell">
       <h2 className="editor-title">
-        Pages — A4 / Letter / Legal · double-click a header or footer to edit
+        Pages — Letter / A4 / Legal · double-click a header or footer to edit
       </h2>
       <div className="editor-surface editor-surface--pages">
         <pagesEditor.Editor baseSchema={basicSchema} initialDoc={buildPagesDoc}>
           <Toolbar />
-          <ProseMirrorDoc />
+          <div className="editor-deck">
+            <ProseMirrorDoc />
+          </div>
           <PageHeaderFooterEditor />
           <SlashMenuPopover />
         </pagesEditor.Editor>

@@ -247,7 +247,9 @@ export const pagesEditor = createEditor([
   PageBreak,
   Separator,
   createPages({
-    format: "A4",
+    // Letter is the standard 8.5×11" page in the United States.
+    // Switch to A4 (or any other PAGE_FORMATS entry) via the toolbar.
+    format: "Letter",
     differentFirstPage: false,
     differentOddEven: false,
     header: '<p style="text-align:center">Pitter Patter Editor</p>',

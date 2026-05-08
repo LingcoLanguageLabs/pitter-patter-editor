@@ -3069,20 +3069,42 @@ kbd.pp-kbd {
    floats inside its parent surface. Page boundaries are drawn by the
    widget decoration's stripe overlays. */
 
+/* Pages mode laid out like Google Docs / Word:
+   shell  →  toolbar (fixed at the top, always visible)
+          →  deck   (gray gutter that scrolls — owns the page stack)
+   The white pages sit centered in the deck with vertical breathing
+   room. Scrolling moves the deck only; the toolbar stays put. */
 .editor-surface--pages {
-  background: #f4f4f1;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  border-radius: 0;
-  box-shadow: none;
-  border: 0;
+  height: calc(100vh - 8rem);
+  background: white;
+  border: 1px solid #e3e3df;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-/* Center the page within the gray surface and add vertical breathing
-   room around it. The toolbar (a sibling) keeps its own background. */
-.editor-surface--pages > .ProseMirror--pages {
-  margin: 32px auto;
+/* Toolbar sits as a fixed-height header inside the surface. */
+.editor-surface--pages > .pp-toolbar[data-variant="fixed"],
+.editor-surface--pages .pp-toolbar[data-variant="fixed"] {
+  flex: 0 0 auto;
+  border-bottom: 1px solid #ececea;
+  background: #fbfbf9;
+  z-index: 30;
+}
+
+/* The deck is the gray gutter — the scroll viewport. */
+.editor-deck {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: #f4f4f1;
+  padding: 32px 0;
+}
+
+/* Center each page in the deck; vertical margins handle gap-from-edges. */
+.editor-deck > .ProseMirror--pages {
+  margin: 0 auto;
 }
 
 /* Note: doubled `.ProseMirror.ProseMirror--pages` selector for higher
@@ -3100,7 +3122,11 @@ kbd.pp-kbd {
   grid-area: initial;
   row-gap: initial;
   width: calc(var(--pp-page-width) - var(--pp-page-margin-left) - var(--pp-page-margin-right));
-  padding: var(--pp-page-margin-top) var(--pp-page-margin-right) var(--pp-page-margin-bottom) var(--pp-page-margin-left);
+  /* Horizontal padding only — the header/footer floats are the visual
+     top/bottom margins of each page. Adding padding-top/bottom would
+     push the header band down inside the page, leaving wasted whitespace
+     above it. */
+  padding: 0 var(--pp-page-margin-right) 0 var(--pp-page-margin-left);
   background: white;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 8px 32px rgba(0, 0, 0, 0.06);
   border-radius: 2px;
