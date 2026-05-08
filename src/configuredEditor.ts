@@ -3,6 +3,7 @@ import type { Schema } from "prosemirror-model";
 import { createEditor } from "./editor";
 import {
   Ai,
+  AiCaret,
   Anchor,
   Audio,
   Bold,
@@ -93,6 +94,7 @@ export const editor = createEditor([
 
   // AI assistant
   Ai,
+  AiCaret,
   Separator,
 
   // Block style + font (Docs has these adjacent: "Normal text" then font/size)

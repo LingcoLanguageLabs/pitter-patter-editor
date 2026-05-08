@@ -1,5 +1,7 @@
 import {
   ArrowClockwise,
+  ArrowLeft,
+  ArrowRight,
   ArrowUp,
   Check,
   ListBullets,
@@ -17,10 +19,11 @@ import {
   useEditorEventCallback,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
-import { Slice } from "prosemirror-model";
+import { Fragment } from "prosemirror-model";
 import {
   Plugin,
   PluginKey,
+  TextSelection,
   type Command,
   type EditorState,
 } from "prosemirror-state";
@@ -32,14 +35,16 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ComponentType,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
 
 import { MenuItem } from "../menu/MenuItem";
 import { Extension } from "../types";
+import { hideAiCaret, showAiCaret } from "./AiCaret";
 
-// ─────────────────────────────────────────────────── Types
+// ────────────────────────────────────────────────────────────── Types
 
 export type AiStatus = "idle" | "streaming" | "done" | "error";
 
@@ -54,188 +59,277 @@ export type AiPresetMode =
   | "tone-casual"
   | "translate";
 
+/**
+ * A pending change the AI has produced. The original `range` content
+ * stays in the doc and the proposed `replacement` renders as a widget
+ * decoration next to it; accepting swaps them, rejecting drops the
+ * suggestion. Multiple suggestions can coexist (proofread-style).
+ */
+export interface Suggestion {
+  id: string;
+  /** Original range in the live doc — mapped forward across edits. */
+  range: { from: number; to: number };
+  /** What replaces the range. Streamed in incrementally. */
+  replacement: string;
+  /** True while chunks are still arriving. */
+  streaming: boolean;
+  /** Provenance — used by `aiRegenerate` to re-issue the same request. */
+  generatedWith?: {
+    mode?: AiPresetMode;
+    instruction?: string;
+    language?: string;
+  };
+}
+
 export interface AiState {
   status: AiStatus;
-  /**
-   * The original content the AI is replacing. Captured at start time
-   * and restored on reject (and reused as the source on regenerate).
-   * `null` for prompt-mode requests with no selection.
-   */
-  replacedSlice: Slice | null;
-  /** Plain-text version of `replacedSlice` — what we send to the model. */
-  sourceText: string;
-  /** Where the streamed text lives. `from`==`to` until the first chunk arrives. */
-  streamRange: { from: number; to: number } | null;
-  /** What we asked for — used by aiRegenerate. */
-  generatedWith:
-    | { mode?: AiPresetMode; instruction?: string; language?: string }
-    | null;
+  suggestions: Suggestion[];
+  selectedSuggestionId: string | null;
   error: string | null;
   /**
-   * Monotonically-incrementing tick. Bumped by `aiOpenDock` so the
-   * `<AiDock />` component's effect can react and focus its textarea
-   * even when the dock was already expanded.
+   * Bumped by `aiOpenDock` so the dock's React effect can react and
+   * focus the textarea even when already expanded.
    */
   focusTick: number;
   /**
-   * Selection range remembered when the dock was opened. The dock
-   * loses selection focus when the textarea takes it, so we stash the
-   * range here and read it back when the user submits a preset mode.
-   * Mapped forward across edits.
+   * Selection range remembered when the dock opened. The dock loses
+   * selection focus when its textarea takes over, so we stash the range
+   * here and read it back when the user submits a preset mode.
    */
   dockSelection: { from: number; to: number } | null;
+  /**
+   * Stage label driving the dock's "thinking" status text.
+   *  - "thinking" → "AI is thinking…"
+   *  - "reading"  → "Reading document"
+   *  - "editing"  → "Applying edits"
+   */
+  thinkingStage: "thinking" | "reading" | "editing";
 }
 
 export interface AiExample {
-  /** Stable id for the example. */
   value: string;
-  /** Label shown in the popover. */
   label: string;
-  /** Optional icon component (Phosphor or any SVG-emitting component). */
-  icon?: React.ComponentType<{ size?: number; weight?: "regular" | "bold" }>;
-  /** Search keywords for typeahead filtering. */
+  icon?: ComponentType<{ size?: number; weight?: "regular" | "bold" }>;
   keywords?: string[];
-  /** Hard-coded prompt sent as the user instruction. Ignored if `mode` is set. */
   prompt?: string;
-  /** Preset mode — uses the server-side preset system prompt. */
   mode?: AiPresetMode;
-  /** Optional language hint for translate-mode examples. */
   language?: string;
 }
 
 export interface AiOptions {
-  /** Backend URL. Defaults to the local dev-server. */
   baseUrl?: string;
-  /**
-   * Examples surfaced in the popover above the dock. When omitted,
-   * the editor's default presets are used (Rephrase / Shorten / etc.).
-   */
   examples?: AiExample[];
 }
 
 export interface AiRequestOptions {
-  /** Run a preset mode (`rephrase`, `shorten`, …). */
   mode?: AiPresetMode;
-  /** Freeform instruction — ignored when `mode` is set. */
   instruction?: string;
-  /** Target language for `mode: "translate"`. */
   language?: string;
-  /** Override the backend URL for this request. */
   baseUrl?: string;
-  /** Abort the request mid-stream. */
   signal?: AbortSignal;
-  /**
-   * Re-run the previous request, reusing its replacedSlice and source
-   * text. Replaces the existing streamed range in place.
-   */
-  regenerate?: boolean;
+  /** Re-issue the same request that produced `suggestionId`. */
+  regenerate?: { suggestionId: string };
 }
 
 interface AiMeta {
   type:
-    | "start"
-    | "chunk"
-    | "complete"
+    | "start-suggestion"
+    | "append-suggestion"
+    | "settle-suggestion"
+    | "remove-suggestion"
+    | "select-suggestion"
+    | "set-stage"
     | "error"
-    | "accept"
-    | "reject"
     | "reset"
     | "open-dock"
     | "close-dock";
-  replacedSlice?: Slice | null;
-  sourceText?: string;
-  streamPos?: number;
-  message?: string;
-  generatedWith?: AiState["generatedWith"];
+  suggestionId?: string;
+  range?: { from: number; to: number };
+  text?: string;
   selection?: { from: number; to: number } | null;
+  stage?: AiState["thinkingStage"];
+  message?: string;
+  generatedWith?: Suggestion["generatedWith"];
 }
 
 const INITIAL_STATE: AiState = {
   status: "idle",
-  replacedSlice: null,
-  sourceText: "",
-  streamRange: null,
-  generatedWith: null,
+  suggestions: [],
+  selectedSuggestionId: null,
   error: null,
   focusTick: 0,
   dockSelection: null,
+  thinkingStage: "thinking",
 };
 
 export const aiPluginKey = new PluginKey<AiState>("pp-ai");
 
-// ─────────────────────────────────────────────────── Plugin
+const DEFAULT_BASE_URL = "http://localhost:3001/api/ai";
 
-function buildDecorations(state: EditorState, ai: AiState): DecorationSet {
-  if (!ai.streamRange) return DecorationSet.empty;
-  const { from, to } = ai.streamRange;
-  if (from === to) return DecorationSet.empty;
-  const className =
-    ai.status === "streaming"
-      ? "pp-ai-preview pp-ai-preview-streaming"
-      : ai.status === "done"
-        ? "pp-ai-preview pp-ai-preview-done"
-        : "pp-ai-preview pp-ai-preview-error";
-  return DecorationSet.create(state.doc, [
-    Decoration.inline(from, to, { class: className }),
-  ]);
+function nextSuggestionId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `s-${Math.random().toString(36).slice(2, 10)}`;
 }
+
+function mapRange(
+  range: { from: number; to: number },
+  mapping: import("prosemirror-transform").Mapping,
+): { from: number; to: number } {
+  return {
+    from: mapping.map(range.from, -1),
+    to: mapping.map(range.to, 1),
+  };
+}
+
+// ────────────────────────────────────────────────────────────── Decorations
+
+function buildSuggestionDecorations(
+  state: EditorState,
+  ai: AiState,
+): DecorationSet {
+  const decos: Decoration[] = [];
+  for (const sugg of ai.suggestions) {
+    const isSelected = sugg.id === ai.selectedSuggestionId;
+    const baseClass =
+      "pp-ai-suggestion" +
+      (isSelected ? " pp-ai-suggestion--selected" : "") +
+      (sugg.streaming ? " pp-ai-suggestion--streaming" : "");
+
+    // Existing range overlay (only if the original isn't empty — for
+    // pure-insertion suggestions there's nothing to underline).
+    if (sugg.range.to > sugg.range.from) {
+      decos.push(
+        Decoration.inline(sugg.range.from, sugg.range.to, {
+          class: baseClass,
+          "data-suggestion-id": sugg.id,
+        }),
+      );
+    }
+
+    // Replacement widget — rendered next to the original range. While
+    // streaming we paint each chunk as it arrives.
+    if (sugg.replacement.length > 0 || sugg.streaming) {
+      const widget = document.createElement("span");
+      widget.className =
+        "pp-ai-suggestion-diff" +
+        (isSelected ? " pp-ai-suggestion-diff--selected" : "") +
+        (sugg.streaming ? " pp-ai-suggestion-diff--streaming" : "");
+      widget.dataset["suggestionId"] = sugg.id;
+      widget.textContent = sugg.replacement;
+      widget.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+      });
+      decos.push(
+        Decoration.widget(sugg.range.to, widget, {
+          side: 1,
+          key: `sugg-${sugg.id}`,
+          ignoreSelection: true,
+        }),
+      );
+    }
+  }
+  return decos.length === 0
+    ? DecorationSet.empty
+    : DecorationSet.create(state.doc, decos);
+}
+
+// ────────────────────────────────────────────────────────────── Plugin
 
 function aiPlugin(): Plugin<AiState> {
   return new Plugin<AiState>({
     key: aiPluginKey,
     state: {
       init: () => INITIAL_STATE,
-      apply(tr, prev) {
-        // Map streamRange + dockSelection forward across every
-        // transaction so they track edits.
-        const mapStream = prev.streamRange
-          ? {
-              from: tr.mapping.map(prev.streamRange.from, -1),
-              to: tr.mapping.map(prev.streamRange.to, 1),
-            }
-          : null;
-        const mapDockSelection = prev.dockSelection
-          ? {
-              from: tr.mapping.map(prev.dockSelection.from, -1),
-              to: tr.mapping.map(prev.dockSelection.to, 1),
-            }
+      apply(tr, prev): AiState {
+        // Map suggestion ranges + dockSelection forward.
+        const mappedSuggestions = prev.suggestions.map((s) => ({
+          ...s,
+          range: mapRange(s.range, tr.mapping),
+        }));
+        const mappedDockSelection = prev.dockSelection
+          ? mapRange(prev.dockSelection, tr.mapping)
           : null;
         const next: AiState = {
           ...prev,
-          streamRange: mapStream,
-          dockSelection: mapDockSelection,
+          suggestions: mappedSuggestions,
+          dockSelection: mappedDockSelection,
         };
 
         const meta = tr.getMeta(aiPluginKey) as AiMeta | undefined;
         if (!meta) return next;
 
         switch (meta.type) {
-          case "start":
-            return {
-              status: "streaming",
-              replacedSlice: meta.replacedSlice ?? null,
-              sourceText: meta.sourceText ?? "",
-              streamRange: {
-                from: meta.streamPos ?? 0,
-                to: meta.streamPos ?? 0,
-              },
-              generatedWith: meta.generatedWith ?? null,
-              error: null,
-              focusTick: next.focusTick,
-              dockSelection: next.dockSelection,
+          case "start-suggestion": {
+            const suggestion: Suggestion = {
+              id: meta.suggestionId ?? nextSuggestionId(),
+              range: meta.range ?? { from: 0, to: 0 },
+              replacement: "",
+              streaming: true,
+              generatedWith: meta.generatedWith,
             };
-          case "chunk":
-            return next;
-          case "complete":
-            return { ...next, status: "done" };
+            return {
+              ...next,
+              status: "streaming",
+              error: null,
+              suggestions: [...next.suggestions, suggestion],
+              selectedSuggestionId: suggestion.id,
+            };
+          }
+          case "append-suggestion": {
+            if (!meta.suggestionId || meta.text == null) return next;
+            return {
+              ...next,
+              suggestions: next.suggestions.map((s) =>
+                s.id === meta.suggestionId
+                  ? { ...s, replacement: s.replacement + meta.text }
+                  : s,
+              ),
+            };
+          }
+          case "settle-suggestion": {
+            const updated = next.suggestions.map((s) =>
+              s.id === meta.suggestionId ? { ...s, streaming: false } : s,
+            );
+            const stillStreaming = updated.some((s) => s.streaming);
+            return {
+              ...next,
+              status: stillStreaming ? "streaming" : "done",
+              suggestions: updated,
+            };
+          }
+          case "remove-suggestion": {
+            const remaining = next.suggestions.filter(
+              (s) => s.id !== meta.suggestionId,
+            );
+            return {
+              ...next,
+              suggestions: remaining,
+              status: remaining.length === 0
+                ? "idle"
+                : remaining.some((s) => s.streaming)
+                  ? "streaming"
+                  : "done",
+              selectedSuggestionId:
+                next.selectedSuggestionId === meta.suggestionId
+                  ? remaining[0]?.id ?? null
+                  : next.selectedSuggestionId,
+            };
+          }
+          case "select-suggestion":
+            return {
+              ...next,
+              selectedSuggestionId: meta.suggestionId ?? null,
+            };
+          case "set-stage":
+            return { ...next, thinkingStage: meta.stage ?? "thinking" };
           case "error":
             return {
               ...next,
               status: "error",
               error: meta.message ?? "AI request failed",
             };
-          case "accept":
-          case "reject":
           case "reset":
             return { ...INITIAL_STATE, focusTick: next.focusTick };
           case "open-dock":
@@ -255,87 +349,87 @@ function aiPlugin(): Plugin<AiState> {
       decorations(state) {
         const ai = aiPluginKey.getState(state);
         if (!ai) return null;
-        return buildDecorations(state, ai);
+        return buildSuggestionDecorations(state, ai);
       },
     },
   });
 }
 
-// ─────────────────────────────────────────────────── Streaming runner
-
-const DEFAULT_BASE_URL = "http://localhost:3001/api/ai";
+// ────────────────────────────────────────────────────────────── Streaming
 
 export async function runAiRequest(
   view: EditorView,
-  options: AiRequestOptions & { baseUrl?: string; regenerate?: boolean },
+  options: AiRequestOptions & { baseUrl?: string },
 ): Promise<void> {
   const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
 
-  let replacedSlice: Slice | null = null;
-  let sourceText = "";
-  let streamPos: number;
+  let range: { from: number; to: number };
+  let sourceText: string;
+  let suggestionId: string;
+  let regeneratingExisting: Suggestion | undefined;
 
   if (options.regenerate) {
-    // Reuse the slice + source text from the previous request, delete
-    // the existing streamed output, and start over at the same anchor.
-    const prev = aiPluginKey.getState(view.state);
-    if (!prev?.streamRange) return;
-    const { from, to } = prev.streamRange;
-    if (to > from) {
-      view.dispatch(view.state.tr.delete(from, to));
-    }
-    streamPos = from;
-    replacedSlice = prev.replacedSlice;
-    sourceText = prev.sourceText;
-  } else {
-    // Prefer the live PM selection; if the dock has the focus, the live
-    // selection is empty so fall back to the dockSelection we stashed
-    // when the dock opened.
     const ai = aiPluginKey.getState(view.state);
-    const liveSelection = view.state.selection.empty
+    regeneratingExisting = ai?.suggestions.find(
+      (s) => s.id === options.regenerate!.suggestionId,
+    );
+    if (!regeneratingExisting) return;
+    // Drop the existing suggestion before we kick a new stream.
+    view.dispatch(
+      view.state.tr.setMeta(aiPluginKey, {
+        type: "remove-suggestion",
+        suggestionId: regeneratingExisting.id,
+      } satisfies AiMeta),
+    );
+    range = regeneratingExisting.range;
+    sourceText = view.state.doc.textBetween(range.from, range.to, "\n", "\n");
+    suggestionId = nextSuggestionId();
+  } else {
+    // Prefer the live PM selection; otherwise fall back to the
+    // dockSelection we stashed when the dock opened.
+    const ai = aiPluginKey.getState(view.state);
+    const live = view.state.selection.empty
       ? null
       : { from: view.state.selection.from, to: view.state.selection.to };
-    const range = liveSelection ?? ai?.dockSelection ?? null;
-
-    if (range && range.to > range.from) {
-      replacedSlice = view.state.doc.slice(range.from, range.to);
-      sourceText = view.state.doc.textBetween(
-        range.from,
-        range.to,
-        "\n",
-        "\n",
-      );
-      streamPos = range.from;
-      view.dispatch(view.state.tr.delete(range.from, range.to));
-    } else {
-      // Empty cursor — generate at the caret with no source content.
-      streamPos = view.state.selection.from;
-    }
+    const captured = live ?? ai?.dockSelection ?? null;
+    range = captured ?? {
+      from: view.state.selection.from,
+      to: view.state.selection.from,
+    };
+    sourceText =
+      range.to > range.from
+        ? view.state.doc.textBetween(range.from, range.to, "\n", "\n")
+        : "";
+    suggestionId = nextSuggestionId();
   }
+
+  const generatedWith = regeneratingExisting?.generatedWith ?? {
+    mode: options.mode,
+    instruction: options.instruction,
+    language: options.language,
+  };
 
   view.dispatch(
     view.state.tr.setMeta(aiPluginKey, {
-      type: "start",
-      replacedSlice,
-      sourceText,
-      streamPos,
-      generatedWith: {
-        mode: options.mode,
-        instruction: options.instruction,
-        language: options.language,
-      },
+      type: "start-suggestion",
+      suggestionId,
+      range,
+      generatedWith,
     } satisfies AiMeta),
   );
+
+  // AI caret marks where text is being inserted while streaming.
+  showAiCaret(range.to)(view.state, view.dispatch);
 
   try {
     const response = await fetch(baseUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompt: sourceText || (options.instruction ?? ""),
-        instruction: options.instruction,
-        mode: options.mode,
-        language: options.language,
+        prompt: sourceText || generatedWith.instruction || "",
+        instruction: generatedWith.instruction,
+        mode: generatedWith.mode,
+        language: generatedWith.language,
       }),
       signal: options.signal,
     });
@@ -354,36 +448,33 @@ export async function runAiRequest(
       const { done, value } = await reader.read();
       if (done) break;
       if (!value) continue;
-
-      const ai = aiPluginKey.getState(view.state);
-      if (!ai?.streamRange) break;
-
-      const at = ai.streamRange.to;
-      const tr = view.state.tr.insertText(value, at);
-      tr.setMeta(aiPluginKey, { type: "chunk" } satisfies AiMeta);
-      tr.setMeta("addToHistory", false);
-      view.dispatch(tr);
+      view.dispatch(
+        view.state.tr
+          .setMeta(aiPluginKey, {
+            type: "append-suggestion",
+            suggestionId,
+            text: value,
+          } satisfies AiMeta)
+          .setMeta("addToHistory", false),
+      );
     }
 
     view.dispatch(
       view.state.tr.setMeta(aiPluginKey, {
-        type: "complete",
+        type: "settle-suggestion",
+        suggestionId,
       } satisfies AiMeta),
     );
+    hideAiCaret()(view.state, view.dispatch);
   } catch (err) {
     if ((err as { name?: string })?.name === "AbortError") {
-      // User cancelled — yank the streamed text and return to idle.
-      const ai = aiPluginKey.getState(view.state);
-      if (ai?.streamRange && ai.streamRange.to > ai.streamRange.from) {
-        view.dispatch(
-          view.state.tr.delete(ai.streamRange.from, ai.streamRange.to),
-        );
-      }
       view.dispatch(
         view.state.tr.setMeta(aiPluginKey, {
-          type: "reset",
+          type: "remove-suggestion",
+          suggestionId,
         } satisfies AiMeta),
       );
+      hideAiCaret()(view.state, view.dispatch);
       return;
     }
     view.dispatch(
@@ -392,16 +483,111 @@ export async function runAiRequest(
         message: (err as Error)?.message ?? "AI request failed",
       } satisfies AiMeta),
     );
+    view.dispatch(
+      view.state.tr.setMeta(aiPluginKey, {
+        type: "remove-suggestion",
+        suggestionId,
+      } satisfies AiMeta),
+    );
+    hideAiCaret()(view.state, view.dispatch);
   }
 }
 
-// ─────────────────────────────────────────────────── Commands
+// ────────────────────────────────────────────────────────────── Commands
 
 /**
- * Open (and focus) the persistent AI dock. Captures the current
- * non-empty selection so preset modes can still operate on it after
- * focus shifts to the dock textarea.
+ * Apply a suggestion's replacement to the underlying range, then drop
+ * it from plugin state.
  */
+export function aiAcceptSuggestion(suggestionId: string): Command {
+  return (state, dispatch) => {
+    const ai = aiPluginKey.getState(state);
+    const sugg = ai?.suggestions.find((s) => s.id === suggestionId);
+    if (!sugg || sugg.streaming) return false;
+    if (!dispatch) return true;
+    let tr = state.tr.replaceWith(
+      sugg.range.from,
+      sugg.range.to,
+      sugg.replacement
+        ? Fragment.from(state.schema.text(sugg.replacement))
+        : Fragment.empty,
+    );
+    tr = tr.setMeta(aiPluginKey, {
+      type: "remove-suggestion",
+      suggestionId,
+    } satisfies AiMeta);
+    dispatch(tr.scrollIntoView());
+    return true;
+  };
+}
+
+export function aiRejectSuggestion(suggestionId: string): Command {
+  return (state, dispatch) => {
+    const ai = aiPluginKey.getState(state);
+    const sugg = ai?.suggestions.find((s) => s.id === suggestionId);
+    if (!sugg) return false;
+    if (!dispatch) return true;
+    dispatch(
+      state.tr.setMeta(aiPluginKey, {
+        type: "remove-suggestion",
+        suggestionId,
+      } satisfies AiMeta),
+    );
+    return true;
+  };
+}
+
+export function aiAcceptAll(): Command {
+  return (state, dispatch) => {
+    const ai = aiPluginKey.getState(state);
+    if (!ai || ai.suggestions.length === 0) return false;
+    if (!dispatch) return true;
+    // Apply right-to-left so earlier indices stay valid.
+    const sorted = [...ai.suggestions].sort(
+      (a, b) => b.range.from - a.range.from,
+    );
+    let tr = state.tr;
+    for (const sugg of sorted) {
+      if (sugg.streaming) continue;
+      const from = tr.mapping.map(sugg.range.from, -1);
+      const to = tr.mapping.map(sugg.range.to, 1);
+      tr = tr.replaceWith(
+        from,
+        to,
+        sugg.replacement
+          ? Fragment.from(state.schema.text(sugg.replacement))
+          : Fragment.empty,
+      );
+    }
+    tr = tr.setMeta(aiPluginKey, { type: "reset" } satisfies AiMeta);
+    dispatch(tr.scrollIntoView());
+    return true;
+  };
+}
+
+export function aiRejectAll(): Command {
+  return (state, dispatch) => {
+    const ai = aiPluginKey.getState(state);
+    if (!ai || ai.suggestions.length === 0) return false;
+    if (!dispatch) return true;
+    dispatch(state.tr.setMeta(aiPluginKey, { type: "reset" } satisfies AiMeta));
+    return true;
+  };
+}
+
+export function aiSelectSuggestion(suggestionId: string | null): Command {
+  return (state, dispatch) => {
+    if (!dispatch) return true;
+    dispatch(
+      state.tr.setMeta(aiPluginKey, {
+        type: "select-suggestion",
+        suggestionId: suggestionId ?? undefined,
+      } satisfies AiMeta),
+    );
+    return true;
+  };
+}
+
 export function aiOpenDock(): Command {
   return (state, dispatch) => {
     if (!dispatch) return true;
@@ -421,8 +607,6 @@ export function aiOpenDock(): Command {
 
 export function aiCloseDock(): Command {
   return (state, dispatch) => {
-    const ai = aiPluginKey.getState(state);
-    if (!ai || ai.dockSelection == null) return false;
     if (!dispatch) return true;
     dispatch(
       state.tr.setMeta(aiPluginKey, {
@@ -433,81 +617,26 @@ export function aiCloseDock(): Command {
   };
 }
 
-/**
- * Keep the streamed text in place — no doc edit needed because the
- * original was already deleted at start time. Just clear the AI state
- * so the preview decoration disappears.
- */
-export function aiAccept(): Command {
-  return (state, dispatch) => {
-    const ai = aiPluginKey.getState(state);
-    if (!ai || ai.status !== "done") return false;
-    if (!dispatch) return true;
-    dispatch(
-      state.tr
-        .setMeta(aiPluginKey, { type: "accept" } satisfies AiMeta)
-        .scrollIntoView(),
-    );
-    return true;
-  };
-}
-
-/**
- * Delete the streamed range and restore the original content if the
- * request replaced a selection.
- */
-export function aiReject(): Command {
-  return (state, dispatch) => {
-    const ai = aiPluginKey.getState(state);
-    if (!ai) return false;
-    if (
-      ai.status !== "done" &&
-      ai.status !== "error" &&
-      ai.status !== "streaming"
-    ) {
-      return false;
-    }
-    if (!dispatch) return true;
-    let tr = state.tr;
-    if (ai.streamRange && ai.streamRange.to > ai.streamRange.from) {
-      tr = tr.delete(ai.streamRange.from, ai.streamRange.to);
-    }
-    if (ai.replacedSlice && ai.streamRange) {
-      tr = tr.replace(
-        ai.streamRange.from,
-        ai.streamRange.from,
-        ai.replacedSlice,
-      );
-    }
-    tr.setMeta(aiPluginKey, { type: "reject" } satisfies AiMeta);
-    dispatch(tr.scrollIntoView());
-    return true;
-  };
-}
-
-// ─────────────────────────────────────────────────── React hook
+// ────────────────────────────────────────────────────────────── React hook
 
 export interface UseAiResult {
   state: AiState;
   status: AiStatus;
   isStreaming: boolean;
-  isDone: boolean;
+  hasSuggestions: boolean;
   hasError: boolean;
-  /** Run a freeform instruction against the selection (or just the prompt). */
+  suggestions: Suggestion[];
+  selectedSuggestion: Suggestion | null;
   prompt: (instruction: string) => Promise<void>;
-  /** Run a preset mode against the selection. */
   transform: (mode: AiPresetMode, options?: { language?: string }) => Promise<void>;
-  /** Re-run the same request that produced the current preview. */
-  regenerate: () => Promise<void>;
-  /** Strip the preview decoration and (if a selection drove the request) delete the original text. */
-  accept: () => void;
-  /** Delete the streamed range and restore the original. */
-  reject: () => void;
-  /** Abort the in-flight request and roll back any partial output. */
+  regenerate: (suggestionId: string) => Promise<void>;
+  accept: (suggestionId: string) => void;
+  reject: (suggestionId: string) => void;
+  acceptAll: () => void;
+  rejectAll: () => void;
+  select: (suggestionId: string | null) => void;
   cancel: () => void;
-  /** Open and focus the AI dock, stashing the current selection. */
   openDock: () => void;
-  /** Close the dock without running a request. */
   closeDock: () => void;
 }
 
@@ -532,24 +661,47 @@ export function useAi(options: AiOptions = {}): UseAiResult {
     },
   );
 
-  const accept = useEditorEventCallback((view: EditorView | null) => {
+  const accept = useEditorEventCallback(
+    (view: EditorView | null, suggestionId: string) => {
+      if (!view) return;
+      aiAcceptSuggestion(suggestionId)(view.state, view.dispatch);
+      view.focus();
+    },
+  );
+
+  const reject = useEditorEventCallback(
+    (view: EditorView | null, suggestionId: string) => {
+      if (!view) return;
+      aiRejectSuggestion(suggestionId)(view.state, view.dispatch);
+      view.focus();
+    },
+  );
+
+  const acceptAll = useEditorEventCallback((view: EditorView | null) => {
     if (!view) return;
-    aiAccept()(view.state, view.dispatch);
+    aiAcceptAll()(view.state, view.dispatch);
     view.focus();
   });
 
-  const reject = useEditorEventCallback((view: EditorView | null) => {
+  const rejectAll = useEditorEventCallback((view: EditorView | null) => {
     if (!view) return;
-    abortRef.current?.abort();
-    aiReject()(view.state, view.dispatch);
+    aiRejectAll()(view.state, view.dispatch);
     view.focus();
   });
+
+  const select = useEditorEventCallback(
+    (view: EditorView | null, suggestionId: string | null) => {
+      if (!view) return;
+      aiSelectSuggestion(suggestionId)(view.state, view.dispatch);
+    },
+  );
 
   const cancel = useEditorEventCallback((view: EditorView | null) => {
     abortRef.current?.abort();
-    if (view) {
-      aiReject()(view.state, view.dispatch);
-    }
+    if (!view) return;
+    view.dispatch(
+      view.state.tr.setMeta(aiPluginKey, { type: "reset" } satisfies AiMeta),
+    );
   });
 
   const openDock = useEditorEventCallback((view: EditorView | null) => {
@@ -562,50 +714,43 @@ export function useAi(options: AiOptions = {}): UseAiResult {
     aiCloseDock()(view.state, view.dispatch);
   });
 
+  const selectedSuggestion =
+    ai.suggestions.find((s) => s.id === ai.selectedSuggestionId) ?? null;
+
   return {
     state: ai,
     status: ai.status,
     isStreaming: ai.status === "streaming",
-    isDone: ai.status === "done",
+    hasSuggestions: ai.suggestions.length > 0,
     hasError: ai.status === "error",
+    suggestions: ai.suggestions,
+    selectedSuggestion,
     prompt: (instruction) => start({ instruction }),
     transform: (mode, opts) => start({ mode, language: opts?.language }),
-    openDock,
-    closeDock,
-    regenerate: async () => {
-      const generatedWith = ai.generatedWith;
-      if (!generatedWith) return;
-      // `regenerate: true` reuses the captured replacedSlice + source
-      // text and overwrites the previous streamed output in place —
-      // no need to round-trip through reject + restart.
-      await start({
-        mode: generatedWith.mode,
-        instruction: generatedWith.instruction,
-        language: generatedWith.language,
-        regenerate: true,
-      });
-    },
+    regenerate: (suggestionId) => start({ regenerate: { suggestionId } }),
     accept,
     reject,
+    acceptAll,
+    rejectAll,
+    select,
     cancel,
+    openDock,
+    closeDock,
   };
 }
 
-// ─────────────────────────────────────────────────── Toolbar trigger
+// ────────────────────────────────────────────────────────────── Toolbar
 
 interface AiToolbarItemProps {
   baseUrl?: string;
+  examples?: AiExample[];
 }
 
-/**
- * The toolbar Sparkle button. Click → opens (and focuses) the
- * persistent `<AiDock />`. Active styling reflects the in-flight stream.
- */
-function AiToolbarItem({ baseUrl }: AiToolbarItemProps) {
-  const ai = useAi({ baseUrl: baseUrl ?? DEFAULT_BASE_URL });
+function AiToolbarItem({ baseUrl, examples }: AiToolbarItemProps) {
+  const ai = useAi({ baseUrl, examples });
   return (
     <MenuItem
-      active={ai.isStreaming || ai.isDone}
+      active={ai.isStreaming || ai.hasSuggestions}
       onClick={ai.openDock}
       tooltip="Ask AI"
       shortcut="⌘J"
@@ -615,7 +760,7 @@ function AiToolbarItem({ baseUrl }: AiToolbarItemProps) {
   );
 }
 
-// ─────────────────────────────────────────────────── AI dock
+// ────────────────────────────────────────────────────────────── Default examples
 
 const DEFAULT_EXAMPLES: AiExample[] = [
   { value: "rephrase", label: "Rephrase", mode: "rephrase", icon: PencilSimple, keywords: ["reword", "paraphrase"] },
@@ -626,40 +771,63 @@ const DEFAULT_EXAMPLES: AiExample[] = [
   { value: "tldr", label: "TL;DR", mode: "tldr", icon: TextAa, keywords: ["tldr", "tl;dr"] },
 ];
 
+function filterExamples(items: AiExample[], query: string): AiExample[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter((item) => {
+    if (item.label.toLowerCase().includes(q)) return true;
+    if (item.value.includes(q)) return true;
+    return item.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
+  });
+}
+
+// ────────────────────────────────────────────────────────────── AI dock
+
 interface AiDockProps {
-  /** Override the backend URL. */
   baseUrl?: string;
-  /** Custom example list. Defaults to the editor's preset modes. */
   examples?: AiExample[];
 }
 
 /**
- * Persistent bottom dock. Three states:
- *   collapsed — small pill with sparkle + placeholder text
- *   focused   — textarea + submit + examples popover above
- *   processing — spinner + thinking text + stop button
- *
- * Render alongside `<editor.Editor>` like the other companion popovers.
+ * Persistent bottom panel. When suggestions exist, swaps to the review
+ * nav. Otherwise renders the prompt dock with three states (collapsed,
+ * focused, processing).
  */
 export function AiDock({ baseUrl, examples }: AiDockProps = {}) {
   const ai = useAi({ baseUrl, examples });
   const items = examples ?? DEFAULT_EXAMPLES;
 
+  // Review-nav supersedes the prompt dock whenever suggestions exist.
+  if (ai.hasSuggestions) {
+    return createPortal(
+      <div className="pp-ai-dock-floating" data-position="bottom">
+        <AiSuggestionsNav ai={ai} />
+      </div>,
+      document.body,
+    );
+  }
+
+  return <AiPromptDock ai={ai} examples={items} />;
+}
+
+interface AiPromptDockProps {
+  ai: UseAiResult;
+  examples: AiExample[];
+}
+
+function AiPromptDock({ ai, examples }: AiPromptDockProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [draft, setDraft] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const focusTick = ai.state.focusTick;
 
-  // External focus requests (toolbar click, slash menu, bubble menu) bump
-  // focusTick — react by expanding and focusing the textarea.
   useEffect(() => {
     if (focusTick === 0) return;
     setCollapsed(false);
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, [focusTick]);
 
-  // Auto-grow the textarea up to a maxRows-equivalent height.
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -667,7 +835,6 @@ export function AiDock({ baseUrl, examples }: AiDockProps = {}) {
     el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
   }, [draft, collapsed]);
 
-  // Collapse when focus leaves the dock and the textarea is empty.
   useEffect(() => {
     if (collapsed) return;
     const el = wrapperRef.current;
@@ -682,13 +849,14 @@ export function AiDock({ baseUrl, examples }: AiDockProps = {}) {
     return () => el.removeEventListener("focusout", onFocusOut);
   }, [collapsed, draft]);
 
-  // Auto-collapse on stream start so the actions panel is unobstructed.
+  // Once a stream starts, the dock collapses so the suggestion review
+  // takes over.
   useEffect(() => {
-    if (ai.isStreaming || ai.isDone) {
+    if (ai.isStreaming) {
       setCollapsed(true);
       setDraft("");
     }
-  }, [ai.isStreaming, ai.isDone]);
+  }, [ai.isStreaming]);
 
   const submit = useCallback(() => {
     const text = draft.trim();
@@ -729,7 +897,6 @@ export function AiDock({ baseUrl, examples }: AiDockProps = {}) {
     [ai],
   );
 
-  // Processing branch.
   if (ai.isStreaming) {
     return createPortal(
       <div className="pp-ai-dock-floating" data-position="bottom">
@@ -737,7 +904,9 @@ export function AiDock({ baseUrl, examples }: AiDockProps = {}) {
           <div className="pp-ai-spinner-dots" aria-hidden="true">
             <span /><span /><span />
           </div>
-          <span className="pp-ai-dock-status">AI is thinking…</span>
+          <span className="pp-ai-dock-status">
+            {stageLabel(ai.state.thinkingStage)}
+          </span>
           <button
             type="button"
             className="pp-ai-dock-btn pp-ai-dock-btn-ghost"
@@ -753,7 +922,6 @@ export function AiDock({ baseUrl, examples }: AiDockProps = {}) {
     );
   }
 
-  // Collapsed pill.
   if (collapsed) {
     return createPortal(
       <div className="pp-ai-dock-floating" data-position="bottom">
@@ -769,7 +937,10 @@ export function AiDock({ baseUrl, examples }: AiDockProps = {}) {
           <span className="pp-ai-dock-placeholder">
             Tell AI what else needs to be changed…
           </span>
-          <span className="pp-ai-dock-btn pp-ai-dock-btn-primary pp-ai-dock-btn-disabled" aria-hidden="true">
+          <span
+            className="pp-ai-dock-btn pp-ai-dock-btn-primary pp-ai-dock-btn-disabled"
+            aria-hidden="true"
+          >
             <ArrowUp size={14} weight="bold" />
           </span>
         </button>
@@ -778,16 +949,19 @@ export function AiDock({ baseUrl, examples }: AiDockProps = {}) {
     );
   }
 
-  // Focused / expanded.
-  const filteredItems = filterExamples(items, draft);
-  const showExamples = filteredItems.length > 0;
+  const filtered = filterExamples(examples, draft);
+  const showExamples = filtered.length > 0;
 
   return createPortal(
     <div className="pp-ai-dock-floating" data-position="bottom">
       {showExamples && (
-        <div className="pp-ai-dock-examples" role="listbox" aria-label="AI Toolkit examples">
+        <div
+          className="pp-ai-dock-examples"
+          role="listbox"
+          aria-label="AI Toolkit examples"
+        >
           <div className="pp-ai-dock-examples-label">AI Toolkit examples</div>
-          {filteredItems.map((item) => (
+          {filtered.map((item) => (
             <button
               key={item.value}
               type="button"
@@ -834,138 +1008,161 @@ export function AiDock({ baseUrl, examples }: AiDockProps = {}) {
   );
 }
 
-function filterExamples(items: AiExample[], query: string): AiExample[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return items;
-  return items.filter((item) => {
-    if (item.label.toLowerCase().includes(q)) return true;
-    if (item.value.includes(q)) return true;
-    return item.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
-  });
+function stageLabel(stage: AiState["thinkingStage"]): string {
+  switch (stage) {
+    case "reading":
+      return "Reading document";
+    case "editing":
+      return "Applying edits";
+    default:
+      return "AI is thinking…";
+  }
 }
 
-// ─────────────────────────────────────────────────── Preview action panel
+// ────────────────────────────────────────────────────────────── Suggestions nav
 
-/**
- * Floating panel anchored to the streamed range — shows during/after
- * a stream and exposes Accept / Reject / Regenerate. Render alongside
- * `<editor.Editor>` like the other companion popovers.
- */
-export function AiPreviewActions({ baseUrl }: { baseUrl?: string } = {}) {
-  const ai = useAi({ baseUrl });
-  const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
+interface AiSuggestionsNavProps {
+  ai: UseAiResult;
+}
 
+function AiSuggestionsNav({ ai }: AiSuggestionsNavProps) {
+  const total = ai.suggestions.length;
+  const selectedIndex = Math.max(
+    0,
+    ai.suggestions.findIndex((s) => s.id === ai.state.selectedSuggestionId),
+  );
+  const current = ai.suggestions[selectedIndex] ?? ai.suggestions[0];
+
+  // Scroll the currently selected suggestion's range into view.
+  useScrollSelectedIntoView(current?.id ?? null);
+
+  if (!current) return null;
+
+  const goPrev = () => {
+    const prev = ai.suggestions[Math.max(0, selectedIndex - 1)];
+    if (prev) ai.select(prev.id);
+  };
+  const goNext = () => {
+    const next = ai.suggestions[Math.min(total - 1, selectedIndex + 1)];
+    if (next) ai.select(next.id);
+  };
+
+  return (
+    <div className="pp-ai-dock pp-ai-dock-review">
+      {total > 1 && (
+        <>
+          <div className="pp-ai-review-bulk">
+            <button
+              type="button"
+              className="pp-ai-dock-btn pp-ai-dock-btn-ghost"
+              onClick={ai.rejectAll}
+            >
+              Reject all
+            </button>
+            <button
+              type="button"
+              className="pp-ai-dock-btn pp-ai-dock-btn-ghost"
+              onClick={ai.acceptAll}
+            >
+              Accept all
+            </button>
+          </div>
+          <span className="pp-ai-review-divider" aria-hidden="true" />
+          <div className="pp-ai-review-nav">
+            <button
+              type="button"
+              className="pp-ai-dock-btn pp-ai-dock-btn-ghost"
+              onClick={goPrev}
+              disabled={selectedIndex === 0}
+              title="Previous suggestion"
+              aria-label="Previous"
+            >
+              <ArrowLeft size={14} weight="bold" />
+            </button>
+            <span className="pp-ai-review-counter">
+              <strong>{selectedIndex + 1}</strong> / {total}
+            </span>
+            <button
+              type="button"
+              className="pp-ai-dock-btn pp-ai-dock-btn-ghost"
+              onClick={goNext}
+              disabled={selectedIndex >= total - 1}
+              title="Next suggestion"
+              aria-label="Next"
+            >
+              <ArrowRight size={14} weight="bold" />
+            </button>
+          </div>
+          <span className="pp-ai-review-divider" aria-hidden="true" />
+        </>
+      )}
+      <div className="pp-ai-review-actions">
+        <button
+          type="button"
+          className="pp-ai-dock-btn pp-ai-dock-btn-ghost"
+          onClick={() => ai.regenerate(current.id)}
+          title="Regenerate"
+          disabled={current.streaming}
+        >
+          <ArrowClockwise size={14} weight="bold" />
+        </button>
+        <button
+          type="button"
+          className="pp-ai-dock-btn pp-ai-dock-btn-reject"
+          onClick={() => ai.reject(current.id)}
+          title="Reject"
+          aria-label="Reject"
+        >
+          <X size={14} weight="bold" />
+          Reject
+        </button>
+        <button
+          type="button"
+          className="pp-ai-dock-btn pp-ai-dock-btn-accept"
+          onClick={() => ai.accept(current.id)}
+          title="Accept"
+          aria-label="Accept"
+          disabled={current.streaming}
+        >
+          <Check size={14} weight="bold" />
+          Accept
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function useScrollSelectedIntoView(suggestionId: string | null) {
   useEditorEffect(
     (view) => {
-      const range = ai.state.streamRange;
-      if (!range) {
-        setCoords(null);
-        return;
+      if (!suggestionId) return;
+      const ai = aiPluginKey.getState(view.state);
+      const sugg = ai?.suggestions.find((s) => s.id === suggestionId);
+      if (!sugg) return;
+      try {
+        const coords = view.coordsAtPos(
+          Math.min(sugg.range.from, view.state.doc.content.size),
+        );
+        const middle = (coords.top + coords.bottom) / 2;
+        const target = middle - window.innerHeight / 2;
+        window.scrollBy({ top: target, behavior: "smooth" });
+      } catch {
+        // out of viewport / disconnected; silently skip
       }
-      const anchorPos = Math.min(range.to, view.state.doc.content.size);
-      const dom = view.coordsAtPos(anchorPos);
-      setCoords({ left: dom.left, top: dom.bottom + 8 });
     },
-    [ai.state.streamRange?.from, ai.state.streamRange?.to, ai.status],
-  );
-
-  if (ai.status === "idle") return null;
-  if (!coords) return null;
-
-  return createPortal(
-    <div
-      className="pp-ai-actions"
-      style={{ position: "fixed", left: coords.left, top: coords.top }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      {ai.isStreaming && (
-        <>
-          <span className="pp-ai-status">
-            <span className="pp-ai-spinner" aria-hidden="true" />
-            Generating…
-          </span>
-          <button
-            type="button"
-            className="pp-ai-action pp-ai-action-cancel"
-            onClick={ai.cancel}
-            title="Cancel"
-          >
-            <Stop size={14} weight="bold" />
-            Cancel
-          </button>
-        </>
-      )}
-      {ai.isDone && (
-        <>
-          <button
-            type="button"
-            className="pp-ai-action pp-ai-action-accept"
-            onClick={ai.accept}
-            title="Accept (replace original)"
-          >
-            <Check size={14} weight="bold" />
-            Accept
-          </button>
-          <button
-            type="button"
-            className="pp-ai-action"
-            onClick={() => void ai.regenerate()}
-            title="Regenerate"
-          >
-            <ArrowClockwise size={14} weight="bold" />
-            Regenerate
-          </button>
-          <button
-            type="button"
-            className="pp-ai-action pp-ai-action-reject"
-            onClick={ai.reject}
-            title="Reject"
-          >
-            <X size={14} weight="bold" />
-            Reject
-          </button>
-        </>
-      )}
-      {ai.hasError && (
-        <>
-          <span className="pp-ai-status pp-ai-status-error">
-            {ai.state.error ?? "Failed"}
-          </span>
-          <button
-            type="button"
-            className="pp-ai-action"
-            onClick={() => void ai.regenerate()}
-            title="Try again"
-          >
-            <ArrowClockwise size={14} weight="bold" />
-            Retry
-          </button>
-          <button
-            type="button"
-            className="pp-ai-action pp-ai-action-reject"
-            onClick={ai.reject}
-            title="Dismiss"
-          >
-            <X size={14} weight="bold" />
-            Dismiss
-          </button>
-        </>
-      )}
-    </div>,
-    document.body,
+    [suggestionId],
   );
 }
 
-// ─────────────────────────────────────────────────── Extension factory
+// ────────────────────────────────────────────────────────────── Extension factory
 
 export function createAi(options: AiOptions = {}) {
   return Extension.create({
     name: "ai",
     plugins: () => [aiPlugin()],
-    keymap: {
-      // No mapped command keys yet — users wire ⌘J via their toolbar.
-    },
-    toolbar: () => <AiToolbarItem baseUrl={options.baseUrl} />,
+    toolbar: () => (
+      <AiToolbarItem baseUrl={options.baseUrl} examples={options.examples} />
+    ),
     meta: { label: "Ask AI", group: "system", Icon: Sparkle },
   });
 }

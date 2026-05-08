@@ -2083,40 +2083,150 @@ kbd.pp-kbd {
 
 /* ----------------------------- AI assistant ----------------------------- */
 
-.ProseMirror .pp-ai-preview {
-  background: linear-gradient(
-    90deg,
-    rgba(99, 102, 241, 0.08),
-    rgba(168, 85, 247, 0.08)
-  );
-  color: #4338ca;
+/* Existing range overlay — text the AI is replacing. Rendered with a subtle
+   strikethrough-ish background so the user can see what's being replaced. */
+.ProseMirror .pp-ai-suggestion {
+  background: rgba(248, 113, 113, 0.12);
+  text-decoration: line-through;
+  text-decoration-color: rgba(220, 38, 38, 0.45);
+  text-decoration-thickness: 2px;
   border-radius: 2px;
-  padding: 0 1px;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s;
 }
 
-.ProseMirror .pp-ai-preview-streaming {
-  background: linear-gradient(
-    90deg,
-    rgba(99, 102, 241, 0.18),
-    rgba(168, 85, 247, 0.18)
-  );
-  border-bottom: 2px solid #6366f1;
+.ProseMirror .pp-ai-suggestion--selected {
+  background: rgba(248, 113, 113, 0.22);
 }
 
-.ProseMirror .pp-ai-preview-done {
+/* Replacement preview widget — the proposed new text rendered as a
+   sibling next to the existing range. */
+.ProseMirror .pp-ai-suggestion-diff {
+  display: inline;
   background: linear-gradient(
     90deg,
-    rgba(99, 102, 241, 0.12),
-    rgba(168, 85, 247, 0.12)
+    rgba(99, 102, 241, 0.14),
+    rgba(168, 85, 247, 0.14)
   );
+  color: #3730a3;
+  padding: 0 2px;
+  border-radius: 2px;
+  margin-left: 4px;
   border-bottom: 1px dashed #6366f1;
+  white-space: pre-wrap;
 }
 
-.ProseMirror .pp-ai-preview-error {
-  background: rgba(248, 113, 113, 0.18);
-  color: #991b1b;
-  border-bottom: 1px dashed #ef4444;
+.ProseMirror .pp-ai-suggestion-diff--selected {
+  background: linear-gradient(
+    90deg,
+    rgba(99, 102, 241, 0.24),
+    rgba(168, 85, 247, 0.24)
+  );
+  color: #312e81;
+  font-weight: 500;
+}
+
+.ProseMirror .pp-ai-suggestion-diff--streaming::after {
+  content: "▌";
+  color: #6366f1;
+  margin-left: 1px;
+  animation: pp-ai-cursor-blink 0.9s steps(1) infinite;
+}
+
+@keyframes pp-ai-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* AI caret — a colored marker showing where the AI is currently typing. */
+.ProseMirror .pp-ai-caret {
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  position: relative;
+  vertical-align: text-bottom;
+}
+
+.ProseMirror .pp-ai-caret::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: #6366f1;
+  border-radius: 1px;
+  animation: pp-ai-caret-pulse 1s ease-in-out infinite;
+}
+
+.ProseMirror .pp-ai-caret__label {
+  position: absolute;
+  left: 2px;
+  top: -1.4em;
+  background: #6366f1;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  letter-spacing: 0.04em;
+}
+
+@keyframes pp-ai-caret-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* Review nav variants of the dock buttons. */
+.pp-ai-dock-review {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pp-ai-review-bulk,
+.pp-ai-review-nav,
+.pp-ai-review-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pp-ai-review-divider {
+  width: 1px;
+  height: 18px;
+  background: #e3e3df;
+}
+
+.pp-ai-review-counter {
+  font-size: 0.78rem;
+  color: #4a4a44;
+  padding: 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-ai-dock-btn-accept {
+  background: #16a34a;
+  color: #fff;
+  width: auto;
+  padding: 0 10px;
+}
+
+.pp-ai-dock-btn-accept:hover:not(:disabled) {
+  background: #15803d;
+  color: #fff;
+}
+
+.pp-ai-dock-btn-reject {
+  background: #fee2e2;
+  color: #b91c1c;
+  width: auto;
+  padding: 0 10px;
+}
+
+.pp-ai-dock-btn-reject:hover:not(:disabled) {
+  background: #fecaca;
+  color: #7f1d1d;
 }
 
 /* ---- Persistent AI dock (Tiptap-style) ---- */
@@ -2334,89 +2444,5 @@ kbd.pp-kbd {
 
 .pp-ai-dock-example-label {
   flex: 1 1 auto;
-}
-
-.pp-ai-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 6px;
-  background: #1a1a1a;
-  color: #f3f3ee;
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.06);
-  z-index: 50;
-  font-size: 0.78rem;
-}
-
-.pp-ai-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: transparent;
-  border: 0;
-  border-radius: 4px;
-  color: #d1d5db;
-  font: inherit;
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-}
-
-.pp-ai-action:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #f9fafb;
-}
-
-.pp-ai-action-accept {
-  color: #86efac;
-}
-
-.pp-ai-action-accept:hover {
-  background: rgba(134, 239, 172, 0.15);
-  color: #bbf7d0;
-}
-
-.pp-ai-action-reject,
-.pp-ai-action-cancel {
-  color: #fca5a5;
-}
-
-.pp-ai-action-reject:hover,
-.pp-ai-action-cancel:hover {
-  background: rgba(252, 165, 165, 0.15);
-  color: #fecaca;
-}
-
-.pp-ai-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  color: #d1d5db;
-}
-
-.pp-ai-status-error {
-  color: #fca5a5;
-  max-width: 280px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pp-ai-spinner {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid rgba(168, 85, 247, 0.4);
-  border-top-color: #a855f7;
-  animation: pp-ai-spin 0.8s linear infinite;
-}
-
-@keyframes pp-ai-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 

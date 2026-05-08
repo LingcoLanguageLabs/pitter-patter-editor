@@ -8,7 +8,6 @@ import { buildProductivityDoc } from "./demoDocs/productivity";
 import { DragDropEditor } from "./DragDropEditor";
 import {
   AiDock,
-  AiPreviewActions,
   EmojiPopover,
   LinkHoverPopover,
   MathInlinePopover,
@@ -39,7 +38,6 @@ function EditorOverlays() {
       <MathInlinePopover />
       <VariableEditPopover />
       <LinkHoverPopover />
-      <AiPreviewActions />
       <AiDock />
     </>
   );

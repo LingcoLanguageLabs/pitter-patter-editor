@@ -1,12 +1,14 @@
 export {
   Ai,
   AiDock,
-  AiPreviewActions,
-  aiAccept,
+  aiAcceptAll,
+  aiAcceptSuggestion,
   aiCloseDock,
   aiOpenDock,
   aiPluginKey,
-  aiReject,
+  aiRejectAll,
+  aiRejectSuggestion,
+  aiSelectSuggestion,
   createAi,
   runAiRequest,
   useAi,
@@ -18,8 +20,11 @@ export type {
   AiRequestOptions,
   AiState,
   AiStatus,
+  Suggestion,
   UseAiResult,
 } from "./Ai";
+export { AiCaret, aiCaretKey, createAiCaret, hideAiCaret, showAiCaret } from "./AiCaret";
+export type { AiCaretOptions } from "./AiCaret";
 export { Anchor } from "./Anchor";
 export { Audio } from "./Audio";
 export { Bold } from "./Bold";
