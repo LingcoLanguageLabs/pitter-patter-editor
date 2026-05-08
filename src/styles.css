@@ -2205,26 +2205,30 @@ kbd.pp-kbd {
   font-variant-numeric: tabular-nums;
 }
 
-.pp-ai-dock-btn-accept {
+/* Doubled-class selectors for higher specificity than the base
+   `.pp-ai-dock-btn` rule (which sets a 28px square width and is
+   declared later in the file). Without the bump, the auto width below
+   is overridden and the text overflows the button. */
+.pp-ai-dock-btn.pp-ai-dock-btn-accept {
   background: #16a34a;
   color: #fff;
   width: auto;
   padding: 0 10px;
 }
 
-.pp-ai-dock-btn-accept:hover:not(:disabled) {
+.pp-ai-dock-btn.pp-ai-dock-btn-accept:hover:not(:disabled) {
   background: #15803d;
   color: #fff;
 }
 
-.pp-ai-dock-btn-reject {
+.pp-ai-dock-btn.pp-ai-dock-btn-reject {
   background: #fee2e2;
   color: #b91c1c;
   width: auto;
   padding: 0 10px;
 }
 
-.pp-ai-dock-btn-reject:hover:not(:disabled) {
+.pp-ai-dock-btn.pp-ai-dock-btn-reject:hover:not(:disabled) {
   background: #fecaca;
   color: #7f1d1d;
 }
