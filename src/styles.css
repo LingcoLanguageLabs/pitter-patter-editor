@@ -3182,15 +3182,39 @@ kbd.pp-kbd {
 }
 
 .pp-page-gap {
-  /* Visual gap between pages — the editor surface bleeds through here. */
+  /* Visual gap between pages. Match the deck gutter colour so the
+     "channel" feels like the gutter pushing through, then layer page-
+     edge shadows at the top (bottom-of-previous-page) and bottom
+     (top-of-next-page) so the two pages read as discrete sheets rather
+     than one surface with a stripe. */
   background: #f4f4f1;
   position: relative;
   z-index: 2;
   pointer-events: none;
-  /* Subtle shadow at the top of next page to sell the depth illusion. */
   box-shadow:
-    inset 0 12px 12px -12px rgba(0, 0, 0, 0.08),
-    inset 0 -12px 12px -12px rgba(0, 0, 0, 0.08);
+    /* drop shadow under the previous page */
+    inset 0 14px 18px -14px rgba(0, 0, 0, 0.18),
+    /* hint of a top shadow on the next page */
+    inset 0 -10px 14px -10px rgba(0, 0, 0, 0.06);
+}
+
+/* Hairline edges at the top and bottom of the gap that read as the
+   actual paper edge of each sheet, sitting flush against the gutter. */
+.pp-page-gap::before,
+.pp-page-gap::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
+.pp-page-gap::before {
+  top: 0;
+}
+.pp-page-gap::after {
+  bottom: 0;
 }
 
 .pp-token {
