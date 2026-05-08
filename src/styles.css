@@ -2820,3 +2820,40 @@ kbd.pp-kbd {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* ---- Presence avatars ---- */
+
+.presence-avatars {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.presence-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #888;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  margin-left: -6px;
+  cursor: default;
+  user-select: none;
+  transition: transform 0.12s;
+}
+
+.presence-avatar:first-child {
+  margin-left: 0;
+}
+
+.presence-avatar:hover {
+  transform: translateY(-1px);
+  z-index: 1;
+}
+

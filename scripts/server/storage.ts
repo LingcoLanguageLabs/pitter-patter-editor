@@ -71,7 +71,10 @@ const snapshots = new Map<string, SnapshotRecord[]>();
 const threads = new Map<string, CommentThread[]>();
 const presence = new Map<string, Map<string, PresenceRecord>>();
 
-const PRESENCE_TTL_MS = 30_000;
+// 5 minutes. The pitter-patter PresenceClient only sends when version /
+// anchor / head change, so an idle user otherwise ages out of the
+// "who's in the doc" list as soon as they stop moving the cursor.
+const PRESENCE_TTL_MS = 5 * 60_000;
 
 function pruneStalePresence(docId: string) {
   const map = presence.get(docId);

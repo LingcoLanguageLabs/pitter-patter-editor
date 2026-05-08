@@ -345,10 +345,13 @@ export function CollabEditor({
           <span className="collab-editor__doc-label">
             doc:&nbsp;<code>{docId}</code>
           </span>
-          <span className="collab-editor__user-label">
-            you:&nbsp;<code>{userId}</code>
-          </span>
           <span className="collab-editor__spacer" />
+          <PresenceAvatars
+            backend={backend}
+            docId={docId}
+            selfClientId={userId}
+            selfUserId={userId}
+          />
           <button
             type="button"
             className="collab-editor__btn"
@@ -601,6 +604,115 @@ function ThreadCard({
 interface VersionHistorySidebarProps {
   snapshots: Snapshot[];
   onRestore: (snap: Snapshot) => void;
+}
+
+// ─────────────────────────────────────────────────── Presence avatars
+
+const PRESENCE_PALETTE = [
+  "#4e79a7",
+  "#59a14f",
+  "#9c755f",
+  "#f28e2b",
+  "#edc948",
+  "#bab0ac",
+  "#e15759",
+  "#b07aa1",
+  "#76b7b2",
+  "#ff9da7",
+];
+
+/** Match @pitter-patter/presence-client/decorations/PresenceAnchor.tsx so
+ * an avatar's color is the same as the user's cursor. */
+function presenceColor(userId: string): string {
+  let index = 0;
+  for (const ch of userId) index += ch.charCodeAt(0);
+  return PRESENCE_PALETTE[index % PRESENCE_PALETTE.length]!;
+}
+
+interface PresenceAvatarsProps {
+  backend: string;
+  docId: string;
+  selfClientId: string;
+  selfUserId: string;
+}
+
+/**
+ * Polls the server's presence endpoint directly to render the
+ * participant strip. Independent of the presence plugin's state — that
+ * one drives the inline cursor decorations, this one just lists who's
+ * present. Two responsibilities, two data paths.
+ */
+function PresenceAvatars({
+  backend,
+  docId,
+  selfClientId,
+  selfUserId,
+}: PresenceAvatarsProps) {
+  const [otherUserIds, setOtherUserIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    let cancelled = false;
+    async function loop() {
+      while (!cancelled) {
+        try {
+          const response = await fetch(`${backend}/api/docs/${docId}/presence`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clientId: selfClientId, refs: {} }),
+            signal: ac.signal,
+          });
+          if (!response.ok) {
+            await new Promise((r) => setTimeout(r, 2_000));
+            continue;
+          }
+          const data = (await response.json()) as Record<string, { userId: string }>;
+          if (cancelled) return;
+          const seen = new Set<string>();
+          for (const ind of Object.values(data)) {
+            if (ind.userId !== selfUserId) seen.add(ind.userId);
+          }
+          setOtherUserIds(Array.from(seen));
+        } catch (err) {
+          if ((err as { name?: string }).name === "AbortError") return;
+          await new Promise((r) => setTimeout(r, 2_000));
+        }
+      }
+    }
+    void loop();
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [backend, docId, selfClientId, selfUserId]);
+
+  const participants = [
+    { userId: selfUserId, isSelf: true },
+    ...otherUserIds.map((userId) => ({ userId, isSelf: false })),
+  ];
+
+  return (
+    <div className="presence-avatars">
+      {participants.map(({ userId, isSelf }) => (
+        <span
+          key={userId}
+          className="presence-avatar"
+          style={{ backgroundColor: presenceColor(userId) }}
+          title={isSelf ? `${userId} (you)` : userId}
+        >
+          {avatarInitials(userId)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function avatarInitials(userId: string): string {
+  // userIds look like "user-abc123" — take the first letter after the
+  // dash, fall back to the first character of the whole id.
+  const dash = userId.indexOf("-");
+  const tail = dash >= 0 ? userId.slice(dash + 1) : userId;
+  return (tail.charAt(0) || "?").toUpperCase();
 }
 
 function VersionHistorySidebar({ snapshots, onRestore }: VersionHistorySidebarProps) {
