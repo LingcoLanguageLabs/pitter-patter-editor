@@ -22,6 +22,7 @@ import {
   type NodeViewComponentProps,
 } from "@handlewithcare/react-prosemirror";
 import { Trash } from "@phosphor-icons/react";
+import { shuffleAttrs } from "@pitter-patter/shuffle";
 import type { Node as PmNode, NodeSpec, Schema } from "prosemirror-model";
 import { Schema as PMSchema } from "prosemirror-model";
 
@@ -33,6 +34,7 @@ export const quizSpec: NodeSpec = {
   defining: true,
   isolating: true,
   draggable: true,
+  attrs: { ...shuffleAttrs },
   parseDOM: [{ tag: 'div[data-type="quiz"]' }],
   toDOM: () => ["div", { "data-type": "quiz", class: "pp-quiz" }, 0],
 };
@@ -95,12 +97,10 @@ export function buildQuiz(
   prompt: string,
   choices: ReadonlyArray<{ text: string; correct?: boolean }>,
   /**
-   * Pass-through shuffle attrs. Useful for setting how wide the quiz
-   * spans the shuffle grid (defaults to the schema's defaults — 4..9 —
-   * which is fairly narrow). Pass `{ shuffleStart: 1, shuffleEnd: 12 }`
-   * for a near-full-row quiz.
+   * Override shuffle column span — defaults to the schema's defaults
+   * (declared via `...shuffleAttrs` on the quiz NodeSpec).
    */
-  shuffleAttrs?: { shuffleStart?: number; shuffleEnd?: number },
+  attrs?: { shuffleStart?: number; shuffleEnd?: number },
 ): PmNode {
   const promptType = schema.nodes["quiz_prompt"];
   const choiceType = schema.nodes["quiz_choice"];
@@ -114,7 +114,7 @@ export function buildQuiz(
   const choiceNodes = choices.map((c) =>
     choiceType.create({ correct: !!c.correct }, schema.text(c.text)),
   );
-  return quizType.create(shuffleAttrs ?? null, [promptNode, ...choiceNodes]);
+  return quizType.create(attrs ?? null, [promptNode, ...choiceNodes]);
 }
 
 // ─────────────────────────────────────────────────── NodeViews

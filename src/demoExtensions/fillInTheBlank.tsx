@@ -16,6 +16,7 @@
  */
 
 import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
+import { shuffleAttrs } from "@pitter-patter/shuffle";
 import { keymap } from "prosemirror-keymap";
 import type {
   MarkSpec,
@@ -34,6 +35,7 @@ export const clozeSpec: NodeSpec = {
   defining: true,
   isolating: true,
   draggable: true,
+  attrs: { ...shuffleAttrs },
   parseDOM: [{ tag: 'div[data-type="cloze"]' }],
   toDOM: () => ["div", { "data-type": "cloze", class: "pp-item pp-cloze" }, 0],
 };

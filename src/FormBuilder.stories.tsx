@@ -111,7 +111,6 @@ const buildReadingQuizDoc = (schema: Schema) => {
         { text: "Always take a nap when racing." },
         { text: "Never accept a challenge." },
       ],
-      { shuffleStart: 1, shuffleEnd: 12 },
     ),
     buildQuiz(
       schema,
@@ -122,7 +121,6 @@ const buildReadingQuizDoc = (schema: Schema) => {
         { text: "He underestimated his opponent and napped.", correct: true },
         { text: "He ran in the wrong direction." },
       ],
-      { shuffleStart: 1, shuffleEnd: 12 },
     ),
   ]);
 };
