@@ -6,6 +6,15 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { buildInitialDoc, editor, pagesEditor } from "./configuredEditor";
 import { CollabEditor } from "./CollabEditor";
 import { buildProductivityDoc } from "./demoDocs/productivity";
+import {
+  buildAiDoc,
+  buildBlockPrimitivesDoc,
+  buildInsertsDoc,
+  buildLinksDoc,
+  buildMathFootnotesDoc,
+  buildMediaDoc,
+  buildTablesDoc,
+} from "./demoDocs/storyDemos";
 import { DragDropEditor } from "./DragDropEditor";
 import {
   AiDock,
@@ -287,6 +296,140 @@ export const TableOfContents: Story = {
             <h3 className="editor-toc-heading">Table of contents</h3>
             <TableOfContentsView />
           </aside>
+        </editor.Editor>
+      </div>
+    </div>
+  ),
+};
+
+// ─────────────────────────────────────────── Feature-focused stories
+
+export const AiToolkit: Story = {
+  name: "AI Toolkit",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">
+        AI Toolkit — select text and open the dock at the bottom
+      </h2>
+      <div className="editor-surface">
+        <editor.Editor baseSchema={basicSchema} initialDoc={buildAiDoc}>
+          <Toolbar />
+          <ProseMirrorDoc />
+          <EditorOverlays />
+        </editor.Editor>
+      </div>
+    </div>
+  ),
+};
+
+export const Inserts: Story = {
+  name: "Inserts (slash · mention · emoji)",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">
+        Inserts — try <code>/</code>, <code>@</code>, and <code>:</code>
+      </h2>
+      <div className="editor-surface">
+        <editor.Editor baseSchema={basicSchema} initialDoc={buildInsertsDoc}>
+          <Toolbar />
+          <ProseMirrorDoc />
+          <EditorOverlays />
+        </editor.Editor>
+      </div>
+    </div>
+  ),
+};
+
+export const Media: Story = {
+  name: "Media (image · video · audio · embeds)",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">
+        Media — image bubble menu, right-click context, Unsplash, YouTube
+      </h2>
+      <div className="editor-surface">
+        <editor.Editor baseSchema={basicSchema} initialDoc={buildMediaDoc}>
+          <Toolbar />
+          <ProseMirrorDoc />
+          <EditorOverlays />
+        </editor.Editor>
+      </div>
+    </div>
+  ),
+};
+
+export const Tables: Story = {
+  name: "Tables",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">
+        Tables — click any cell to reveal the table bubble menu
+      </h2>
+      <div className="editor-surface">
+        <editor.Editor baseSchema={basicSchema} initialDoc={buildTablesDoc}>
+          <Toolbar />
+          <ProseMirrorDoc />
+          <EditorOverlays />
+        </editor.Editor>
+      </div>
+    </div>
+  ),
+};
+
+export const LinksAndCards: Story = {
+  name: "Links & cards",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">
+        Links — inline links, hover popover, auto-linkify, paste-as-card
+      </h2>
+      <div className="editor-surface">
+        <editor.Editor baseSchema={basicSchema} initialDoc={buildLinksDoc}>
+          <Toolbar />
+          <ProseMirrorDoc />
+          <EditorOverlays />
+        </editor.Editor>
+      </div>
+    </div>
+  ),
+};
+
+export const MathAndFootnotes: Story = {
+  name: "Math & footnotes",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">
+        Math & footnotes — KaTeX inline, references with auto-numbered list
+      </h2>
+      <div className="editor-surface">
+        <editor.Editor
+          baseSchema={basicSchema}
+          initialDoc={buildMathFootnotesDoc}
+        >
+          <Toolbar />
+          <ProseMirrorDoc />
+          <EditorOverlays />
+        </editor.Editor>
+      </div>
+    </div>
+  ),
+};
+
+export const BlockPrimitives: Story = {
+  name: "Block primitives",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">
+        Block primitives — callouts, details, defs, quotes, code, lists
+      </h2>
+      <div className="editor-surface">
+        <editor.Editor
+          baseSchema={basicSchema}
+          initialDoc={buildBlockPrimitivesDoc}
+        >
+          <Toolbar />
+          <ProseMirrorDoc />
+          <EditorOverlays />
         </editor.Editor>
       </div>
     </div>
