@@ -710,18 +710,19 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@pitter-patter/refs@portal:../pitter-patter/packages/refs::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/refs@portal:../pitter-patter/packages/refs::locator=pitter-patter-editor%40workspace%3A."
+"@pitter-patter/refs@npm:0.1.0, @pitter-patter/refs@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "@pitter-patter/refs@npm:0.1.0"
+  checksum: 10c0/7e8f27bedd09315687f77f93778806ef6b04bae64bc80cdfbd24499811ac5ac91a9d34edc20fbf7ae00ec1cac690d8e66be76a8520e1d14dff9ecd2fc0e2391d
   languageName: node
-  linkType: soft
+  linkType: hard
 
-"@pitter-patter/shuffle@portal:../pitter-patter/packages/shuffle::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/shuffle@portal:../pitter-patter/packages/shuffle::locator=pitter-patter-editor%40workspace%3A."
+"@pitter-patter/shuffle@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "@pitter-patter/shuffle@npm:0.1.0"
   dependencies:
     "@handlewithcare/react-prosemirror": "npm:^3.0.5"
-    "@pitter-patter/refs": "workspace:*"
+    "@pitter-patter/refs": "npm:0.1.0"
     animejs: "npm:^4.3.6"
     classnames: "npm:^2.5.1"
     motion: "npm:^12.38.0"
@@ -736,8 +737,9 @@ __metadata:
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
     prosemirror-view: ^1.0.0
+  checksum: 10c0/3b6d06eaff51e9d959c3355ac17400a0f270225177a450412b290397e48fdef6b507dbca4c36253a9241c5c8355ea007b473bbcb323a7f2f2be532e40e8dd89c
   languageName: node
-  linkType: soft
+  linkType: hard
 
 "@pitter-patter/version-history-client@portal:../pitter-patter/packages/version-history-client::locator=pitter-patter-editor%40workspace%3A.":
   version: 0.0.0-use.local
@@ -2849,8 +2851,8 @@ __metadata:
     "@pitter-patter/comments-server": "portal:../pitter-patter/packages/comments-server"
     "@pitter-patter/presence-client": "portal:../pitter-patter/packages/presence-client"
     "@pitter-patter/presence-server": "portal:../pitter-patter/packages/presence-server"
-    "@pitter-patter/refs": "portal:../pitter-patter/packages/refs"
-    "@pitter-patter/shuffle": "portal:../pitter-patter/packages/shuffle"
+    "@pitter-patter/refs": "npm:^0.1.0"
+    "@pitter-patter/shuffle": "npm:^0.1.0"
     "@pitter-patter/version-history-client": "portal:../pitter-patter/packages/version-history-client"
     "@pitter-patter/version-history-server": "portal:../pitter-patter/packages/version-history-server"
     "@radix-ui/react-dropdown-menu": "npm:^2.1.6"

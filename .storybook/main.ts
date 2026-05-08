@@ -20,7 +20,6 @@ const aliases = [
   "comments-client",
   "presence-client",
   "version-history-client",
-  "refs",
 ].map((pkg) => ({
   find: new RegExp(`^@pitter-patter/${pkg}$`),
   replacement: path.join(monorepo, pkg, "src/index.ts"),
