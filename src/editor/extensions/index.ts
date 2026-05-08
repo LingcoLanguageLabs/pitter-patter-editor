@@ -113,6 +113,27 @@ export type { MathOptions } from "./Math";
 export { Mention, MentionPopover, createMention } from "./Mention";
 export type { MentionItem, MentionOptions } from "./Mention";
 export { OrderedList } from "./OrderedList";
+export { PageBreak } from "./PageBreak";
+export {
+  PAGE_FORMATS,
+  PageHeaderFooterEditor,
+  Pages,
+  createPages,
+  pagesPluginKey,
+  setFooterVariant,
+  setHeaderVariant,
+  setPageFormat,
+  usePages,
+} from "./Pages";
+export type {
+  HeaderVariant,
+  BandSide,
+  PageFormat,
+  PageFormatName,
+  PageMargins,
+  PagesOptions,
+  PagesState,
+} from "./Pages";
 export { Placeholder, createPlaceholder } from "./Placeholder";
 export type { PlaceholderOptions } from "./Placeholder";
 export { PullQuote } from "./PullQuote";

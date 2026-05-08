@@ -3,7 +3,7 @@ import type { Schema } from "prosemirror-model";
 import { schema as basicSchema } from "prosemirror-schema-basic";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import { buildInitialDoc, editor } from "./configuredEditor";
+import { buildInitialDoc, editor, pagesEditor } from "./configuredEditor";
 import { CollabEditor } from "./CollabEditor";
 import { buildProductivityDoc } from "./demoDocs/productivity";
 import { DragDropEditor } from "./DragDropEditor";
@@ -13,6 +13,7 @@ import {
   LinkHoverPopover,
   MathInlinePopover,
   MentionPopover,
+  PageHeaderFooterEditor,
   SlashMenuPopover,
   TableOfContentsView,
   UnsplashPicker,
@@ -220,6 +221,52 @@ function buildTocDoc(schema: Schema) {
     ),
   ]);
 }
+
+function buildPagesDoc(schema: Schema) {
+  const h = (level: number, text: string) =>
+    schema.nodes["heading"]!.create({ level }, schema.text(text));
+  const p = (text: string) =>
+    schema.nodes["paragraph"]!.create(null, schema.text(text));
+
+  const filler = (n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      p(
+        `Filler paragraph ${i + 1}. ${"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. ".repeat(2)}`,
+      ),
+    );
+
+  return schema.nodes["doc"]!.create(null, [
+    h(1, "A short paginated document"),
+    p(
+      "This story renders the editor in pagination mode. Type past the bottom of a page and a new one appears; delete content and the trailing pages disappear. Double-click any header or footer to edit it.",
+    ),
+    h(2, "First section"),
+    ...filler(6),
+    h(2, "Second section"),
+    ...filler(8),
+    h(2, "Third section"),
+    ...filler(6),
+  ]);
+}
+
+export const Pages: Story = {
+  name: "Pages (Word-style pagination)",
+  render: () => (
+    <div className="editor-shell">
+      <h2 className="editor-title">
+        Pages — A4 / Letter / Legal · double-click a header or footer to edit
+      </h2>
+      <div className="editor-surface editor-surface--pages">
+        <pagesEditor.Editor baseSchema={basicSchema} initialDoc={buildPagesDoc}>
+          <Toolbar />
+          <ProseMirrorDoc />
+          <PageHeaderFooterEditor />
+          <SlashMenuPopover />
+        </pagesEditor.Editor>
+      </div>
+    </div>
+  ),
+};
 
 export const TableOfContents: Story = {
   name: "Table of Contents",

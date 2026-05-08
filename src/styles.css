@@ -3061,3 +3061,327 @@ kbd.pp-kbd {
   margin: 4px 0;
 }
 
+/* ----------------------------- Pages: pagination ----------------------------- */
+
+/* When Pages is installed, the editor's surface mimics a stack of pages
+   sitting on a gray "deck". The .ProseMirror element itself is sized to
+   one page width (content area = pageWidth - margins.L - margins.R) and
+   floats inside its parent surface. Page boundaries are drawn by the
+   widget decoration's stripe overlays. */
+
+.editor-surface--pages {
+  background: #f4f4f1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 0;
+  box-shadow: none;
+  border: 0;
+}
+
+/* Center the page within the gray surface and add vertical breathing
+   room around it. The toolbar (a sibling) keeps its own background. */
+.editor-surface--pages > .ProseMirror--pages {
+  margin: 32px auto;
+}
+
+/* Note: doubled `.ProseMirror.ProseMirror--pages` selector for higher
+   cascade specificity (0,2,0). `@pitter-patter/shuffle/style/shuffle.css`
+   sets `display: grid; grid-template-columns: subgrid;` on `.ProseMirror`
+   globally, which leaks across stories once that import has fired in a
+   Storybook session. The float-and-clear pagination trick needs normal
+   block flow, so we override here. Reset all the grid-related properties
+   it sets so we're not partly grid, partly block. */
+.ProseMirror.ProseMirror--pages {
+  display: block;
+  align-items: initial;
+  align-content: initial;
+  grid-template-columns: initial;
+  grid-area: initial;
+  row-gap: initial;
+  width: calc(var(--pp-page-width) - var(--pp-page-margin-left) - var(--pp-page-margin-right));
+  padding: var(--pp-page-margin-top) var(--pp-page-margin-right) var(--pp-page-margin-bottom) var(--pp-page-margin-left);
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 8px 32px rgba(0, 0, 0, 0.06);
+  border-radius: 2px;
+  position: relative;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.pp-pagination {
+  /* The container sits above content (at pos 0). Its floats accumulate
+     vertical space inside the editor — see .pp-page below. */
+  pointer-events: none;
+}
+
+.pp-page {
+  /* Each page is a "stripe" the editor's content flows around. The
+     marginTop carves out a content area; the stripe itself contains
+     the visual footer/gap/header bands for the boundary it represents. */
+  pointer-events: none;
+}
+
+.pp-page-header,
+.pp-page-footer {
+  pointer-events: auto;
+  background: white;
+  position: relative;
+  z-index: 2;
+  font-size: 0.85rem;
+  color: #555;
+  cursor: text;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.pp-page-header {
+  border-bottom: 1px solid transparent;
+}
+
+.pp-page-footer {
+  border-top: 1px solid transparent;
+}
+
+.pp-page-header:hover,
+.pp-page-footer:hover {
+  background: #fafaf6;
+  outline: 1px dashed #c5c5bd;
+}
+
+.pp-page-header p,
+.pp-page-footer p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.pp-page-gap {
+  /* Visual gap between pages — the editor surface bleeds through here. */
+  background: #f4f4f1;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+  /* Subtle shadow at the top of next page to sell the depth illusion. */
+  box-shadow:
+    inset 0 12px 12px -12px rgba(0, 0, 0, 0.08),
+    inset 0 -12px 12px -12px rgba(0, 0, 0, 0.08);
+}
+
+.pp-token {
+  display: inline-block;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* ----------------------------- Pages: header/footer overlay editor ----------- */
+
+.pp-pages-overlay {
+  z-index: 80;
+  background: white;
+  outline: 2px solid #6366f1;
+  outline-offset: -1px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+.pp-pages-overlay-content {
+  flex: 1;
+  padding: inherit;
+  outline: none;
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.pp-pages-overlay-content .ProseMirror {
+  outline: none;
+  min-height: 100%;
+}
+
+.pp-pages-overlay-toolbar {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  background: #1f2937;
+  color: white;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.pp-pages-overlay-toolbar button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: white;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.pp-pages-overlay-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pp-pages-overlay-toolbar .pp-pages-overlay-done {
+  background: #6366f1;
+  font-weight: 600;
+}
+
+.pp-pages-overlay-toolbar .pp-pages-overlay-done:hover {
+  background: #4f46e5;
+}
+
+.pp-pages-overlay-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 4px;
+}
+
+/* ----------------------------- Pages: toolbar item --------------------------- */
+
+.pp-pages-toolbar {
+  position: relative;
+  display: inline-flex;
+}
+
+.pp-pages-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.pp-pages-toolbar-button:hover {
+  background: #f4f4f1;
+}
+
+.pp-pages-toolbar-label {
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-pages-toolbar-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  padding: 8px;
+  background: white;
+  border: 1px solid #d6d6cf;
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  z-index: 70;
+}
+
+.pp-pages-toolbar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pp-pages-toolbar-section + .pp-pages-toolbar-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #ececea;
+}
+
+.pp-pages-toolbar-section-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.pp-pages-toolbar-option {
+  text-align: left;
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.pp-pages-toolbar-option:hover {
+  background: #f4f4f1;
+}
+
+.pp-pages-toolbar-option.is-active {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.pp-pages-toolbar-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* ----------------------------- Page break node ------------------------------- */
+
+.pp-page-break-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+  user-select: none;
+}
+
+.pp-page-break-node__rule {
+  flex: 1;
+  height: 1px;
+  background: #d6d6cf;
+}
+
+.pp-page-break-node__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888;
+}
+
+/* In pagination mode, the page-break is invisible — its only job is
+   to claim height that pushes following content past the next page
+   footer band. */
+.pp-page-break-node--pages-mode {
+  display: block;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.pp-page-break-node--pages-mode > * {
+  display: none;
+}
+
+.pp-page-break-node.ProseMirror-selectednode {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+

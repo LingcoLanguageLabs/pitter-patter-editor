@@ -1,6 +1,7 @@
 import type { Schema } from "prosemirror-model";
 
 import { createEditor } from "./editor";
+import { createPages } from "./editor/extensions/Pages";
 import {
   Ai,
   AiCaret,
@@ -45,6 +46,7 @@ import {
   Math,
   Mention,
   OrderedList,
+  PageBreak,
   Placeholder,
   PullQuote,
   Quote,
@@ -158,6 +160,7 @@ export const editor = createEditor([
   Separator,
   Footnote,
   HorizontalRule,
+  PageBreak,
   Separator,
 
   // Formatting tools
@@ -200,5 +203,78 @@ export const editor = createEditor([
 ] as const);
 
 export type EditorCommand = Parameters<typeof editor.useRunCommand>[0];
+
+/**
+ * A second editor instance configured for pagination mode. Pages is
+ * surface-changing (it sizes the editor to one page width and inserts
+ * page-break stripes), so we keep it as an opt-in companion to the
+ * default `editor` rather than enabling it everywhere.
+ */
+export const pagesEditor = createEditor([
+  Undo,
+  Redo,
+  Separator,
+  TextStyle,
+  Separator,
+  FontFamily,
+  FontSize,
+  Separator,
+  Bold,
+  Italic,
+  Underline,
+  Strike,
+  Code,
+  Separator,
+  TextColor,
+  Highlight,
+  Separator,
+  Link,
+  Separator,
+  TextAlign,
+  Separator,
+  Lists,
+  BulletList,
+  OrderedList,
+  ListItem,
+  TaskList,
+  Separator,
+  Quote,
+  CodeBlock,
+  Callout,
+  Separator,
+  Image,
+  HorizontalRule,
+  PageBreak,
+  Separator,
+  createPages({
+    format: "A4",
+    differentFirstPage: false,
+    differentOddEven: false,
+    header: '<p style="text-align:center">Pitter Patter Editor</p>',
+    footer:
+      '<p style="text-align:center">Page <span data-pp-token="pageNumber">{{PAGE_NUMBER}}</span> of <span data-pp-token="totalPages">{{TOTAL_PAGES}}</span></p>',
+  }),
+
+  // Schema-only / system extensions
+  Heading,
+  Typography,
+  Gapcursor,
+  Dropcursor,
+  Placeholder,
+  TrailingNode,
+  CharacterCount,
+  Statistics,
+  Focus,
+  UniqueID,
+  MaintainSelection,
+  ColorChip,
+  SmartPaste,
+  Linkify,
+  HoverLink,
+  FileHandler,
+  SlashMenu,
+  Mention,
+  Emoji,
+] as const);
 
 export { buildInitialDoc } from "./demoDocs/featureTour";
