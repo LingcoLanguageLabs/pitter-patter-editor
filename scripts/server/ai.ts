@@ -36,6 +36,13 @@ interface AiRequestBody {
     | "translate";
   language?: string;
   system?: string;
+  /**
+   * Optional natural-language description of the editor's installed
+   * extensions, composed by the frontend from each extension's
+   * `schemaAwareness` blurb. Helps the model understand which custom
+   * nodes/marks exist when generating structured output.
+   */
+  schemaAwareness?: string;
 }
 
 const PRESETS: Record<NonNullable<AiRequestBody["mode"]>, string> = {
@@ -99,7 +106,10 @@ aiRoutes.post("/", async (c) => {
     return c.json({ error: "Body must be { prompt: string, ... }" }, 400);
   }
 
-  const system = resolveSystemPrompt(body);
+  const baseSystem = resolveSystemPrompt(body);
+  const system = body.schemaAwareness
+    ? `${baseSystem}\n\nThe editor exposes the following custom node types and marks. Where relevant, your output should respect these:\n\n${body.schemaAwareness}`
+    : baseSystem;
   const message = resolveUserMessage(body);
 
   const result = streamText({

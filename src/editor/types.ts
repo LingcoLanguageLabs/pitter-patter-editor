@@ -31,6 +31,13 @@ export interface Extension<TCommandName extends string = string> {
   inputRules?: InputRulesFactory;
   toolbar?: ComponentType;
   meta?: ExtensionMeta;
+  /**
+   * Optional natural-language description of this extension's schema
+   * contribution, sent to the LLM in the AI request body so the model
+   * can produce structured edits that target the editor's actual node
+   * shape. Free-form prose; concise is fine.
+   */
+  schemaAwareness?: string;
 }
 
 type ExtensionInput<C extends Record<string, CommandFactory>> = Omit<

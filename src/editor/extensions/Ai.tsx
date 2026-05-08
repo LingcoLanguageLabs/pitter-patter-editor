@@ -33,6 +33,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -40,8 +41,9 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { useEditor } from "../Editor";
 import { MenuItem } from "../menu/MenuItem";
-import { Extension } from "../types";
+import { Extension, type Extension as ExtensionType } from "../types";
 import { hideAiCaret, showAiCaret } from "./AiCaret";
 
 // ────────────────────────────────────────────────────────────── Types
@@ -129,6 +131,29 @@ export interface AiRequestOptions {
   signal?: AbortSignal;
   /** Re-issue the same request that produced `suggestionId`. */
   regenerate?: { suggestionId: string };
+  /**
+   * Composed natural-language description of the editor's schema —
+   * gives the model context about which custom nodes/marks exist so
+   * structured edits can target them. See `composeSchemaAwareness`.
+   */
+  schemaAwareness?: string;
+}
+
+/**
+ * Walk the installed extensions and join each `schemaAwareness` blurb
+ * into one string. Sent to the backend on every AI request so the
+ * model knows what nodes/marks the editor supports.
+ */
+export function composeSchemaAwareness(
+  extensions: readonly ExtensionType[],
+): string {
+  const parts: string[] = [];
+  for (const ext of extensions) {
+    if (!ext.schemaAwareness) continue;
+    const heading = ext.meta?.label ?? ext.name;
+    parts.push(`### ${heading}\n${ext.schemaAwareness.trim()}`);
+  }
+  return parts.join("\n\n");
 }
 
 interface AiMeta {
@@ -430,6 +455,7 @@ export async function runAiRequest(
         instruction: generatedWith.instruction,
         mode: generatedWith.mode,
         language: generatedWith.language,
+        schemaAwareness: options.schemaAwareness ?? "",
       }),
       signal: options.signal,
     });
@@ -642,10 +668,16 @@ export interface UseAiResult {
 
 export function useAi(options: AiOptions = {}): UseAiResult {
   const editorState = useEditorState();
+  const editorHandle = useEditor();
   const ai = editorState
     ? (aiPluginKey.getState(editorState) ?? INITIAL_STATE)
     : INITIAL_STATE;
   const abortRef = useRef<AbortController | null>(null);
+
+  const schemaAwareness = useMemo(
+    () => composeSchemaAwareness(editorHandle.extensions),
+    [editorHandle.extensions],
+  );
 
   const start = useEditorEventCallback(
     async (view: EditorView | null, opts: AiRequestOptions) => {
@@ -656,6 +688,7 @@ export function useAi(options: AiOptions = {}): UseAiResult {
       await runAiRequest(view, {
         ...opts,
         baseUrl: opts.baseUrl ?? options.baseUrl,
+        schemaAwareness: opts.schemaAwareness ?? schemaAwareness,
         signal: ac.signal,
       });
     },

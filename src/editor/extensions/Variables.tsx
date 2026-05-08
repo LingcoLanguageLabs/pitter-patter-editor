@@ -361,6 +361,7 @@ export function createVariables({
       />
     ),
     meta: { label: "Variable", group: "block", Icon: BracketsCurly },
+    schemaAwareness: `An inline atom node \`variable\` represents a template placeholder. Attributes: \`name\` (the variable identifier — what shows between {{ }}) and \`defaultValue\` (rendered when no resolved value is bound). Use it for templated documents (mail merges, contracts, onboarding sequences).`,
   });
 }
 
