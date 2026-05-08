@@ -79,11 +79,11 @@ function ImageNodeView({
 
 const baseNodeViewComponents = { image: ImageNodeView };
 
-type HandleProps = WidgetViewComponentProps & {
+export type HandleProps = WidgetViewComponentProps & {
   ref?: React.Ref<HTMLDivElement>;
 };
 
-function createHandle(label: string) {
+export function createHandle(label: string) {
   function Handle({
     widget,
     ref,

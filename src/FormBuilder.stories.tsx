@@ -6,7 +6,9 @@ import {
   buildQuiz,
   quizNodeViewComponents,
 } from "./demoExtensions/multipleChoice";
-import { FormBuilderEditor } from "./FormBuilderEditor";
+import { createHandle, FormBuilderEditor } from "./FormBuilderEditor";
+
+const quizDragHandles = { quiz: createHandle("Quiz") };
 
 const meta: Meta = {
   title: "Form Builder",
@@ -76,6 +78,7 @@ const buildReadingQuizDoc = (schema: Schema) => {
             { text: "Always take a nap when racing." },
             { text: "Never accept a challenge." },
           ],
+          { shuffleStart: 1, shuffleEnd: 12 },
         ),
         buildQuiz(
           schema,
@@ -86,6 +89,7 @@ const buildReadingQuizDoc = (schema: Schema) => {
             { text: "He underestimated his opponent and napped.", correct: true },
             { text: "He ran in the wrong direction." },
           ],
+          { shuffleStart: 1, shuffleEnd: 12 },
         ),
       ]),
     ]),
@@ -104,6 +108,7 @@ export const ReadingWithQuiz: Story = {
           initialDoc={buildReadingQuizDoc}
           extendSchema={addQuizToSchema}
           extraNodeViewComponents={quizNodeViewComponents}
+          extraDragHandles={quizDragHandles}
         />
       </div>
     </div>

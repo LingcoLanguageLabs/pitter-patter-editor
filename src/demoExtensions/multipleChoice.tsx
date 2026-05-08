@@ -94,6 +94,13 @@ export function buildQuiz(
   schema: Schema,
   prompt: string,
   choices: ReadonlyArray<{ text: string; correct?: boolean }>,
+  /**
+   * Pass-through shuffle attrs. Useful for setting how wide the quiz
+   * spans the shuffle grid (defaults to the schema's defaults — 4..9 —
+   * which is fairly narrow). Pass `{ shuffleStart: 1, shuffleEnd: 12 }`
+   * for a near-full-row quiz.
+   */
+  shuffleAttrs?: { shuffleStart?: number; shuffleEnd?: number },
 ): PmNode {
   const promptType = schema.nodes["quiz_prompt"];
   const choiceType = schema.nodes["quiz_choice"];
@@ -107,7 +114,7 @@ export function buildQuiz(
   const choiceNodes = choices.map((c) =>
     choiceType.create({ correct: !!c.correct }, schema.text(c.text)),
   );
-  return quizType.create(null, [promptNode, ...choiceNodes]);
+  return quizType.create(shuffleAttrs ?? null, [promptNode, ...choiceNodes]);
 }
 
 // ─────────────────────────────────────────────────── NodeViews
@@ -117,7 +124,7 @@ export function buildQuiz(
  * "Add choice" button sits below them (outside contentDOM).
  */
 export function QuizView({ nodeProps, ref, children }: NodeViewComponentProps) {
-  const { node, getPos } = nodeProps;
+  const { node, getPos, contentDOMRef } = nodeProps;
 
   const addChoice = useEditorEventCallback((view) => {
     if (!view) return;
@@ -132,11 +139,11 @@ export function QuizView({ nodeProps, ref, children }: NodeViewComponentProps) {
   });
 
   return (
-    <div className="pp-quiz">
+    <div ref={ref} className="pp-quiz">
       <div className="pp-quiz-label" contentEditable={false}>
         Multiple choice
       </div>
-      <div ref={ref} className="pp-quiz-content">
+      <div ref={contentDOMRef} className="pp-quiz-content">
         {children}
       </div>
       <button
@@ -152,10 +159,10 @@ export function QuizView({ nodeProps, ref, children }: NodeViewComponentProps) {
 }
 
 /** Prompt — labeled editable text field. */
-export function QuizPromptView({ ref, children }: NodeViewComponentProps) {
+export function QuizPromptView({ nodeProps, ref, children }: NodeViewComponentProps) {
   return (
-    <div className="pp-quiz-prompt-wrapper">
-      <div ref={ref} className="pp-quiz-prompt">
+    <div ref={ref} className="pp-quiz-prompt-wrapper">
+      <div ref={nodeProps.contentDOMRef} className="pp-quiz-prompt">
         {children}
       </div>
     </div>
@@ -224,6 +231,7 @@ export function QuizChoiceView({
 
   return (
     <div
+      ref={ref}
       className={`pp-quiz-choice${correct ? " pp-quiz-choice--correct" : ""}`}
     >
       <input
@@ -235,7 +243,7 @@ export function QuizChoiceView({
         className="pp-quiz-choice-radio"
         aria-label="Mark as correct answer"
       />
-      <div ref={ref} className="pp-quiz-choice-text">
+      <div ref={nodeProps.contentDOMRef} className="pp-quiz-choice-text">
         {children}
       </div>
       <button
