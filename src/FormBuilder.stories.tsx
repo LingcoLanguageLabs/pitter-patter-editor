@@ -101,33 +101,29 @@ const buildReadingQuizDoc = (schema: Schema) => {
         ),
       ]),
     ]),
-    schema.nodes["row"]!.create({ shuffleStart: 0, shuffleEnd: 13 }, [
-      schema.nodes["container"]!.create({ shuffleStart: 1, shuffleEnd: 12 }, [
-        h(2, "Comprehension check"),
-        buildQuiz(
-          schema,
-          "What is the moral of the story?",
-          [
-            { text: "Bragging always pays off." },
-            { text: "Slow and steady wins the race.", correct: true },
-            { text: "Always take a nap when racing." },
-            { text: "Never accept a challenge." },
-          ],
-          { shuffleStart: 1, shuffleEnd: 12 },
-        ),
-        buildQuiz(
-          schema,
-          "Why did the Hare lose?",
-          [
-            { text: "He was injured during the race." },
-            { text: "The Tortoise cheated." },
-            { text: "He underestimated his opponent and napped.", correct: true },
-            { text: "He ran in the wrong direction." },
-          ],
-          { shuffleStart: 1, shuffleEnd: 12 },
-        ),
-      ]),
-    ]),
+    h(2, "Comprehension check"),
+    buildQuiz(
+      schema,
+      "What is the moral of the story?",
+      [
+        { text: "Bragging always pays off." },
+        { text: "Slow and steady wins the race.", correct: true },
+        { text: "Always take a nap when racing." },
+        { text: "Never accept a challenge." },
+      ],
+      { shuffleStart: 1, shuffleEnd: 12 },
+    ),
+    buildQuiz(
+      schema,
+      "Why did the Hare lose?",
+      [
+        { text: "He was injured during the race." },
+        { text: "The Tortoise cheated." },
+        { text: "He underestimated his opponent and napped.", correct: true },
+        { text: "He ran in the wrong direction." },
+      ],
+      { shuffleStart: 1, shuffleEnd: 12 },
+    ),
   ]);
 };
 
