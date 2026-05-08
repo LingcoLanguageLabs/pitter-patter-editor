@@ -19,7 +19,8 @@
 
 import { anthropic } from "@ai-sdk/anthropic";
 import { Hono } from "hono";
-import { streamText } from "ai";
+import { streamObject, streamText } from "ai";
+import { z } from "zod";
 
 interface AiRequestBody {
   prompt: string;
@@ -121,5 +122,92 @@ aiRoutes.post("/", async (c) => {
 
   // Plain text streaming — each network chunk is a UTF-8 fragment of
   // the model's output. The editor reads it via a fetch + ReadableStream.
+  return result.toTextStreamResponse();
+});
+
+// ─────────────────────────────────────────────────── /api/ai/edit
+
+/**
+ * Structured-edit endpoint. The model returns a list of operations
+ * the editor applies as separate suggestions, each addressing a
+ * specific block by its id. Useful for proofread-style multi-suggestion
+ * passes where you want to show every change individually.
+ *
+ * Request body:
+ *   {
+ *     instruction: string,
+ *     blocks: { id: string, text: string }[],   // block id → text content
+ *     schemaAwareness?: string,
+ *   }
+ *
+ * Response: streaming JSON of `{ operations: [{ type, target, content }] }`
+ * via the AI SDK's streamObject protocol.
+ */
+const EditOperation = z.object({
+  /**
+   * - `replace`     — swap the target block's content with `content`.
+   * - `insertBefore` — insert a new block before `target` with `content`.
+   * - `insertAfter`  — insert a new block after `target` with `content`.
+   */
+  type: z.enum(["replace", "insertBefore", "insertAfter"]),
+  /** Block id (from the editor's `id` global attribute) the op applies to. */
+  target: z.string().describe("The id of the block this operation targets."),
+  /** Plain-text content of the operation. v1: text only. */
+  content: z.string(),
+  /** Optional human-readable rationale shown in the review nav. */
+  meta: z.string().optional(),
+});
+
+const EditOperations = z.object({
+  operations: z.array(EditOperation),
+});
+
+interface EditRequestBody {
+  instruction: string;
+  blocks: Array<{ id: string; text: string }>;
+  schemaAwareness?: string;
+}
+
+aiRoutes.post("/edit", async (c) => {
+  if (!process.env["ANTHROPIC_API_KEY"]) {
+    return c.json(
+      {
+        error:
+          "ANTHROPIC_API_KEY is not set. Add it to .env or your shell env.",
+      },
+      500,
+    );
+  }
+
+  const body = (await c.req.json().catch(() => null)) as EditRequestBody | null;
+  if (!body || typeof body.instruction !== "string" || !Array.isArray(body.blocks)) {
+    return c.json(
+      {
+        error:
+          "Body must be { instruction: string, blocks: [{id, text}], schemaAwareness?: string }",
+      },
+      400,
+    );
+  }
+
+  const baseSystem =
+    "You are a structured-edit AI for a rich-text editor. The user gives you an instruction and a list of editable blocks (each with a stable id and current text). Return only operations needed to satisfy the instruction — do not rewrite blocks that don't need to change. Each operation's `target` MUST be the id of an existing block. Keep `content` as plain text.";
+  const system = body.schemaAwareness
+    ? `${baseSystem}\n\nThe editor exposes the following custom node types and marks:\n\n${body.schemaAwareness}`
+    : baseSystem;
+
+  const blockListing = body.blocks
+    .map((b, i) => `[${i}] id=${b.id}\n${b.text}`)
+    .join("\n\n");
+  const message = `Instruction: ${body.instruction.trim()}\n\nBlocks:\n${blockListing}`;
+
+  const result = streamObject({
+    model: anthropic("claude-haiku-4-5"),
+    schema: EditOperations,
+    system,
+    prompt: message,
+    maxOutputTokens: 2048,
+  });
+
   return result.toTextStreamResponse();
 });

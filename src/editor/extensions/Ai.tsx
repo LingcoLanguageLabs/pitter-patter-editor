@@ -116,6 +116,12 @@ export interface AiExample {
   prompt?: string;
   mode?: AiPresetMode;
   language?: string;
+  /**
+   * When true, the example fires a structured-edit request that may
+   * produce multiple suggestions across the whole document (proofread,
+   * style review, etc.) instead of a single replacement.
+   */
+  structured?: boolean;
 }
 
 export interface AiOptions {
@@ -519,6 +525,161 @@ export async function runAiRequest(
   }
 }
 
+// ────────────────────────────────────────────────────────────── Structured edits
+
+interface StructuredEditOperation {
+  type: "replace" | "insertBefore" | "insertAfter";
+  target: string;
+  content: string;
+  meta?: string;
+}
+
+/**
+ * Walk the doc and collect every block node that carries an `id`
+ * attribute (assigned by the UniqueID extension). Used to feed the
+ * structured-edit backend a list of editable blocks with stable ids.
+ */
+function collectBlocks(state: EditorState): Array<{
+  id: string;
+  text: string;
+  from: number;
+  to: number;
+}> {
+  const blocks: Array<{ id: string; text: string; from: number; to: number }> = [];
+  state.doc.descendants((node, pos) => {
+    if (!node.isBlock || !node.isTextblock) return true;
+    const id = node.attrs["id"];
+    if (typeof id !== "string" || !id) return true;
+    blocks.push({
+      id,
+      text: node.textContent,
+      from: pos + 1,
+      to: pos + 1 + node.content.size,
+    });
+    return false;
+  });
+  return blocks;
+}
+
+/**
+ * Drive a structured-edit request. POSTs the doc's id-keyed blocks +
+ * an instruction to `/api/ai/edit`, parses the response, and creates
+ * one Suggestion per returned operation.
+ *
+ * Replace ops produce a Suggestion over the matched block's range.
+ * insertBefore / insertAfter ops produce zero-width Suggestions whose
+ * replacement is the new content (accept inserts at the boundary).
+ */
+export async function runStructuredEditRequest(
+  view: EditorView,
+  options: {
+    instruction: string;
+    baseUrl?: string;
+    schemaAwareness?: string;
+    signal?: AbortSignal;
+  },
+): Promise<void> {
+  const baseUrl = options.baseUrl ?? `${DEFAULT_BASE_URL}/edit`;
+  const blocks = collectBlocks(view.state);
+  if (blocks.length === 0) return;
+
+  try {
+    const response = await fetch(baseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instruction: options.instruction,
+        blocks: blocks.map(({ id, text }) => ({ id, text })),
+        schemaAwareness: options.schemaAwareness ?? "",
+      }),
+      signal: options.signal,
+    });
+
+    if (!response.ok || !response.body) {
+      const err = await response.text().catch(() => "");
+      throw new Error(`Structured edit failed (${response.status}) ${err.slice(0, 200)}`);
+    }
+
+    // Buffer the streaming JSON. The AI SDK's streamObject emits the
+    // partial object repeatedly; we just wait for the final value.
+    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) buffer += value;
+    }
+
+    let parsed: { operations?: StructuredEditOperation[] } | null = null;
+    try {
+      parsed = JSON.parse(buffer);
+    } catch {
+      // Try to find the last complete JSON object in the buffer.
+      const lastBrace = buffer.lastIndexOf("}");
+      if (lastBrace > 0) {
+        try {
+          parsed = JSON.parse(buffer.slice(0, lastBrace + 1));
+        } catch {
+          // give up
+        }
+      }
+    }
+    if (!parsed?.operations) return;
+
+    // Re-collect blocks at apply time so positions reflect any edits
+    // that landed in between.
+    const liveBlocks = new Map(
+      collectBlocks(view.state).map((b) => [b.id, b]),
+    );
+    for (const op of parsed.operations) {
+      const block = liveBlocks.get(op.target);
+      if (!block) continue;
+      let range: { from: number; to: number };
+      switch (op.type) {
+        case "replace":
+          range = { from: block.from, to: block.to };
+          break;
+        case "insertBefore":
+          range = { from: block.from - 1, to: block.from - 1 };
+          break;
+        case "insertAfter":
+          range = { from: block.to + 1, to: block.to + 1 };
+          break;
+      }
+      const suggestionId = nextSuggestionId();
+      view.dispatch(
+        view.state.tr.setMeta(aiPluginKey, {
+          type: "start-suggestion",
+          suggestionId,
+          range,
+          generatedWith: { instruction: options.instruction },
+        } satisfies AiMeta),
+      );
+      view.dispatch(
+        view.state.tr.setMeta(aiPluginKey, {
+          type: "append-suggestion",
+          suggestionId,
+          text: op.content,
+        } satisfies AiMeta),
+      );
+      view.dispatch(
+        view.state.tr.setMeta(aiPluginKey, {
+          type: "settle-suggestion",
+          suggestionId,
+        } satisfies AiMeta),
+      );
+    }
+  } catch (err) {
+    if ((err as { name?: string })?.name === "AbortError") return;
+    view.dispatch(
+      view.state.tr.setMeta(aiPluginKey, {
+        type: "error",
+        message: (err as Error)?.message ?? "Structured edit failed",
+      } satisfies AiMeta),
+    );
+  }
+}
+
 // ────────────────────────────────────────────────────────────── Commands
 
 /**
@@ -655,6 +816,12 @@ export interface UseAiResult {
   selectedSuggestion: Suggestion | null;
   prompt: (instruction: string) => Promise<void>;
   transform: (mode: AiPresetMode, options?: { language?: string }) => Promise<void>;
+  /**
+   * Send the doc's id-keyed blocks + an instruction to /api/ai/edit
+   * and create one Suggestion per returned operation. Useful for
+   * proofread / multi-block edit passes.
+   */
+  structuredEdit: (instruction: string) => Promise<void>;
   regenerate: (suggestionId: string) => Promise<void>;
   accept: (suggestionId: string) => void;
   reject: (suggestionId: string) => void;
@@ -689,6 +856,24 @@ export function useAi(options: AiOptions = {}): UseAiResult {
         ...opts,
         baseUrl: opts.baseUrl ?? options.baseUrl,
         schemaAwareness: opts.schemaAwareness ?? schemaAwareness,
+        signal: ac.signal,
+      });
+    },
+  );
+
+  const structuredEdit = useEditorEventCallback(
+    async (view: EditorView | null, instruction: string) => {
+      if (!view) return;
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+      const editBaseUrl = options.baseUrl
+        ? `${options.baseUrl}/edit`
+        : undefined;
+      await runStructuredEditRequest(view, {
+        instruction,
+        baseUrl: editBaseUrl,
+        schemaAwareness,
         signal: ac.signal,
       });
     },
@@ -760,6 +945,7 @@ export function useAi(options: AiOptions = {}): UseAiResult {
     selectedSuggestion,
     prompt: (instruction) => start({ instruction }),
     transform: (mode, opts) => start({ mode, language: opts?.language }),
+    structuredEdit,
     regenerate: (suggestionId) => start({ regenerate: { suggestionId } }),
     accept,
     reject,
@@ -799,7 +985,15 @@ const DEFAULT_EXAMPLES: AiExample[] = [
   { value: "rephrase", label: "Rephrase", mode: "rephrase", icon: PencilSimple, keywords: ["reword", "paraphrase"] },
   { value: "shorten", label: "Shorten", mode: "shorten", icon: Subtract, keywords: ["trim", "tighten"] },
   { value: "extend", label: "Extend", mode: "extend", icon: Plus, keywords: ["expand", "lengthen"] },
-  { value: "fix-grammar", label: "Fix grammar & spelling", mode: "fix-grammar", icon: MagnifyingGlass, keywords: ["proofread", "grammar", "spelling"] },
+  { value: "fix-grammar", label: "Fix grammar & spelling (selection)", mode: "fix-grammar", icon: MagnifyingGlass, keywords: ["proofread", "grammar", "spelling"] },
+  {
+    value: "proofread-doc",
+    label: "Proofread whole document",
+    icon: MagnifyingGlass,
+    keywords: ["proofread", "review", "grammar", "spelling", "doc"],
+    prompt: "Find any spelling, grammar, or punctuation errors anywhere in the document and propose fixes. Only return operations for blocks that need changes.",
+    structured: true,
+  },
   { value: "summarize", label: "Summarize", mode: "summarize", icon: ListBullets, keywords: ["summary"] },
   { value: "tldr", label: "TL;DR", mode: "tldr", icon: TextAa, keywords: ["tldr", "tl;dr"] },
 ];
@@ -921,7 +1115,9 @@ function AiPromptDock({ ai, examples }: AiPromptDockProps) {
     (example: AiExample) => {
       setDraft("");
       setCollapsed(true);
-      if (example.mode) {
+      if (example.structured && example.prompt) {
+        void ai.structuredEdit(example.prompt);
+      } else if (example.mode) {
         void ai.transform(example.mode, { language: example.language });
       } else if (example.prompt) {
         void ai.prompt(example.prompt);

@@ -9,8 +9,10 @@ export {
   aiRejectAll,
   aiRejectSuggestion,
   aiSelectSuggestion,
+  composeSchemaAwareness,
   createAi,
   runAiRequest,
+  runStructuredEditRequest,
   useAi,
 } from "./Ai";
 export type {
