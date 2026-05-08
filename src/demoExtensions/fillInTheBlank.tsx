@@ -15,11 +15,7 @@
  * an existing blank and triggering again removes it.
  */
 
-import {
-  useEditorEventCallback,
-  useEditorState,
-  type NodeViewComponentProps,
-} from "@handlewithcare/react-prosemirror";
+import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
 import { keymap } from "prosemirror-keymap";
 import type {
   MarkSpec,
@@ -29,8 +25,6 @@ import type {
 } from "prosemirror-model";
 import { Schema as PMSchema } from "prosemirror-model";
 import type { Command, EditorState } from "prosemirror-state";
-
-import { FloatingMenu } from "../editor/menu/FloatingMenu";
 
 // ─────────────────────────────────────────────────── Schema
 
@@ -101,7 +95,7 @@ export function buildCloze(
 // ─────────────────────────────────────────────────── Selection gating
 
 /** True iff the entire selection sits inside a single cloze_prompt. */
-function isSelectionInClozePrompt(state: EditorState): boolean {
+export function isSelectionInClozePrompt(state: EditorState): boolean {
   const promptType = state.schema.nodes["cloze_prompt"];
   if (!promptType) return false;
   const { $from, $to } = state.selection;
@@ -141,48 +135,6 @@ export function blankKeymap() {
   return keymap({
     "Mod-Shift-Backspace": toggleBlank,
   });
-}
-
-// ─────────────────────────────────────────────────── Bubble menu
-
-const shouldShowBlankBubble = (state: EditorState): boolean => {
-  if (state.selection.empty) return false;
-  return isSelectionInClozePrompt(state);
-};
-
-export function FillInTheBlankBubbleMenu() {
-  const editorState = useEditorState();
-  const blankType = editorState?.schema.marks["blank"];
-
-  const hasBlank = (() => {
-    if (!editorState || !blankType) return false;
-    const { from, to, empty } = editorState.selection;
-    if (empty) return false;
-    return editorState.doc.rangeHasMark(from, to, blankType);
-  })();
-
-  const toggle = useEditorEventCallback((view) => {
-    if (!view) return;
-    toggleBlank(view.state, view.dispatch);
-  });
-
-  if (!blankType) return null;
-
-  return (
-    <FloatingMenu placement="top" offset={6} shouldShow={shouldShowBlankBubble}>
-      <div className="pp-blank-bubble">
-        <button
-          type="button"
-          onClick={() => toggle()}
-          onMouseDown={(e) => e.preventDefault()}
-          className={`pp-blank-bubble-btn${hasBlank ? " is-active" : ""}`}
-        >
-          {hasBlank ? "Remove blank" : "Mark as blank"}
-        </button>
-        <span className="pp-blank-bubble-hint">⌘⇧⌫</span>
-      </div>
-    </FloatingMenu>
-  );
 }
 
 // ─────────────────────────────────────────────────── NodeViews

@@ -176,48 +176,76 @@ mark.pp-blank,
   -webkit-box-decoration-break: clone;
 }
 
-.pp-blank-bubble {
+/* ---------------------------- Form Builder bubble menu ---------------------------- */
+
+.pp-fb-bubble {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px 4px 4px;
+  gap: 2px;
+  padding: 4px;
   background: #1f2937;
   color: white;
   border-radius: 6px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   white-space: nowrap;
 }
 
-.pp-blank-bubble-btn {
+.pp-fb-bubble-btn {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   background: transparent;
   border: 0;
   color: white;
   cursor: pointer;
-  padding: 4px 8px;
   border-radius: 4px;
   font: inherit;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.pp-blank-bubble-btn:hover {
+.pp-fb-bubble-btn:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 
-.pp-blank-bubble-btn.is-active {
-  background: #16a34a;
+.pp-fb-bubble-btn.is-active {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
 }
 
-.pp-blank-bubble-btn.is-active:hover {
+.pp-fb-bubble-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.18);
+  margin: 0 4px;
+}
+
+.pp-fb-bubble-blank {
+  appearance: none;
+  background: #16a34a;
+  border: 0;
+  color: white;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font: inherit;
+  font-weight: 500;
+  font-size: 0.78rem;
+}
+
+.pp-fb-bubble-blank:hover {
   background: #15803d;
 }
 
-.pp-blank-bubble-hint {
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  font-size: 0.7rem;
-  opacity: 0.6;
-  padding: 0 4px;
+.pp-fb-bubble-blank.is-active {
+  background: #b91c1c;
+}
+
+.pp-fb-bubble-blank.is-active:hover {
+  background: #991b1b;
 }
 
 /* ---------------------------- Cloze item ---------------------------- */

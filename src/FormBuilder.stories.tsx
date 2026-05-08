@@ -8,14 +8,18 @@ import {
   blankKeymap,
   buildCloze,
   clozeNodeViewComponents,
-  FillInTheBlankBubbleMenu,
 } from "./demoExtensions/fillInTheBlank";
+import { FormBuilderBubbleMenu } from "./demoExtensions/formBuilderBubble";
 import {
   addQuizToSchema,
   buildQuiz,
   quizNodeViewComponents,
 } from "./demoExtensions/multipleChoice";
-import { createHandle, FormBuilderEditor } from "./FormBuilderEditor";
+import {
+  createHandle,
+  FormBuilderEditor,
+  formBuilderMarkExtensions,
+} from "./FormBuilderEditor";
 
 /** Combined schema extender — quiz items + cloze items. */
 const addFormBuilderSchema = (schema: Schema) =>
@@ -32,7 +36,9 @@ const formItemNodeViewComponents = {
 };
 
 const formItemPlugins = [blankKeymap()];
-const formItemOverlays = <FillInTheBlankBubbleMenu />;
+const formItemOverlays = (
+  <FormBuilderBubbleMenu markExtensions={formBuilderMarkExtensions} />
+);
 
 const meta: Meta = {
   title: "Form Builder",
@@ -55,10 +61,15 @@ export const EmptyShuffle: Story = {
   render: () => (
     <div className="editor-shell">
       <h2 className="editor-title">
-        Empty shuffle — drag blocks onto the canvas
+        Empty shuffle — drag blocks · select text for B / I / U / S
       </h2>
       <div className="editor-surface editor-surface--shuffle">
-        <FormBuilderEditor initialDoc={buildEmptyDoc} />
+        <FormBuilderEditor
+          initialDoc={buildEmptyDoc}
+          overlays={
+            <FormBuilderBubbleMenu markExtensions={formBuilderMarkExtensions} />
+          }
+        />
       </div>
     </div>
   ),

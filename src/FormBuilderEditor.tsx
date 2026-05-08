@@ -25,10 +25,26 @@ import { baseKeymap } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import { Schema, type Node as PmNode } from "prosemirror-model";
 import { schema as basic } from "prosemirror-schema-basic";
-import { EditorState, type Plugin } from "prosemirror-state";
+import { EditorState, type Command, type Plugin } from "prosemirror-state";
 import { useMemo, useState } from "react";
 
 import "@pitter-patter/shuffle/style/shuffle.css";
+
+import { Bold, Italic, Strike, Underline } from "./editor/extensions";
+import type { Extension } from "./editor/types";
+
+/**
+ * Mark extensions reused from the toolkit's editor — the same Bold,
+ * Italic, Underline, Strike code that powers the configured editor.
+ * We pluck their schema specs, commands, and keymap declarations out
+ * of the Extension objects rather than re-implementing them.
+ */
+export const formBuilderMarkExtensions: readonly Extension[] = [
+  Bold,
+  Italic,
+  Underline,
+  Strike,
+];
 
 const imageSpec = basic.spec.nodes.get("image")!;
 
@@ -45,12 +61,28 @@ const baseNodes = basic.spec.nodes
     },
   });
 
+/**
+ * Marks beyond the prosemirror-schema-basic defaults. The basic schema
+ * ships with `em`, `strong`, `code`, and `link`; the form-builder mark
+ * extensions (Bold/Italic/Underline/Strike) bring `underline` and
+ * `strike` along with their commands and keymap declarations.
+ */
+const baseMarks = formBuilderMarkExtensions.reduce((acc, ext) => {
+  if (!ext.marks) return acc;
+  let marks = acc;
+  for (const [name, spec] of Object.entries(ext.marks)) {
+    if (marks.get(name)) continue; // basic schema already has it (em, strong)
+    marks = marks.addToEnd(name, spec);
+  }
+  return marks;
+}, basic.spec.marks);
+
 /** Build a shuffle-aware schema, optionally letting the caller add
  *  more nodes (like quiz) before the shuffle attrs get sprinkled on. */
 export function buildShuffleSchema(
   extend?: (schema: Schema) => Schema,
 ): Schema {
-  let schema = new Schema({ nodes: baseNodes, marks: basic.spec.marks });
+  let schema = new Schema({ nodes: baseNodes, marks: baseMarks });
   if (extend) schema = extend(schema);
   return addShuffleNodes(schema, "block+", "block");
 }
@@ -170,6 +202,19 @@ export function FormBuilderEditor({
 }: FormBuilderEditorProps) {
   const editorState = useMemo(() => {
     const schema = buildShuffleSchema(extendSchema);
+    // Build the keymap directly from each extension's `keymap` +
+    // `commands` declaration. Keeps shortcuts in lockstep with the
+    // configured editor — change Bold's `Mod-b` there and it changes
+    // here too.
+    const markKeymap: Record<string, Command> = {};
+    for (const ext of formBuilderMarkExtensions) {
+      if (!ext.commands || !ext.keymap) continue;
+      for (const [stroke, commandName] of Object.entries(ext.keymap)) {
+        const factory = ext.commands[commandName];
+        if (!factory) continue;
+        markKeymap[stroke] = factory(schema);
+      }
+    }
     return EditorState.create({
       doc: initialDoc(schema),
       plugins: [
@@ -177,6 +222,7 @@ export function FormBuilderEditor({
         shuffle({
           dragHandles: { ...baseDragHandles, ...extraDragHandles },
         }),
+        keymap(markKeymap),
         ...(extraPlugins ?? []),
         keymap(baseKeymap),
       ],
