@@ -3438,3 +3438,230 @@ kbd.pp-kbd {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* ─────────────────────────────────────────── Block toolbar (Pagy-style) */
+
+.pp-block-toolbar-anchor {
+  z-index: 50;
+  pointer-events: auto;
+}
+
+.pp-block-toolbar {
+  width: 280px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #ececea;
+  box-shadow:
+    0 18px 40px -12px rgba(15, 23, 42, 0.18),
+    0 4px 10px -4px rgba(15, 23, 42, 0.08);
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
+.pp-block-toolbar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pp-block-toolbar-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.pp-block-toolbar-type:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.pp-block-toolbar-type:disabled {
+  cursor: default;
+}
+
+.pp-block-toolbar-type-menu {
+  min-width: 160px;
+  padding: 4px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #ececea;
+  box-shadow:
+    0 12px 28px -8px rgba(15, 23, 42, 0.16),
+    0 2px 6px -2px rgba(15, 23, 42, 0.08);
+  z-index: 60;
+}
+
+.pp-block-toolbar-type-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1f2937;
+  cursor: pointer;
+  outline: 0;
+}
+
+.pp-block-toolbar-type-item[data-highlighted],
+.pp-block-toolbar-type-item:hover {
+  background: #f3f4f6;
+}
+
+.pp-block-toolbar-type-item[data-active] {
+  color: #111827;
+  font-weight: 600;
+}
+
+.pp-block-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pp-block-toolbar-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.pp-block-toolbar-icon:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.pp-block-toolbar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pp-block-toolbar-section-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.pp-block-toolbar-segmented {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 3px;
+  background: #f3f4f6;
+  border-radius: 999px;
+  gap: 2px;
+}
+
+.pp-block-toolbar-segment {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #6b7280;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0 8px;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.pp-block-toolbar-segment:hover:not([data-active]) {
+  color: #1f2937;
+}
+
+.pp-block-toolbar-segment[data-active] {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.pp-block-toolbar-advanced {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 8px 0 0;
+  margin-top: 2px;
+  border-top: 1px solid #f1f1ef;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.pp-block-toolbar-advanced-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.pp-block-toolbar-advanced-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pp-block-toolbar-advanced-row code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  background: #f3f4f6;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #111827;
+}
+
+.pp-block-toolbar-meta-label {
+  font-size: 12px;
+}
+
+/* Block size variants applied via data-size on the node itself. */
+[data-size="xs"] {
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+[data-size="s"] {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+[data-size="m"] {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+[data-size="l"] {
+  font-size: 1.25rem;
+  line-height: 1.4;
+}
+[data-size="xl"] {
+  font-size: 1.5rem;
+  line-height: 1.35;
+}

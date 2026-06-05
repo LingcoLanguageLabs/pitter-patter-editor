@@ -2,14 +2,12 @@ import {
   ProseMirror,
   ProseMirrorDoc,
   reactKeys,
-  useEditorEffect,
-  useEditorState,
   useSelectNode,
   type NodeViewComponentProps,
-  type WidgetViewComponentProps,
 } from "@handlewithcare/react-prosemirror";
 import {
   addShuffleNodes,
+  DragHandles,
   ResizeHandles,
   ShuffleSkeleton,
   shuffle,
@@ -19,7 +17,6 @@ import { keymap } from "prosemirror-keymap";
 import { Schema } from "prosemirror-model";
 import { schema as basic } from "prosemirror-schema-basic";
 import { EditorState } from "prosemirror-state";
-import { useState } from "react";
 
 import "@pitter-patter/shuffle/style/shuffle.css";
 
@@ -134,64 +131,9 @@ function ImageNodeView({ nodeProps, ref, children: _children, ...props }: NodeVi
 
 const nodeViewComponents = { image: ImageNodeView };
 
-type HandleProps = WidgetViewComponentProps & { ref?: React.Ref<HTMLDivElement> };
-
-function createHandle(label: string) {
-  function Handle({ widget, ref, getPos: _getPos, ...props }: HandleProps) {
-    const editorState = useEditorState();
-    const node = editorState.doc.resolve(widget.spec.nodePos).nodeAfter;
-    const [top, setTop] = useState(0);
-    const [left, setLeft] = useState(0);
-
-    useEditorEffect(
-      (view) => {
-        const nodeDOM = view.nodeDOM(widget.spec.nodePos);
-        if (!(nodeDOM instanceof HTMLElement)) return;
-        const { offsetParent } = nodeDOM;
-        const coords = nodeDOM.getBoundingClientRect();
-        const offsetCoords = offsetParent?.getBoundingClientRect();
-        setTop(coords.top - (offsetCoords?.top ?? 0));
-        setLeft(coords.left - (offsetCoords?.left ?? 0) + (widget.spec.nodeDepth - 1) * 24);
-      },
-      [node, widget.spec.nodePos, widget.spec.nodeDepth],
-    );
-
-    return (
-      <div
-        ref={ref}
-        {...props}
-        contentEditable={false}
-        style={{
-          position: "absolute",
-          backgroundColor: "lightblue",
-          transform: "translateY(-1.5rem)",
-          cursor: "grab",
-          top,
-          left,
-        }}
-      >
-        {label}
-      </div>
-    );
-  }
-  Handle.displayName = `${label}Handle`;
-  return Handle;
-}
-
 const editorState = EditorState.create({
   doc: initialDoc,
-  plugins: [
-    reactKeys(),
-    shuffle({
-      dragHandles: {
-        paragraph: createHandle("Paragraph"),
-        container: createHandle("Container"),
-        row: createHandle("Row"),
-        image: createHandle("Image"),
-      },
-    }),
-    keymap(baseKeymap),
-  ],
+  plugins: [reactKeys(), shuffle(), keymap(baseKeymap)],
 });
 
 export function DragDropEditor() {
@@ -200,6 +142,7 @@ export function DragDropEditor() {
       <ShuffleSkeleton>
         <ProseMirrorDoc />
         <ResizeHandles />
+        <DragHandles />
       </ShuffleSkeleton>
     </ProseMirror>
   );

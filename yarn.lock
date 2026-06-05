@@ -262,6 +262,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@emotion/is-prop-valid@npm:^1.4.0":
+  version: 1.4.0
+  resolution: "@emotion/is-prop-valid@npm:1.4.0"
+  dependencies:
+    "@emotion/memoize": "npm:^0.9.0"
+  checksum: 10c0/5f857814ec7d8c7e727727346dfb001af6b1fb31d621a3ce9c3edf944a484d8b0d619546c30899ae3ade2f317c76390ba4394449728e9bf628312defc2c41ac3
+  languageName: node
+  linkType: hard
+
+"@emotion/memoize@npm:^0.9.0":
+  version: 0.9.0
+  resolution: "@emotion/memoize@npm:0.9.0"
+  checksum: 10c0/13f474a9201c7f88b543e6ea42f55c04fb2fdc05e6c5a3108aced2f7e7aa7eda7794c56bba02985a46d8aaa914fcdde238727a98341a96e2aec750d372dadd15
+  languageName: node
+  linkType: hard
+
 "@esbuild/aix-ppc64@npm:0.27.7":
   version: 0.27.7
   resolution: "@esbuild/aix-ppc64@npm:0.27.7"
@@ -512,6 +528,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@handlewithcare/react-prosemirror@npm:^3.0.6":
+  version: 3.0.6
+  resolution: "@handlewithcare/react-prosemirror@npm:3.0.6"
+  dependencies:
+    classnames: "npm:^2.5.1"
+  peerDependencies:
+    prosemirror-model: ^1.0.0
+    prosemirror-state: ^1.0.0
+    prosemirror-view: 1.41.7
+    react: ">=17 <20"
+    react-dom: ">=17 <20"
+    react-reconciler: ">=0.26.1 <=0.33.0"
+  checksum: 10c0/07abb80e1ec09778000a7bb51682c241efc37cb515fdc0bc5ce37c1568800a8560e17d1e7c16699e4753f5609e49401c724e02b2cd3f620a7eaccfd76c3c7567
+  languageName: node
+  linkType: hard
+
 "@hono/node-server@npm:^2.0.1":
   version: 2.0.1
   resolution: "@hono/node-server@npm:2.0.1"
@@ -655,7 +687,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@pitter-patter/comments-client@portal:../pitter-patter/packages/comments-client::locator=pitter-patter-editor%40workspace%3A."
   dependencies:
-    "@handlewithcare/react-prosemirror": "npm:^3.0.5"
+    "@handlewithcare/react-prosemirror": "npm:^3.0.6"
     "@pitter-patter/collab-client": "workspace:^"
     "@pitter-patter/refs": "workspace:^"
     classnames: "npm:^2.5.1"
@@ -687,7 +719,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@pitter-patter/presence-client@portal:../pitter-patter/packages/presence-client::locator=pitter-patter-editor%40workspace%3A."
   dependencies:
-    "@handlewithcare/react-prosemirror": "npm:^3.0.5"
+    "@handlewithcare/react-prosemirror": "npm:^3.0.6"
     "@pitter-patter/collab-client": "workspace:^"
     "@pitter-patter/refs": "workspace:^"
     classnames: "npm:^2.5.1"
@@ -717,11 +749,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pitter-patter/shuffle@npm:^0.1.0":
-  version: 0.1.0
-  resolution: "@pitter-patter/shuffle@npm:0.1.0"
+"@pitter-patter/shuffle@npm:0.2.1":
+  version: 0.2.1
+  resolution: "@pitter-patter/shuffle@npm:0.2.1"
   dependencies:
-    "@handlewithcare/react-prosemirror": "npm:^3.0.5"
     "@pitter-patter/refs": "npm:0.1.0"
     animejs: "npm:^4.3.6"
     classnames: "npm:^2.5.1"
@@ -733,11 +764,12 @@ __metadata:
     react-reconciler: "npm:^0.32.0"
     tw-merge: "npm:0.0.1-alpha.3"
   peerDependencies:
+    "@handlewithcare/react-prosemirror": ^3.0.0
     prosemirror-model: ^1.0.0
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
     prosemirror-view: ^1.0.0
-  checksum: 10c0/3b6d06eaff51e9d959c3355ac17400a0f270225177a450412b290397e48fdef6b507dbca4c36253a9241c5c8355ea007b473bbcb323a7f2f2be532e40e8dd89c
+  checksum: 10c0/4bb75208604ff444d0ad90214eda01091e9dc84201b1f0a6cc24eb2c3747bae0fe81f4b99029322379d9b5fe409cbb727d978f9f31f8a5b5f77690fc975f7a7e
   languageName: node
   linkType: hard
 
@@ -765,6 +797,13 @@ __metadata:
     prosemirror-transform: ^1.0.0
   languageName: node
   linkType: soft
+
+"@radix-ui/number@npm:1.1.1":
+  version: 1.1.1
+  resolution: "@radix-ui/number@npm:1.1.1"
+  checksum: 10c0/0570ad92287398e8a7910786d7cee0a998174cdd6637ba61571992897c13204adf70b9ed02d0da2af554119411128e701d9c6b893420612897b438dc91db712b
+  languageName: node
+  linkType: hard
 
 "@radix-ui/primitive@npm:1.1.3":
   version: 1.1.3
@@ -1133,6 +1172,45 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@radix-ui/react-select@npm:^2.2.6":
+  version: 2.2.6
+  resolution: "@radix-ui/react-select@npm:2.2.6"
+  dependencies:
+    "@radix-ui/number": "npm:1.1.1"
+    "@radix-ui/primitive": "npm:1.1.3"
+    "@radix-ui/react-collection": "npm:1.1.7"
+    "@radix-ui/react-compose-refs": "npm:1.1.2"
+    "@radix-ui/react-context": "npm:1.1.2"
+    "@radix-ui/react-direction": "npm:1.1.1"
+    "@radix-ui/react-dismissable-layer": "npm:1.1.11"
+    "@radix-ui/react-focus-guards": "npm:1.1.3"
+    "@radix-ui/react-focus-scope": "npm:1.1.7"
+    "@radix-ui/react-id": "npm:1.1.1"
+    "@radix-ui/react-popper": "npm:1.2.8"
+    "@radix-ui/react-portal": "npm:1.1.9"
+    "@radix-ui/react-primitive": "npm:2.1.3"
+    "@radix-ui/react-slot": "npm:1.2.3"
+    "@radix-ui/react-use-callback-ref": "npm:1.1.1"
+    "@radix-ui/react-use-controllable-state": "npm:1.2.2"
+    "@radix-ui/react-use-layout-effect": "npm:1.1.1"
+    "@radix-ui/react-use-previous": "npm:1.1.1"
+    "@radix-ui/react-visually-hidden": "npm:1.2.3"
+    aria-hidden: "npm:^1.2.4"
+    react-remove-scroll: "npm:^2.6.3"
+  peerDependencies:
+    "@types/react": "*"
+    "@types/react-dom": "*"
+    react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    "@types/react-dom":
+      optional: true
+  checksum: 10c0/34b2492589c3a4b118a03900d622640033630f30ac93c4a69b3701513117607f4ac3a0d9dd3cad39caa8b6495660f71f3aa9d0074d4eb4dac6804dc0b8408deb
+  languageName: node
+  linkType: hard
+
 "@radix-ui/react-slot@npm:1.2.3":
   version: 1.2.3
   resolution: "@radix-ui/react-slot@npm:1.2.3"
@@ -1247,6 +1325,19 @@ __metadata:
     "@types/react":
       optional: true
   checksum: 10c0/9f98fdaba008dfc58050de60a77670b885792df473cf82c1cef8daee919a5dd5a77d270209f5f0b0abfaac78cb1627396e3ff56c81b735be550409426fe8b040
+  languageName: node
+  linkType: hard
+
+"@radix-ui/react-use-previous@npm:1.1.1":
+  version: 1.1.1
+  resolution: "@radix-ui/react-use-previous@npm:1.1.1"
+  peerDependencies:
+    "@types/react": "*"
+    react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+  checksum: 10c0/52f1089d941491cd59b7f52a5679a14e9381711419a0557ce0f3bc9a4c117078224efec54dcced41a3653a13a386a7b6ec75435d61a273e8b9f5d00235f2b182
   languageName: node
   linkType: hard
 
@@ -1711,6 +1802,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/chroma-js@npm:^3.1.2":
+  version: 3.1.2
+  resolution: "@types/chroma-js@npm:3.1.2"
+  checksum: 10c0/d2a7d9612c5abe3733a113d339eb8158cb36aeeeb571a3c371e81e8f3a682cd70f1649cea521716fbb5d79eb96f585a539b304be44e3fa818bd56b2a05f29f73
+  languageName: node
+  linkType: hard
+
 "@types/deep-eql@npm:*":
   version: 4.0.2
   resolution: "@types/deep-eql@npm:4.0.2"
@@ -2005,6 +2103,13 @@ __metadata:
   version: 3.0.0
   resolution: "chownr@npm:3.0.0"
   checksum: 10c0/43925b87700f7e3893296c8e9c56cc58f926411cce3a6e5898136daaf08f08b9a8eb76d37d3267e707d0dcc17aed2e2ebdf5848c0c3ce95cf910a919935c1b10
+  languageName: node
+  linkType: hard
+
+"chroma-js@npm:^3.2.0":
+  version: 3.2.0
+  resolution: "chroma-js@npm:3.2.0"
+  checksum: 10c0/6ff6213d234e096ad3536291b1e1f11a506ea0fccfe163dd8eff69afa5f4f8a905b31a4a7ebc22b7eb722590887fed77073805ce89485f6d563edd1ea2d0a1db
   languageName: node
   linkType: hard
 
@@ -2316,6 +2421,28 @@ __metadata:
     react-dom:
       optional: true
   checksum: 10c0/bca830d85606ba49e84a1b12fb2b5353622a992809a4ae302084f06fd142e21d790f07ca3678c27e4fb75a8b8e687f42f2ae0cbb13345f2e5730a3fa2c4a5ecf
+  languageName: node
+  linkType: hard
+
+"framer-motion@npm:^12.40.0":
+  version: 12.40.0
+  resolution: "framer-motion@npm:12.40.0"
+  dependencies:
+    motion-dom: "npm:^12.40.0"
+    motion-utils: "npm:^12.39.0"
+    tslib: "npm:^2.4.0"
+  peerDependencies:
+    "@emotion/is-prop-valid": "*"
+    react: ^18.0.0 || ^19.0.0
+    react-dom: ^18.0.0 || ^19.0.0
+  peerDependenciesMeta:
+    "@emotion/is-prop-valid":
+      optional: true
+    react:
+      optional: true
+    react-dom:
+      optional: true
+  checksum: 10c0/a1d26908d6661028fcdba0cf200fca18927a4d4eae0b1e64c37dfb7fdea9da66a8991abd0007079e98687060ba9c83db55620c238bc363106a24ff411d22f533
   languageName: node
   linkType: hard
 
@@ -2697,10 +2824,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"motion-dom@npm:^12.40.0":
+  version: 12.40.0
+  resolution: "motion-dom@npm:12.40.0"
+  dependencies:
+    motion-utils: "npm:^12.39.0"
+  checksum: 10c0/79da846a36fd5f6762a0fcfa6e0b7128e4d58f7c07d1467a9f789a9cd0b5adbef9bfbde75760901a13cf2bddd9b31e93e4348a714f570c45ca1e2bfabd22859e
+  languageName: node
+  linkType: hard
+
 "motion-utils@npm:^12.36.0":
   version: 12.36.0
   resolution: "motion-utils@npm:12.36.0"
   checksum: 10c0/fe08231759064eef5d351a869379246f1e1b2031bda357a6197d2a99ff6b472bce69f8250212713d8bff2ff46978f354ca8c3b8c8f0c5bd337d26a6793ba42fa
+  languageName: node
+  linkType: hard
+
+"motion-utils@npm:^12.39.0":
+  version: 12.39.0
+  resolution: "motion-utils@npm:12.39.0"
+  checksum: 10c0/6d7a2a2cc0797b72410a666a9cc1c201c8e39bf9669670464e433fe1e72af5f0217154c869867b34fbadf3664cf222c0d022bbc4eed7927f201ae971918e7440
   languageName: node
   linkType: hard
 
@@ -2722,6 +2865,27 @@ __metadata:
     react-dom:
       optional: true
   checksum: 10c0/661a08b17592295b267df6a4a4887e9da78b29c310aaf60860fcfa68dac6cf2c39ce03701d6182159ad6f3000f28b8c62c3c6d139e620435d56b3bb5f28c5c1b
+  languageName: node
+  linkType: hard
+
+"motion@npm:^12.40.0":
+  version: 12.40.0
+  resolution: "motion@npm:12.40.0"
+  dependencies:
+    framer-motion: "npm:^12.40.0"
+    tslib: "npm:^2.4.0"
+  peerDependencies:
+    "@emotion/is-prop-valid": "*"
+    react: ^18.0.0 || ^19.0.0
+    react-dom: ^18.0.0 || ^19.0.0
+  peerDependenciesMeta:
+    "@emotion/is-prop-valid":
+      optional: true
+    react:
+      optional: true
+    react-dom:
+      optional: true
+  checksum: 10c0/d0c118ed4829f2999c3ab7eb1ee916df70c65e95d262e951b69d3cea67a74e4a1d12e181badf4180e0d01c1ca8a9b109be4ea5456cad04bb58d4510f071af60f
   languageName: node
   linkType: hard
 
@@ -2841,6 +3005,7 @@ __metadata:
   resolution: "pitter-patter-editor@workspace:."
   dependencies:
     "@ai-sdk/anthropic": "npm:^3.0.76"
+    "@emotion/is-prop-valid": "npm:^1.4.0"
     "@floating-ui/react": "npm:^0.27.0"
     "@handlewithcare/react-prosemirror": "npm:^3.0.5"
     "@hono/node-server": "npm:^2.0.1"
@@ -2852,15 +3017,17 @@ __metadata:
     "@pitter-patter/presence-client": "portal:../pitter-patter/packages/presence-client"
     "@pitter-patter/presence-server": "portal:../pitter-patter/packages/presence-server"
     "@pitter-patter/refs": "npm:^0.1.0"
-    "@pitter-patter/shuffle": "npm:^0.1.0"
+    "@pitter-patter/shuffle": "npm:0.2.1"
     "@pitter-patter/version-history-client": "portal:../pitter-patter/packages/version-history-client"
     "@pitter-patter/version-history-server": "portal:../pitter-patter/packages/version-history-server"
     "@radix-ui/react-dropdown-menu": "npm:^2.1.6"
     "@radix-ui/react-popover": "npm:^1.1.6"
+    "@radix-ui/react-select": "npm:^2.2.6"
     "@radix-ui/react-tooltip": "npm:^1.1.8"
     "@stepwisehq/prosemirror-collab-commit": "npm:^1.0.0"
     "@storybook/react-vite": "npm:^10"
     "@tsconfig/strictest": "npm:^2.0.8"
+    "@types/chroma-js": "npm:^3.1.2"
     "@types/katex": "npm:^0.16.8"
     "@types/node": "npm:^25.6.2"
     "@types/react": "npm:^19.2.2"
@@ -2868,8 +3035,10 @@ __metadata:
     "@types/react-reconciler": "npm:^0.32.2"
     "@vitejs/plugin-react": "npm:^6.0.1"
     ai: "npm:^6.0.176"
+    chroma-js: "npm:^3.2.0"
     hono: "npm:^4.12.18"
     katex: "npm:^0.16.45"
+    motion: "npm:^12.40.0"
     prosemirror-commands: "npm:^1.7.1"
     prosemirror-dropcursor: "npm:^1.8.2"
     prosemirror-gapcursor: "npm:^1.4.1"
@@ -2891,6 +3060,7 @@ __metadata:
     typescript: "npm:^5.6.3"
     vite: "npm:^8.0.5"
     zod: "npm:^4.4.3"
+    zustand: "npm:^5.0.13"
   dependenciesMeta:
     "@handlewithcare/react-prosemirror@3.0.5":
       unplugged: true
@@ -3741,5 +3911,26 @@ __metadata:
   version: 4.4.3
   resolution: "zod@npm:4.4.3"
   checksum: 10c0/7ea31b558e88f9faf44f31dd185e2e1cbf51fed3081787fb96cc2534749b50c0acfc6da7f0922a7353ed092dd358c7d50c28ea96c94d04af64191bd33152eca3
+  languageName: node
+  linkType: hard
+
+"zustand@npm:^5.0.13":
+  version: 5.0.13
+  resolution: "zustand@npm:5.0.13"
+  peerDependencies:
+    "@types/react": ">=18.0.0"
+    immer: ">=9.0.6"
+    react: ">=18.0.0"
+    use-sync-external-store: ">=1.2.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    immer:
+      optional: true
+    react:
+      optional: true
+    use-sync-external-store:
+      optional: true
+  checksum: 10c0/e4e76af1c324c797e3cc6ef094cb15c5884ca6713697140c2be292b2c612f5445fa21d222671b97797a4376154cac14a140f05728f0ac17b4b9e10f45e0ff29e
   languageName: node
   linkType: hard

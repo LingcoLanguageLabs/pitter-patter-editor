@@ -1,0 +1,48 @@
+/**
+ * Top-level page-builder shell.
+ *
+ * Flex column: topbar pinned at the top, `.pb-shell-body` flexes to
+ * fill below. Inside the body, `<LeftPanel />` is an absolutely-
+ * positioned floating card that layers over the always-full-width
+ * `<Canvas />`. The "panel pushes canvas right" effect is achieved
+ * by animating the shell-body's `padding-left` based on
+ * `data-panel="open"` (see `page-builder.css`'s rules under
+ * "Layout"). This mirrors pagy.co's `.application` / `.panel` /
+ * `.frame` setup *without* the `transform: translate` pagy uses on
+ * its frame — that transform breaks shuffle's drag math when on an
+ * ancestor of the editor.
+ */
+
+import { Canvas } from "./Canvas";
+import { PageBuilderEditor, type PageBuilderEditorProps } from "./Editor";
+import { LeftPanel } from "./LeftPanel";
+import { ThemeStyle } from "./ThemeStyle";
+import { TopBar } from "./TopBar";
+import { usePageBuilderStore } from "./store";
+
+import "./page-builder.css";
+
+export type ShellProps = PageBuilderEditorProps;
+
+export function Shell(props: ShellProps) {
+  const panel = usePageBuilderStore((s) => s.panel);
+
+  return (
+    <div className="pb-shell" data-panel={panel ? "open" : "closed"}>
+      <ThemeStyle />
+      <TopBar />
+      <div className="pb-shell-body">
+        {/* LeftPanel is always mounted — `motion.aside` animates its
+            `x` between `16` (open) and `-100%` (closed) so the panel
+            slides off-screen rather than unmounting. */}
+        <LeftPanel />
+        <Canvas>
+          <PageBuilderEditor
+            initialDoc={props.initialDoc}
+            overlays={props.overlays}
+          />
+        </Canvas>
+      </div>
+    </div>
+  );
+}

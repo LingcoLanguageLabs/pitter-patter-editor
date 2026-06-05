@@ -1,0 +1,60 @@
+/**
+ * ProseMirror plugin that renders the section affordance chrome as
+ * a React widget decoration at each section's end-of-content
+ * position. Using a widget (rather than a non-PM DOM child of the
+ * section's contentDOM) keeps the chrome opaque to PM's
+ * `posAtCoords` — which is what shuffle calls when computing drop
+ * targets. Without this, shuffle's drop math gets confused by the
+ * chrome's pills and lands the dragged block at the wrong gap.
+ *
+ * `side: 1` places the widget AFTER any content at the same
+ * position, so for each section the widget renders as the last
+ * child of the section's DOM. CSS positions the chrome
+ * `position: absolute; inset: 0` so it overlays the section
+ * regardless of being last in DOM order.
+ */
+
+import { Plugin, type EditorState } from "prosemirror-state";
+import { DecorationSet } from "prosemirror-view";
+import { widget } from "@handlewithcare/react-prosemirror";
+
+import { SectionChromeWidget } from "./SectionChromeWidget";
+
+function buildDecorations(state: EditorState) {
+  const decos: ReturnType<typeof widget>[] = [];
+  state.doc.descendants((node, pos) => {
+    if (node.type.name !== "section") return true;
+    // Place the widget at the section's end-of-content position
+    // (just inside the closing tag).
+    const endOfContent = pos + node.nodeSize - 1;
+    decos.push(
+      widget(endOfContent, SectionChromeWidget, {
+        side: 1,
+        key: `section-chrome-${pos}`,
+        // Make sure clicks / hovers on the chrome don't bubble into
+        // PM as "user is interacting with content".
+        ignoreSelection: true,
+      }),
+    );
+    return false;
+  });
+  return DecorationSet.create(state.doc, decos);
+}
+
+export function sectionChromePlugin() {
+  return new Plugin({
+    state: {
+      init(_, state) {
+        return buildDecorations(state);
+      },
+      apply(tr, old, _oldState, newState) {
+        return tr.docChanged ? buildDecorations(newState) : old;
+      },
+    },
+    props: {
+      decorations(state) {
+        return this.getState(state);
+      },
+    },
+  });
+}

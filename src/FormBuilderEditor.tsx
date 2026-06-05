@@ -9,24 +9,22 @@ import {
   ProseMirror,
   ProseMirrorDoc,
   reactKeys,
-  useEditorEffect,
-  useEditorState,
   useSelectNode,
   type NodeViewComponentProps,
-  type WidgetViewComponentProps,
 } from "@handlewithcare/react-prosemirror";
 import {
   addShuffleNodes,
+  DragHandles,
   ResizeHandles,
   ShuffleSkeleton,
   shuffle,
 } from "@pitter-patter/shuffle";
 import { baseKeymap } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
-import { Schema, type Node as PmNode } from "prosemirror-model";
+import { Schema, type Node as PmNode, type NodeSpec } from "prosemirror-model";
 import { schema as basic } from "prosemirror-schema-basic";
 import { EditorState, type Command, type Plugin } from "prosemirror-state";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import "@pitter-patter/shuffle/style/shuffle.css";
 
@@ -61,18 +59,100 @@ const formBuilderSystemExtensions: readonly Extension[] = [History];
 
 const imageSpec = basic.spec.nodes.get("image")!;
 
+export const BLOCK_SIZES = ["xs", "s", "m", "l", "xl"] as const;
+export type BlockSize = (typeof BLOCK_SIZES)[number];
+export const BLOCK_ALIGNS = ["left", "center", "right"] as const;
+export type BlockAlign = (typeof BLOCK_ALIGNS)[number];
+
+/**
+ * Patch a textblock NodeSpec so it carries `align` and `size` attrs that
+ * round-trip through parseDOM/toDOM. Wraps the original toDOM, appending
+ * data attrs + a style string so we can target them from CSS.
+ */
+function withBlockAttrs(base: NodeSpec, defaultTag: string): NodeSpec {
+  const baseAttrs = base.attrs ?? {};
+  const baseToDOM = base.toDOM;
+  return {
+    ...base,
+    attrs: {
+      ...baseAttrs,
+      align: { default: null },
+      size: { default: null },
+    },
+    parseDOM: (base.parseDOM ?? []).map((rule) => ({
+      ...rule,
+      getAttrs(node: HTMLElement | string) {
+        const inherited =
+          typeof rule.getAttrs === "function"
+            ? rule.getAttrs(node as never)
+            : rule.attrs ?? null;
+        if (inherited === false) return false;
+        if (typeof node === "string") return inherited ?? null;
+        const align = node.style.textAlign || node.getAttribute("data-align");
+        const size = node.getAttribute("data-size");
+        const alignValue = (BLOCK_ALIGNS as readonly string[]).includes(align ?? "")
+          ? (align as BlockAlign)
+          : null;
+        const sizeValue = (BLOCK_SIZES as readonly string[]).includes(size ?? "")
+          ? (size as BlockSize)
+          : null;
+        return {
+          ...(inherited ?? {}),
+          align: alignValue,
+          size: sizeValue,
+        };
+      },
+    })),
+    toDOM(node) {
+      const align = node.attrs["align"] as BlockAlign | null;
+      const size = node.attrs["size"] as BlockSize | null;
+      const result = baseToDOM ? baseToDOM(node) : [defaultTag, 0];
+      if (!Array.isArray(result)) return result;
+      const [tag, second, ...rest] = result;
+      const hasAttrs =
+        second &&
+        typeof second === "object" &&
+        !Array.isArray(second) &&
+        !(second && (second as { nodeType?: number }).nodeType);
+      const attrs: Record<string, unknown> = hasAttrs
+        ? { ...(second as Record<string, unknown>) }
+        : {};
+      if (align) {
+        attrs["data-align"] = align;
+        const existing = (attrs["style"] as string | undefined) ?? "";
+        attrs["style"] = `${existing}${existing ? "; " : ""}text-align: ${align}`;
+      }
+      if (size) attrs["data-size"] = size;
+      const rebuilt: unknown[] = [tag, attrs];
+      if (hasAttrs) rebuilt.push(...rest);
+      else if (second !== undefined) rebuilt.push(second, ...rest);
+      return rebuilt as ReturnType<NonNullable<NodeSpec["toDOM"]>>;
+    },
+  };
+}
+
 const baseNodes = basic.spec.nodes
   .update("image", {
     ...imageSpec,
     group: "block",
     inline: false,
   })
-  .update("paragraph", {
-    ...basic.spec.nodes.get("paragraph")!,
-    toDOM() {
-      return ["p", { "data-node-type": "paragraph" }, 0];
-    },
-  });
+  .update(
+    "paragraph",
+    withBlockAttrs(
+      {
+        ...basic.spec.nodes.get("paragraph")!,
+        toDOM() {
+          return ["p", { "data-node-type": "paragraph" }, 0];
+        },
+      },
+      "p",
+    ),
+  )
+  .update(
+    "heading",
+    withBlockAttrs(basic.spec.nodes.get("heading")!, "h2"),
+  );
 
 /**
  * Marks beyond the prosemirror-schema-basic defaults. The basic schema
@@ -124,68 +204,6 @@ function ImageNodeView({
 
 const baseNodeViewComponents = { image: ImageNodeView };
 
-export type HandleProps = WidgetViewComponentProps & {
-  ref?: React.Ref<HTMLDivElement>;
-};
-
-export function createHandle(label: string) {
-  function Handle({
-    widget,
-    ref,
-    getPos: _getPos,
-    ...props
-  }: HandleProps) {
-    const editorState = useEditorState();
-    const node = editorState.doc.resolve(widget.spec.nodePos).nodeAfter;
-    const [top, setTop] = useState(0);
-    const [left, setLeft] = useState(0);
-
-    useEditorEffect(
-      (view) => {
-        const nodeDOM = view.nodeDOM(widget.spec.nodePos);
-        if (!(nodeDOM instanceof HTMLElement)) return;
-        const { offsetParent } = nodeDOM;
-        const coords = nodeDOM.getBoundingClientRect();
-        const offsetCoords = offsetParent?.getBoundingClientRect();
-        setTop(coords.top - (offsetCoords?.top ?? 0));
-        setLeft(
-          coords.left -
-            (offsetCoords?.left ?? 0) +
-            (widget.spec.nodeDepth - 1) * 24,
-        );
-      },
-      [node, widget.spec.nodePos, widget.spec.nodeDepth],
-    );
-
-    return (
-      <div
-        ref={ref}
-        {...props}
-        contentEditable={false}
-        style={{
-          position: "absolute",
-          backgroundColor: "lightblue",
-          transform: "translateY(-1.5rem)",
-          cursor: "grab",
-          top,
-          left,
-        }}
-      >
-        {label}
-      </div>
-    );
-  }
-  Handle.displayName = `${label}Handle`;
-  return Handle;
-}
-
-const baseDragHandles = {
-  paragraph: createHandle("Paragraph"),
-  container: createHandle("Container"),
-  row: createHandle("Row"),
-  image: createHandle("Image"),
-};
-
 export interface FormBuilderEditorProps {
   /**
    * Build the initial doc from the (already-shuffle-extended) schema.
@@ -197,8 +215,6 @@ export interface FormBuilderEditorProps {
   extendSchema?: (schema: Schema) => Schema;
   /** Additional nodeViewComponents to merge with the defaults. */
   extraNodeViewComponents?: Record<string, React.ComponentType<NodeViewComponentProps>>;
-  /** Additional drag handles, keyed by node name. */
-  extraDragHandles?: Record<string, React.ComponentType<HandleProps>>;
   /** Extra plugins (e.g. keymaps for story-only commands). */
   extraPlugins?: Plugin[];
   /** Optional bubble/overlay components mounted inside <ProseMirror>. */
@@ -209,7 +225,6 @@ export function FormBuilderEditor({
   initialDoc,
   extendSchema,
   extraNodeViewComponents,
-  extraDragHandles,
   extraPlugins,
   overlays,
 }: FormBuilderEditorProps) {
@@ -242,9 +257,7 @@ export function FormBuilderEditor({
       doc: initialDoc(schema),
       plugins: [
         reactKeys(),
-        shuffle({
-          dragHandles: { ...baseDragHandles, ...extraDragHandles },
-        }),
+        shuffle(),
         ...reusedPlugins,
         keymap(reusedKeymap),
         ...(extraPlugins ?? []),
@@ -267,6 +280,7 @@ export function FormBuilderEditor({
       <ShuffleSkeleton>
         <ProseMirrorDoc />
         <ResizeHandles />
+        <DragHandles />
       </ShuffleSkeleton>
       {overlays}
     </ProseMirror>

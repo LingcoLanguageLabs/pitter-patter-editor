@@ -1,0 +1,1376 @@
+/* ─────────────────────────────────────────────────────────────────
+   Page Builder — pixel-match Pagy. Tokens lifted from
+   pagy.co/styles/04-editor.css and 01-tokens.css.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Colors — exact Pagy accents. Defined globally so portaled
+     overlays (highlights, affordances) see them. */
+  --pb-accent: #29a2ff;
+  --pb-accent-dark: #008bf5;
+  --pb-accent-light: #80c7ff;
+  --pb-accent-line: hsla(206, 100%, 58%, 0.25);
+  --pb-accent-secondary: #925cff;
+
+  --pb-bg: #f5f6f8;
+  --pb-surface: #ffffff;
+  --pb-border: #ececea;
+  --pb-text: #111114;
+  --pb-text-soft: #6b7280;
+  --pb-text-very-soft: #9ca3af;
+
+  --pb-font: Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+
+  /* Shuffle grid sizing — override shuffle's defaults (3rem / 1.5rem)
+     to match Pagy's tokens (64px column / 40px gutter). Without this,
+     the outer 1fr gutters absorb ~300px each at the canvas's typical
+     width, squeezing content into a narrow centre band. */
+  --shuffle-column-width: 64px;
+  --shuffle-gutter-width: 40px;
+}
+
+/* ─────────────────────────────────────── Layout (shell + body)
+   The shell is a fixed flex-column covering the viewport. Topbar
+   pinned at the top, `.pb-shell-body` flexes below to hold the
+   floating left panel + the canvas. Layout tokens (panel widths,
+   shadow, easing) are declared on `.pb-shell` so every descendant
+   has access via custom properties. */
+.pb-shell {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--pb-bg);
+  font-family: var(--pb-font);
+  color: var(--pb-text);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+
+  --pb-app-padding: 12px;
+  --pb-panel-inset: 16px;
+  --pb-panel-width-small: 320px;
+  --pb-panel-width-medium: 480px;
+  --pb-panel-width-large: 600px;
+  --pb-frame-radius: 16px;
+  --pb-panel-shadow:
+    0 0 0 1px rgba(20, 24, 31, 0.04),
+    0 8px 24px rgba(20, 24, 31, 0.06);
+  --pb-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --pb-duration: 500ms;
+  --pb-duration-short: 200ms;
+}
+
+.pb-shell-body {
+  position: relative;
+  display: flex;
+  flex-grow: 1;
+  justify-content: center;
+  min-height: 0;
+  padding: 0 var(--pb-app-padding) var(--pb-app-padding);
+  transition: padding-left var(--pb-duration) var(--pb-easing);
+  overflow: hidden;
+}
+
+/* Panel open — push the canvas's left edge to land just after the
+   floating panel. Pagy achieves this with `transform: translate(...)`
+   on the frame; we can't use transform on an ancestor of the
+   ProseMirror because shuffle's drag-time reflow mis-aligns against
+   it, so we drive the same offset through the in-flow parent's
+   padding instead. Formula: panel-inset (16) + panel-width + 8px gap
+   = same x-position as pagy's frame (e.g. 344 for the default 320px
+   panel in a 1728-wide viewport). */
+.pb-shell[data-panel="open"] .pb-shell-body {
+  padding-left: calc(
+    var(--pb-panel-inset) + var(--pb-panel-width-small) + 8px
+  );
+}
+.pb-shell[data-panel="open"]:has(.pb-leftpanel.-medium) .pb-shell-body {
+  padding-left: calc(
+    var(--pb-panel-inset) + var(--pb-panel-width-medium) + 8px
+  );
+}
+.pb-shell[data-panel="open"]:has(.pb-leftpanel.-large) .pb-shell-body {
+  padding-left: calc(
+    var(--pb-panel-inset) + var(--pb-panel-width-large) + 8px
+  );
+}
+
+/* ─────────────────────────────────────── Top bar */
+.pb-topbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--pb-bg);
+  border-bottom: 1px solid transparent;
+  gap: 8px;
+}
+
+.pb-topbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.pb-topbar-group:nth-child(1) {
+  justify-self: start;
+}
+.pb-topbar-group:nth-child(2) {
+  justify-self: center;
+}
+.pb-topbar-group:nth-child(3) {
+  justify-self: end;
+}
+
+.pb-icon-button {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--pb-text);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+.pb-icon-button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.pb-icon-button[data-active] {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.pb-published-pill {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--pb-text);
+  border: 0;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: 4px;
+}
+.pb-published-pill:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* ─────────────────────────────────────── Left panel
+   Absolutely-positioned floating card layered over the frame (z:2).
+   `motion.div` (LeftPanel.tsx) animates `x` for show/hide; the width
+   variant classes (`-medium` / `-large`) animate via CSS `transition`.
+   The visible content sits inside `.pb-panel-content`, which is the
+   absolutely-positioned inner that <AnimatePresence> swaps. */
+.pb-leftpanel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: var(--pb-panel-inset);
+  width: var(--pb-panel-width-small);
+  max-width: calc(100% - 24px);
+  background: #ffffff;
+  border-radius: var(--pb-frame-radius);
+  box-shadow: var(--pb-panel-shadow);
+  overflow-y: auto;
+  z-index: 2;
+  transition: width var(--pb-duration) var(--pb-easing);
+}
+.pb-leftpanel.-medium { width: var(--pb-panel-width-medium); }
+.pb-leftpanel.-large  { width: var(--pb-panel-width-large); }
+
+/* The sheet container inside the panel — what PanelAnimator wraps.
+   Matches pagy's `.panel_content` verbatim: each sub-panel declares
+   its own target `--width` (small/medium/large), so during the
+   AnimatePresence cross-fade the entering panel slides in at its
+   correct size regardless of what the outer panel is animating to.
+   `box-sizing: border-box` is here because pitter-patter has no
+   global `* { box-sizing: border-box }` reset; pagy does, which is
+   why their version doesn't need it. */
+.pb-panel-content {
+  --width: var(--pb-panel-width-small);
+  position: absolute;
+  inset: 0 0 auto 0;
+  width: var(--width);
+  max-width: calc(100vw - 24px);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  box-sizing: border-box;
+}
+.pb-panel-content.-medium { --width: var(--pb-panel-width-medium); }
+.pb-panel-content.-large  { --width: var(--pb-panel-width-large); }
+
+.pb-site-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--pb-text);
+}
+.pb-site-picker:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.pb-site-picker-name {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pb-site-picker-plan {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--pb-text-soft);
+}
+.pb-site-picker-subdomain {
+  font-size: 12px;
+  color: var(--pb-text-soft);
+  margin-top: 1px;
+}
+
+.pb-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pb-nav-item {
+  background: transparent;
+  border: 0;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--pb-text);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.pb-nav-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.pb-nav-item[data-active] {
+  font-weight: 600;
+}
+
+.pb-progress-card {
+  margin-top: auto;
+  padding: 14px;
+  background: var(--pb-surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pb-progress-card-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+.pb-progress-card-body {
+  font-size: 12px;
+  color: var(--pb-text-soft);
+  line-height: 1.45;
+}
+.pb-progress-card-cta {
+  margin-top: 8px;
+  background: #0f1115;
+  color: #ffffff;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────── Sub-panel chrome
+   Shared header / back-button / section-title styling for any
+   sub-panel rendered through PanelAnimator. */
+.pb-panel-back {
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  color: var(--pb-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: 18px;
+  padding: 0;
+  margin-bottom: 4px;
+}
+.pb-panel-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.pb-panel-section-title {
+  margin: 16px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pb-text-soft);
+  text-transform: none;
+}
+
+/* ─────────────────────────────────────── Design landing tiles */
+.pb-design-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+.pb-card-link {
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 14px;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.pb-card-link:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.pb-card-link-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pb-text);
+}
+.pb-card-link-preview {
+  flex: 1;
+  padding: 10px 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+}
+.pb-card-link-preview--fonts {
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+/* ─────────────────────────────────────── Palettes */
+.pb-palette {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 8px;
+  border-radius: 8px;
+  width: 100%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+}
+.pb-palette.-large {
+  padding: 12px;
+  gap: 4px;
+}
+.pb-palette-swatch {
+  display: block;
+  flex: 1;
+  height: 26px;
+  border-radius: 4px;
+}
+.pb-palette.-large .pb-palette-swatch {
+  height: 36px;
+}
+
+/* ─────────────────────────────────────── Font-pair preview */
+.pb-font-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+.pb-font-pair-heading,
+.pb-font-pair-base {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.pb-font-pair-heading {
+  color: var(--pb-text);
+}
+.pb-font-pair-base {
+  color: var(--pb-text-soft);
+}
+
+/* ─────────────────────────────────────── Color fields */
+.pb-color-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+.pb-color-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pb-color-field-label {
+  font-size: 12px;
+  color: var(--pb-text-soft);
+}
+.pb-color-field-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  padding: 4px;
+}
+.pb-color-field-swatch {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  padding: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  appearance: none;
+  background: transparent;
+}
+.pb-color-field-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.pb-color-field-swatch::-webkit-color-swatch {
+  border: 0;
+  border-radius: 6px;
+}
+.pb-color-field-hex {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+  color: var(--pb-text);
+  min-width: 0;
+}
+
+/* ─────────────────────────────────────── Fields & selects */
+.pb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.pb-field-label {
+  font-size: 12px;
+  color: var(--pb-text-soft);
+}
+.pb-select {
+  appearance: none;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  padding: 8px 28px 8px 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--pb-text);
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--pb-text-soft) 50%),
+    linear-gradient(135deg, var(--pb-text-soft) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+.pb-font-heading-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+.pb-field-hint {
+  font-size: 12px;
+  color: var(--pb-text-soft);
+  margin: 4px 0 0;
+}
+
+/* ─────────────────────────────────────── Add block picker (popover) */
+.pb-block-picker {
+  z-index: 50;
+  width: max-content;
+  max-height: 480px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgba(20, 24, 31, 0.06),
+    0 12px 32px rgba(20, 24, 31, 0.14);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--pb-font);
+  font-size: 14px;
+}
+.pb-block-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--pb-border);
+  color: var(--pb-text-soft);
+}
+.pb-block-picker-search input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  outline: none;
+  color: var(--pb-text);
+  min-width: 0;
+}
+.pb-block-picker-body {
+  overflow-y: auto;
+  padding: 6px;
+}
+.pb-block-picker-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--pb-text-soft);
+  font-size: 13px;
+}
+.pb-block-picker-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 2px;
+  row-gap: 2px;
+}
+.pb-block-picker-group + .pb-block-picker-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--pb-border);
+}
+.pb-block-picker-group-label {
+  grid-column: 1 / -1;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pb-text-soft);
+}
+.pb-block-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--pb-text);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+.pb-block-picker-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.pb-block-picker-item svg {
+  color: var(--pb-text-soft);
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────── Radix Combobox primitive */
+.pb-custom-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--pb-text);
+  cursor: pointer;
+  outline: none;
+  text-align: left;
+}
+.pb-custom-select:hover {
+  border-color: rgba(0, 0, 0, 0.16);
+}
+.pb-custom-select[data-state="open"] {
+  border-color: var(--pb-accent);
+}
+.pb-custom-select-indicator {
+  color: var(--pb-text-soft);
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.pb-custom-select-content {
+  z-index: 200;
+  min-width: var(--radix-select-trigger-width);
+  max-height: var(--radix-select-content-available-height);
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px rgba(20, 24, 31, 0.06),
+    0 12px 32px rgba(20, 24, 31, 0.12);
+  padding: 4px;
+  overflow: hidden;
+  font: inherit;
+  font-size: 14px;
+}
+.pb-custom-select-viewport {
+  padding: 0;
+}
+.pb-custom-select-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 7px 28px 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none;
+  color: var(--pb-text);
+  user-select: none;
+}
+.pb-custom-select-option[data-highlighted] {
+  background: rgba(0, 0, 0, 0.05);
+}
+.pb-custom-select-option[data-state="checked"] {
+  font-weight: 600;
+}
+.pb-custom-select-check {
+  position: absolute;
+  right: 8px;
+  display: inline-flex;
+  color: var(--pb-accent-dark);
+}
+.pb-custom-select-group + .pb-custom-select-group {
+  margin-top: 4px;
+}
+.pb-custom-select-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pb-text-soft);
+  padding: 8px 10px 4px;
+}
+.pb-custom-select-scroll {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  color: var(--pb-text-soft);
+  cursor: default;
+  background: #ffffff;
+}
+
+/* ─────────────────────────────────────── Options (palettes + pairings) */
+.pb-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.pb-options-grid--wide {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+.pb-options-item {
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  min-height: 56px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.pb-options-item:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.pb-options-item[data-active] {
+  border-color: var(--pb-accent);
+  box-shadow: 0 0 0 1px var(--pb-accent);
+}
+
+/* Placeholder content for sheets that haven't been ported yet. */
+.pb-sheet-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pb-sheet-placeholder h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.pb-sheet-placeholder-body {
+  color: var(--pb-text-soft);
+  font-size: 13px;
+  margin: 0;
+}
+.pb-sheet-back {
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  color: var(--pb-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+/* ─────────────────────────────────────── Frame (canvas wrap)
+   The visible white card. When the panel is closed, the canvas
+   caps at 1288 and centres in the available space (matches pagy
+   on a viewport with the panel hidden). When the panel is open,
+   the shell-body's padding-left already reserves the panel area,
+   so the canvas is free to fill the rest of the row up to the
+   right padding — same x + width as pagy's frame, without ever
+   needing a transform on this ancestor. */
+.pb-canvas-wrap {
+  position: relative;
+  background: var(--pb-surface);
+  border-radius: var(--pb-frame-radius);
+  box-shadow: var(--pb-panel-shadow);
+  flex: 1 1 auto;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  max-width: min(1288px, calc(100vw - var(--pb-app-padding) * 2));
+  overflow: hidden;
+  z-index: 1;
+  transition: max-width var(--pb-duration) var(--pb-easing);
+}
+
+/* Panel open: let the canvas grow to fill the row. With the
+   shell-body's padding-left pushing the canvas to x = panel-right + 8,
+   uncapping max-width lands it at exactly pagy's geometry — frame
+   stretches from the panel's right edge to the viewport's right
+   padding. */
+.pb-shell[data-panel="open"] .pb-canvas-wrap:not(.-mobile) {
+  max-width: none;
+}
+
+/* Mobile preview — shrink the visible card to 430px. Centres
+   naturally because `.pb-shell-body` is `justify-content: center`. */
+.pb-canvas-wrap.-mobile {
+  max-width: 430px;
+}
+
+/* Inner canvas surface — sits inside the frame. No border now; the
+   visible card edge is the frame's shadow + radius. */
+.pb-canvas {
+  position: relative;
+  flex: 1;
+  background: var(--pb-surface);
+  border-radius: var(--pb-frame-radius);
+  overflow: hidden;
+  transition: max-width var(--pb-duration-short) ease;
+  max-width: none;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.pb-canvas-scroll {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+  padding: 0;
+  /* Reserve space for the vertical scrollbar even when it's hidden.
+     Without this, shuffle's skeleton (`grid-row: 1 / span 999`)
+     temporarily inflates doc height during drag, which makes the
+     scrollbar appear → content narrows by ~15px → text reflows
+     left. Drag end → scrollbar disappears → snaps back right.
+     `stable` keeps the gutter reserved either way. */
+  scrollbar-gutter: stable;
+}
+
+/* Top-right action icons — wrapped in a single pill container (one
+   surface + shadow for the whole cluster, matching pagy image #8).
+   The container fades in on canvas hover; individual buttons get a
+   subtle hover/active tint inside the pill. */
+.pb-canvas-actions {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 100px;
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08);
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.pb-canvas:hover .pb-canvas-actions {
+  opacity: 1;
+}
+.pb-canvas-actions[data-dragging] {
+  opacity: 0;
+}
+
+.pb-canvas-action {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 100px;
+  color: var(--pb-text-soft);
+  cursor: pointer;
+}
+.pb-canvas-action:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--pb-text);
+}
+.pb-canvas-action[data-active] {
+  background: rgba(41, 162, 255, 0.12);
+  color: var(--pb-accent-dark);
+}
+
+/* Bottom-right badges — pinned to the viewport, not the canvas. */
+.pb-viewport-badges {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 40;
+}
+.pb-made-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #0f1115;
+  color: #ffffff;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.pb-made-in b {
+  font-weight: 600;
+}
+.pb-made-in-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(#aaa, #fff);
+}
+.pb-chat-bubble {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f1115;
+  color: #ffffff;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────── Editor content
+   The canvas is `.pb-canvas.site`, so it picks up all the CSS vars
+   `themeToCss(theme)` writes onto `.site` (--font-family-base,
+   --color-background, etc.). Falling back to `--pb-font` keeps the
+   chrome font for hot-reload + early-paint, but as soon as the
+   theme style tag mounts the canvas swaps to the chosen face. */
+.pb-canvas.site {
+  background: var(--color-background, var(--pb-surface));
+  color: var(--color-neutral, var(--pb-text));
+}
+.pb-canvas-scroll .ProseMirror {
+  outline: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: var(--font-family-base, var(--pb-font));
+  font-size: 18px;
+  line-height: 1.6;
+  color: inherit;
+}
+.pb-canvas-scroll .ProseMirror h1,
+.pb-canvas-scroll .ProseMirror h2,
+.pb-canvas-scroll .ProseMirror h3,
+.pb-canvas-scroll .ProseMirror h4,
+.pb-canvas-scroll .ProseMirror h5,
+.pb-canvas-scroll .ProseMirror h6 {
+  font-family: var(--font-family-heading, var(--font-family-base, var(--pb-font)));
+  font-weight: var(--font-weight-heading, 700);
+}
+
+/* Section is a subgrid in shuffle's 14-column grid. We CANNOT use
+   display:flex here — that flattens the grid context, which makes
+   shuffle's `.start-N`/`.end-N` rules on the children do nothing and
+   collapses every child to width:100%. */
+.pp-section {
+  position: relative;
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column-start: 1;
+  grid-column-end: 15;
+  row-gap: 24px;
+  margin: 0;
+  /* Vertical padding is real; horizontal padding lives inside the
+     grid columns (the wrapper's 1fr gutters), so we use 0 here so
+     children at start-left/end-12 truly reach the edges. */
+  padding: 80px 0;
+  background: transparent;
+  box-sizing: border-box;
+}
+.pp-section[data-padding="small"]  { padding: 40px 0; }
+.pp-section[data-padding="medium"] { padding: 80px 0; }
+.pp-section[data-padding="large"]  { padding: 120px 0; }
+
+/* Shuffle's container — give it the same column-stack rhythm as a section. */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.container > p { margin: 0; }
+
+
+.pp-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+}
+
+.pp-section h1,
+.pp-section h2,
+.pp-section h3,
+.pp-section h4 {
+  font-family: var(--font-family-heading, var(--font-family-base, var(--pb-font)));
+  font-weight: var(--font-weight-heading, 700);
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.015em;
+}
+.pp-section h1 { font-size: 56px; }
+.pp-section h2 { font-size: 40px; }
+.pp-section h3 { font-size: 22px; }
+.pp-section h4 { font-size: 18px; }
+
+.pp-section p {
+  margin: 0;
+}
+
+/* ─────────────────────────────────────── Block-settings utility classes
+   `attrClassesPlugin` decorates every doc node with utility classes
+   derived from its attrs — these rules turn those classes into
+   visible styling. New attr? Add a CSS rule here and a prefix to
+   `ATTR_TO_CLASS_PREFIX` in attrClassesPlugin.ts. */
+
+/* Text alignment — paragraph, heading, image caption, button label. */
+.pp-align-left   { text-align: left; }
+.pp-align-center { text-align: center; }
+.pp-align-right  { text-align: right; }
+
+/* T-shirt sizes for paragraph (font-size). */
+.pp-section p.pp-size-xs { font-size: 12px; }
+.pp-section p.pp-size-s  { font-size: 14px; }
+.pp-section p.pp-size-m  { font-size: 18px; }
+.pp-section p.pp-size-l  { font-size: 22px; }
+.pp-section p.pp-size-xl { font-size: 28px; }
+
+/* T-shirt sizes for headings (font-size). The level attr still
+   determines the tag, so we override per-tag at each size. */
+.pp-section :is(h1, h2, h3, h4).pp-size-xs { font-size: 22px; }
+.pp-section :is(h1, h2, h3, h4).pp-size-s  { font-size: 28px; }
+.pp-section :is(h1, h2, h3, h4).pp-size-m  { font-size: 36px; }
+.pp-section :is(h1, h2, h3, h4).pp-size-l  { font-size: 48px; }
+.pp-section :is(h1, h2, h3, h4).pp-size-xl { font-size: 64px; }
+
+/* Button — color (theme palette), size, width, align. The base
+   styles live below in `.pp-button`; these add the variant modifiers. */
+.pp-button.pp-color-neutral   { background: var(--color-neutral); color: var(--color-background); }
+.pp-button.pp-color-primary   { background: var(--color-primary); color: var(--color-primary-foreground, #fff); }
+.pp-button.pp-color-secondary { background: var(--color-secondary); color: var(--color-secondary-foreground, var(--color-neutral)); }
+.pp-button.pp-color-tertiary  { background: var(--color-tertiary); color: var(--color-tertiary-foreground, var(--color-neutral)); }
+
+.pp-button.pp-size-xs { padding: 6px 12px; font-size: 12px; }
+.pp-button.pp-size-s  { padding: 8px 14px; font-size: 13px; }
+.pp-button.pp-size-m  { padding: 10px 18px; font-size: 14px; }
+.pp-button.pp-size-l  { padding: 12px 22px; font-size: 16px; }
+.pp-button.pp-size-xl { padding: 14px 26px; font-size: 18px; }
+
+.pp-button.pp-width-fit  { justify-self: start; }
+.pp-button.pp-width-fill { justify-self: stretch; width: 100%; }
+
+.pp-button.pp-align-left   { justify-self: start;  }
+.pp-button.pp-align-center { justify-self: center; }
+.pp-button.pp-align-right  { justify-self: end;    }
+
+/* Row + container alignContent. Shuffle's `.row` defaults to
+   align-items: center; we override per class. */
+.row.pp-align-content-top    { align-items: start; }
+.row.pp-align-content-middle { align-items: center; }
+.row.pp-align-content-bottom { align-items: end; }
+.row.pp-align-content-space-between {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.container.pp-align-content-top    { align-items: flex-start; }
+.container.pp-align-content-middle { align-items: center; }
+.container.pp-align-content-bottom { align-items: flex-end; }
+.container.pp-align-content-space-between {
+  justify-content: space-between;
+}
+
+.pp-button,
+.pb-canvas-scroll .ProseMirror a.pp-button {
+  /* Grid item — `justify-self` is the grid equivalent of flex's
+     `align-self: flex-start`. Shrinks the button to its content
+     instead of stretching across its column range. */
+  justify-self: start;
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 100px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  width: auto;
+  /* During a shuffle drag the button gets pulled out of the grid
+     and re-pinned with explicit `width: Xpx`. There's a frame
+     between "no width constraint" and "explicit width" where the
+     label briefly wraps if the new column is narrower than the
+     label — that flash is what makes the button look "tall" for
+     a split second. Forcing nowrap eliminates that. */
+  white-space: nowrap;
+}
+.pp-button--primary {
+  background: #1f2937;
+  color: #ffffff !important;
+}
+.pp-button--secondary {
+  background: #ffffff;
+  color: #111114 !important;
+  border: 1px solid #ececea;
+}
+.pp-button--ghost {
+  background: transparent;
+  color: #111114 !important;
+}
+
+.pp-image {
+  margin: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+.pp-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: var(--aspect, 16/9);
+  object-fit: cover;
+}
+.pp-image[data-aspect="16/9"] img { aspect-ratio: 16/9; }
+.pp-image[data-aspect="4/3"] img  { aspect-ratio: 4/3; }
+.pp-image[data-aspect="1/1"] img  { aspect-ratio: 1/1; }
+
+/* ─────────────────────────────────────── Shuffle skeleton (grid tracks)
+   Shuffle's plugin animates the skeleton's opacity from 0 → 0.5 on
+   drag-start and back to 0 on drag-end, but it ships no rule that sets
+   the initial state — so the bars are visible at rest unless we hide
+   them here. */
+.shuffle-skeleton {
+  opacity: 0;
+}
+.shuffle-skeleton-bar {
+  background-color: rgba(15, 23, 42, 0.05);
+}
+
+/* Highlight overlay removed — shuffle's drag/resize handles and the
+   skeleton bars are the source of truth for selection/hover feedback.
+   The old .pb-highlights/.pb-highlight rules are gone with it. */
+
+
+/* Shuffle's drag-handle — the type-label pill above the hovered block.
+   shuffle sets `top` and `left` inline based on the block's rect; we
+   only restyle the pill itself, then nudge it above the block via
+   transform (translateY(-100%)). Do NOT set `position`, `top`, `left`,
+   or `bottom` here — that breaks shuffle's positioning + the handle's
+   click hit area, which kills drag-and-drop. */
+.shuffle-drag-handle {
+  width: auto !important;
+  height: 20px !important;
+  line-height: 20px !important;
+  padding: 0 6px !important;
+  font-family: var(--pb-font) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  font-feature-settings: "ss01";
+  letter-spacing: 0 !important;
+  color: #ffffff !important;
+  background: var(--pb-accent) !important;
+  border: 0 !important;
+  border-radius: 3px 3px 0 0 !important;
+  box-shadow: none !important;
+  text-transform: capitalize;
+  white-space: nowrap;
+  cursor: grab;
+}
+
+/* Shuffle ships a default `lightblue` for both resize handles; override
+   with pagy's accent so they match the drag-handle tab visually. Same
+   thickness, slightly less radius — they read as paired affordances. */
+.shuffle-left-resize-handle,
+.shuffle-right-resize-handle {
+  background-color: var(--pb-accent) !important;
+  width: 3px !important;
+  height: 28px !important;
+  border-radius: 2px !important;
+  opacity: 0.85;
+  transition: opacity 100ms ease;
+}
+.shuffle-left-resize-handle:hover,
+.shuffle-right-resize-handle:hover {
+  opacity: 1;
+}
+.shuffle-drag-handle:hover {
+  background: var(--pb-accent-dark) !important;
+}
+.shuffle-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* ─────────────────────────────────────── Section insert affordances
+   The pills live inside each `.pp-section` (via `SectionNodeView`'s
+   chrome div), so visibility is one CSS rule: section hover shows
+   them, leaving the section hides them. `:has([data-state="open"])`
+   handles the case where the BlockPicker popover is open and the
+   user moves the cursor off the trigger into the menu — Radix sets
+   `data-state="open"` on the trigger button while the menu is open,
+   and `:has()` keeps the section in the "visible" state through it. */
+.pb-section-chrome {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  /* Fades the entire affordance set together when a shuffle drag
+     starts, via [data-dragging]. Compounds with the pills' own
+     hover-opacity (CSS opacity multiplies through descendants), so
+     "hovered AND dragging" still renders at 0. */
+  opacity: 1;
+  transition: opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.pb-section-chrome[data-dragging] {
+  opacity: 0;
+}
+
+.pb-add-block,
+.pb-add-section {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--pb-surface);
+  color: var(--pb-text);
+  border: 1px solid var(--pb-border);
+  border-radius: 100px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08);
+  pointer-events: auto;
+  opacity: 0;
+  /* Pagy's tokens — `--transition-duration: 200ms` and
+     `--easing: cubic-bezier(0.32,0.72,0,1)` from editor.app.css.
+     Same curve as their fade-in affordances. */
+  transition: opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.pb-add-block:hover,
+.pb-add-section:hover {
+  background: #fbfbfb;
+}
+
+/* Pin Add-block to the top-left and the Add-section pills to the
+   same y (top:18) but horizontally centred. Top variant sits at
+   the top edge, bottom variant mirrors at the bottom edge. */
+.pb-add-block {
+  top: 18px;
+  left: 24px;
+}
+.pb-add-section {
+  left: 50%;
+  transform: translateX(-50%);
+}
+.pb-add-section--top { top: 18px; }
+.pb-add-section--bottom { bottom: 18px; }
+
+/* Single visibility rule — section hover or open popover. Dragging
+   isn't part of this rule because `SectionNodeView` literally
+   doesn't render the chrome during a drag (mirrors pagy's
+   `draggedBlock`-gated `-active` class). */
+.pp-section:hover .pb-add-block,
+.pp-section:hover .pb-add-section,
+.pp-section:has([data-state="open"]) .pb-add-block,
+.pp-section:has([data-state="open"]) .pb-add-section {
+  opacity: 1;
+}
+
+/* ─────────────────────────────────────── Block settings popover
+   Floats to the right of whichever block is selected. Positioned
+   by @floating-ui/react (see `BlockSettings.tsx`). */
+.pb-block-settings {
+  z-index: 60;
+  width: 280px;
+  max-height: calc(100vh - 32px);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgba(20, 24, 31, 0.06),
+    0 12px 32px rgba(20, 24, 31, 0.14);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--pb-font);
+}
+.pb-block-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--pb-border);
+}
+.pb-block-settings-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pb-text);
+}
+.pb-block-settings-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+.pb-block-settings-icon {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--pb-text-soft);
+  cursor: pointer;
+}
+.pb-block-settings-icon:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--pb-text);
+}
+.pb-block-settings-body {
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Form controls used inside the body. */
+.pb-field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pb-segmented {
+  display: inline-flex;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.pb-segmented-option {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--pb-text-soft);
+  cursor: pointer;
+}
+.pb-segmented-option[data-active] {
+  background: #ffffff;
+  color: var(--pb-text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.pb-text-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--pb-text);
+  outline: none;
+}
+.pb-text-input:focus {
+  border-color: var(--pb-accent);
+}
+.pb-color-swatches {
+  display: inline-flex;
+  gap: 8px;
+}
+.pb-color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  padding: 0;
+}
+.pb-color-swatch[data-active] {
+  outline: 2px solid var(--pb-text);
+  outline-offset: 2px;
+}
