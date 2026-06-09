@@ -21,18 +21,21 @@ import {
   ProseMirror,
   ProseMirrorDoc,
   reactKeys,
+  useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import {
   DragHandles,
   ResizeHandles,
   ShuffleSkeleton,
   shuffle,
+  shufflePluginKey,
 } from "@pitter-patter/shuffle";
 import { baseKeymap } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import { Schema } from "prosemirror-model";
 import { schema as basic } from "prosemirror-schema-basic";
 import { EditorState, type Command } from "prosemirror-state";
+import { Decoration } from "prosemirror-view";
 import { useMemo } from "react";
 
 import "@pitter-patter/shuffle/style/shuffle.css";
@@ -41,6 +44,10 @@ import { Bold, History, Italic, Strike, Underline } from "../editor/extensions";
 import type { Extension } from "../editor/types";
 
 import { attrClassesPlugin } from "./attrClassesPlugin";
+import {
+  blockHighlightPlugin,
+  getActiveBlockPos,
+} from "./blockHighlightPlugin";
 import { BlockSettings } from "./blockSettings/BlockSettings";
 import { nodeViewComponents } from "./nodeViews";
 import { buildPageBuilderSchema, type InitialDocBuilder } from "./schema";
@@ -89,6 +96,22 @@ export interface PageBuilderEditorProps {
   overlays?: React.ReactNode;
 }
 
+/**
+ * Renders shuffle's resize handles only while a block is explicitly
+ * selected (`blockHighlightPlugin`) and not mid-drag. Shuffle keys the
+ * handles off the raw PM selection, which never clears — so without
+ * this gate they'd linger after a gutter/outside click, out of sync
+ * with the toolbar and ring. The selection still drives *which* block
+ * the handles attach to; we only gate *whether* they show.
+ */
+function ActiveResizeHandles() {
+  const state = useEditorState();
+  const active =
+    getActiveBlockPos(state) != null &&
+    shufflePluginKey.getState(state)?.activeNodePos == null;
+  return active ? <ResizeHandles /> : null;
+}
+
 export function PageBuilderEditor({
   initialDoc,
   overlays,
@@ -103,8 +126,18 @@ export function PageBuilderEditor({
       doc: initialDoc(schema),
       plugins: [
         reactKeys(),
-        shuffle(),
+        // `hoverDecorations` rings the hovered block in the accent
+        // color — a companion to shuffle's type-label drag handle, so
+        // it's obvious which block you're about to act on. Applied to
+        // every hover position (same set the drag handles use). The
+        // active/resizing block gets the same ring via
+        // `blockHighlightPlugin` below; both share one CSS rule.
+        shuffle({
+          hoverDecorations: (from, to) =>
+            Decoration.node(from, to, { class: "pb-block-hovered" }),
+        }),
         sectionChromePlugin(),
+        blockHighlightPlugin(),
         attrClassesPlugin(),
         ...collectExtensionPlugins(schema),
         keymap(collectKeymap(schema)),
@@ -122,7 +155,7 @@ export function PageBuilderEditor({
       <ShuffleDragSync />
       <ShuffleSkeleton>
         <ProseMirrorDoc />
-        <ResizeHandles />
+        <ActiveResizeHandles />
         <DragHandles />
       </ShuffleSkeleton>
       <BlockSettings />

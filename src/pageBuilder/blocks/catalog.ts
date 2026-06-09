@@ -27,6 +27,7 @@ import {
   StackSimple,
   Layout,
   Rows,
+  Cards,
 } from "@phosphor-icons/react";
 
 export type BlockGroup = "Basic" | "Media" | "Layout";
@@ -105,6 +106,7 @@ export const BLOCK_CATALOG: BlockCatalogEntry[] = [
     icon: StackSimple,
     group: "Layout",
   },
+  { name: "Card", type: "card", icon: Cards, group: "Layout" },
   { name: "Section", type: "section", icon: Layout, group: "Layout" },
 ];
 

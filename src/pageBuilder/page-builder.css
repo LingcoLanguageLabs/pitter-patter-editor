@@ -1032,36 +1032,87 @@
 .pp-button.pp-size-l  { padding: 12px 22px; font-size: 16px; }
 .pp-button.pp-size-xl { padding: 14px 26px; font-size: 18px; }
 
-.pp-button.pp-width-fit  { justify-self: start; }
-.pp-button.pp-width-fill { justify-self: stretch; width: 100%; }
-
+/* `justify-self` + `width` are owned entirely by these modifiers (every
+   button always carries a `pp-width-*` and `pp-align-*` class — both
+   attrs default in the schema), so the base `.pp-button` rule sets
+   neither. Order matters because align and Fill both touch
+   `justify-self`: align places a *Fit* button within its column; Fill
+   comes last and overrides to `stretch` so it spans — and therefore
+   resizes across — its whole column range regardless of align. Fit only
+   sets the width and leaves `justify-self` to the align rules. */
 .pp-button.pp-align-left   { justify-self: start;  }
 .pp-button.pp-align-center { justify-self: center; }
 .pp-button.pp-align-right  { justify-self: end;    }
 
+.pp-button.pp-width-fit  { width: auto; }
+.pp-button.pp-width-fill { justify-self: stretch; width: 100%; }
+
 /* Row + container alignContent. Shuffle's `.row` defaults to
    align-items: center; we override per class. */
-.row.pp-align-content-top    { align-items: start; }
-.row.pp-align-content-middle { align-items: center; }
-.row.pp-align-content-bottom { align-items: end; }
-.row.pp-align-content-space-between {
-  align-items: center;
-  justify-content: space-between;
-}
+.row.pp-align-content-top     { align-items: start; }
+.row.pp-align-content-middle  { align-items: center; }
+.row.pp-align-content-bottom  { align-items: end; }
+.row.pp-align-content-stretch { align-items: stretch; }
 
-.container.pp-align-content-top    { align-items: flex-start; }
-.container.pp-align-content-middle { align-items: center; }
-.container.pp-align-content-bottom { align-items: flex-end; }
-.container.pp-align-content-space-between {
-  justify-content: space-between;
+.container.pp-align-content-top     { align-items: flex-start; }
+.container.pp-align-content-middle  { align-items: center; }
+.container.pp-align-content-bottom  { align-items: flex-end; }
+.container.pp-align-content-stretch { align-items: stretch; }
+
+/* ─────────────────────────────────────── Card (pagy's `.card`)
+   A styled block container: theme/image background, padding, corner
+   radius, optional image overlay. Children stack like a container.
+   Background image is set inline by `CardNodeView`; padding / radius /
+   colour / overlay come from `attrClassesPlugin` classes. */
+.pp-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 28px;
+  overflow: hidden;
+  background-color: var(--color-background, var(--pb-surface));
+  background-size: cover;
+  background-position: center;
 }
+/* Keep content above the image/overlay layers. */
+.pp-card > * {
+  position: relative;
+  z-index: 1;
+}
+.pp-card.pp-padding-xs { padding: 8px; }
+.pp-card.pp-padding-s  { padding: 16px; }
+.pp-card.pp-padding-m  { padding: 24px; }
+.pp-card.pp-padding-l  { padding: 32px; }
+.pp-card.pp-padding-xl { padding: 40px; }
+.pp-card.pp-radius-none   { border-radius: 0; }
+.pp-card.pp-radius-medium { border-radius: 12px; }
+.pp-card.pp-radius-large  { border-radius: 28px; }
+.pp-card.pp-color-neutral   { background-color: var(--color-neutral); color: var(--color-background); }
+.pp-card.pp-color-primary   { background-color: var(--color-primary); color: var(--color-primary-foreground, #fff); }
+.pp-card.pp-color-secondary { background-color: var(--color-secondary); }
+.pp-card.pp-color-tertiary  { background-color: var(--color-tertiary); }
+/* Image overlay scrim (only shown when an overlay level is set). */
+.pp-card.pp-overlay-light::before,
+.pp-card.pp-overlay-medium::before,
+.pp-card.pp-overlay-strong::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
+.pp-card.pp-overlay-light::before  { background: rgba(0, 0, 0, 0.2); }
+.pp-card.pp-overlay-medium::before { background: rgba(0, 0, 0, 0.45); }
+.pp-card.pp-overlay-strong::before { background: rgba(0, 0, 0, 0.65); }
 
 .pp-button,
 .pb-canvas-scroll .ProseMirror a.pp-button {
-  /* Grid item — `justify-self` is the grid equivalent of flex's
-     `align-self: flex-start`. Shrinks the button to its content
-     instead of stretching across its column range. */
-  justify-self: start;
+  /* `justify-self` (start/center/end vs stretch) and `width` are set by
+     the `.pp-align-*` / `.pp-width-*` modifiers above — not here — so
+     Fill can stretch the button without losing to this rule. */
   align-self: start;
   display: inline-flex;
   align-items: center;
@@ -1073,7 +1124,6 @@
   cursor: pointer;
   text-decoration: none;
   user-select: none;
-  width: auto;
   /* During a shuffle drag the button gets pulled out of the grid
      and re-pinned with explicit `width: Xpx`. There's a frame
      between "no width constraint" and "explicit width" where the
@@ -1096,22 +1146,128 @@
   color: #111114 !important;
 }
 
-.pp-image {
+/* Image presentation mirrors pagy's `.media`: a `--radius` + an
+   `--aspect-ratio` custom property drive the figure and img, and
+   modifier classes (shape / corners / style) just set those vars.
+   `position: relative` hosts the `-inset` ::before ring; `overflow`
+   clips the img to the radius (incl. the circle). */
+.pb-image {
+  --radius: 12px;
   margin: 0;
-  border-radius: 16px;
+  position: relative;
+  border-radius: var(--radius);
   overflow: hidden;
   background: #f3f4f6;
 }
-.pp-image img {
+.pb-image img {
   width: 100%;
   height: auto;
   display: block;
-  aspect-ratio: var(--aspect, 16/9);
   object-fit: cover;
+  border-radius: var(--radius);
+  aspect-ratio: var(--aspect-ratio, 16/9);
 }
-.pp-image[data-aspect="16/9"] img { aspect-ratio: 16/9; }
-.pp-image[data-aspect="4/3"] img  { aspect-ratio: 4/3; }
-.pp-image[data-aspect="1/1"] img  { aspect-ratio: 1/1; }
+
+/* Aspect ratio (rectangle shapes). "original" → natural intrinsic. */
+.pb-image[data-aspect="16/9"]     { --aspect-ratio: 16 / 9; }
+.pb-image[data-aspect="3/2"]      { --aspect-ratio: 3 / 2; }
+.pb-image[data-aspect="4/3"]      { --aspect-ratio: 4 / 3; }
+.pb-image[data-aspect="original"] { --aspect-ratio: auto; }
+
+/* Corners. */
+.pb-image.pp-radius-none   { --radius: 0; }
+.pb-image.pp-radius-medium { --radius: 12px; }
+.pb-image.pp-radius-large  { --radius: 28px; }
+
+/* Shape — square/circle force a 1:1 ratio (overriding aspect); circle
+   is fully round (wins over any corner radius, so listed last). */
+.pb-image.pp-shape-square,
+.pb-image.pp-shape-circle { --aspect-ratio: 1 / 1; }
+.pb-image.pp-shape-circle { --radius: 9999px; }
+
+/* Style — plain (default) / inset hairline / drop shadow. */
+.pb-image.pp-frame-shadow {
+  box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.35);
+}
+.pb-image.pp-frame-inset::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─────────────────────────────────────── Image block: preview + Replace
+   Replaces the raw Source field (pagy-style): a thumbnail with a
+   Replace/Choose-file button and a destructive remove, controls
+   overlaid at the bottom over a legibility scrim. */
+.pb-image-preview {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--pb-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pb-image-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.pb-image-preview-placeholder {
+  color: var(--pb-text-very-soft);
+  font-size: 12px;
+}
+.pb-image-preview-actions {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0));
+}
+.pb-image-preview[data-empty] .pb-image-preview-actions {
+  position: static;
+  background: none;
+  justify-content: center;
+}
+.pb-image-replace {
+  font-family: var(--pb-font);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pb-text);
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+}
+.pb-image-replace:hover {
+  background: var(--pb-bg);
+}
+.pb-image-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #ef4444;
+  cursor: pointer;
+}
+.pb-image-delete:hover {
+  background: #dc2626;
+}
 
 /* ─────────────────────────────────────── Shuffle skeleton (grid tracks)
    Shuffle's plugin animates the skeleton's opacity from 0 → 0.5 on
@@ -1128,6 +1284,19 @@
 /* Highlight overlay removed — shuffle's drag/resize handles and the
    skeleton bars are the source of truth for selection/hover feedback.
    The old .pb-highlights/.pb-highlight rules are gone with it. */
+
+/* shuffle's drag clone copies every computed style off the block. Our
+   `.pb-block-*` ring makes the block `position: relative`, so its
+   `right`/`bottom` resolve to `0px` (positioned elements report used
+   offsets, not `auto`) and get copied onto the clone. shuffle then only
+   overrides the clone's `left`/`top`, leaving `right: 0` to pin it to
+   the body's right edge — a large offset, worst on right-aligned
+   blocks. Neutralize the copied insets so shuffle's `left`/`top` place
+   the clone. (`!important` to beat the clone's copied inline styles.) */
+[data-shuffle-clone] {
+  right: auto !important;
+  bottom: auto !important;
+}
 
 
 /* Shuffle's drag-handle — the type-label pill above the hovered block.
@@ -1177,6 +1346,50 @@
 }
 .shuffle-drag-handle:active {
   cursor: grabbing;
+}
+
+/* Block highlight ring — one rule, surfaced in every state a block can
+   be highlighted, with an obvious class per state rather than one
+   overloaded name:
+
+     .pb-block-hovered — hover (shuffle `hoverDecorations`, Editor.tsx)
+     .pb-block-active  — active toolbar / resizing (blockHighlightPlugin)
+
+   Mirrors pagy's single `.highlight` rule exposed through state
+   modifier classes (`-active` hover, `-selected` active/resize). It's
+   pagy's ring verbatim (measured live off pagy.co): a 2px accent ring
+   drawn as an *inset* box-shadow, sized to the block, near-square
+   corners. The breathing room between the ring and the glyphs is the
+   block's own line-height leading — not an added offset. Inset
+   box-shadow never reflows. */
+.pb-block-hovered,
+.pb-block-active {
+  position: relative;
+}
+/* Draw the ring on an overlay pseudo-element with its OWN 1px radius,
+   not the element's box-shadow. `box-shadow` follows the element's
+   border-radius, so on a pill button (`border-radius: 100px`) it would
+   bend into a pill and hug it. The `::after` overlay keeps the ring a
+   rectangle independent of the block's shape — same result as pagy's
+   separate `.highlight` overlay box. `inset: 0` sizes it to the block;
+   `pointer-events: none` keeps clicks/handles unaffected. */
+.pb-block-hovered::after,
+.pb-block-active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 1px;
+  box-shadow: inset 0 0 0 2px var(--pb-accent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* We draw our own selection ring above, so suppress ProseMirror's
+   default atom-selection outline. It otherwise stacks a second outline
+   that follows the node's border-radius — e.g. it bends into a pill on
+   buttons — which pagy doesn't show. */
+.pb-canvas-scroll .ProseMirror-selectednode {
+  outline: none;
 }
 
 /* ─────────────────────────────────────── Section insert affordances
@@ -1284,6 +1497,60 @@
   font-size: 15px;
   font-weight: 600;
   color: var(--pb-text);
+}
+/* Title-as-type-converter trigger (text blocks). Reads like the title
+   but is a clickable button with a caret. */
+.pb-block-settings-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 2px 6px 2px 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--pb-font);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pb-text);
+  cursor: pointer;
+  border-radius: 6px;
+}
+.pb-block-settings-type:hover {
+  color: var(--pb-accent-dark);
+}
+.pb-block-settings-type svg {
+  color: var(--pb-text-soft);
+}
+
+/* Type-converter dropdown (Radix, portaled to body). */
+.pb-type-menu {
+  min-width: 180px;
+  padding: 6px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  box-shadow: var(--pb-panel-shadow);
+  z-index: 60;
+}
+.pb-type-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  font-family: var(--pb-font);
+  font-size: 14px;
+  color: var(--pb-text);
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+.pb-type-menu-item[data-highlighted] {
+  background: var(--pb-bg);
+}
+.pb-type-menu-item[data-active] {
+  color: var(--pb-accent-dark);
+  font-weight: 600;
 }
 .pb-block-settings-actions {
   display: inline-flex;

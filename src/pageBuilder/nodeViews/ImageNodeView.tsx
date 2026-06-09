@@ -21,7 +21,7 @@ export function ImageNodeView({
     <figure
       ref={ref}
       {...props}
-      className={`pp-image ${injectedClass}`.trim()}
+      className={`pb-image ${injectedClass}`.trim()}
       data-node-type="image"
       data-aspect={aspect}
     >

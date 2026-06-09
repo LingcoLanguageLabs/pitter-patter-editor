@@ -76,6 +76,12 @@ export function createBlockNode(
       );
     }
 
+    case "card": {
+      const card = need(schema, "card");
+      const para = need(schema, "paragraph");
+      return card.create(null, para.create(null, schema.text("New block")));
+    }
+
     case "row": {
       // Same pattern as the shuffle demo doc
       // (`packages/docs/src/components/demos/shuffle.tsx`): the row

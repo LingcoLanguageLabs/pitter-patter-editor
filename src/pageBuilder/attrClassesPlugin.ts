@@ -29,6 +29,13 @@ const ATTR_TO_CLASS_PREFIX: Record<string, string> = {
   width: "pp-width",
   color: "pp-color",
   alignContent: "pp-align-content",
+  // Image presentation (mirrors pagy's `.media` modifiers).
+  shape: "pp-shape",
+  radius: "pp-radius",
+  frame: "pp-frame",
+  // Card presentation (pagy's `.card` modifiers).
+  padding: "pp-padding",
+  overlay: "pp-overlay",
 };
 
 function classesFor(node: PmNode): string[] {

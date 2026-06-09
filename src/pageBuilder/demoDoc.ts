@@ -6,23 +6,22 @@
 
 import type { Schema, Node as PmNode } from "prosemirror-model";
 
-/** Inline-svg-data-uri gradient — matches the rainbow gradient in Pagy's demo. */
-export const GRADIENT_IMAGE_URI =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 540" preserveAspectRatio="xMidYMid slice">
-  <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%"  stop-color="#ff5fa2"/>
-      <stop offset="35%" stop-color="#ffb968"/>
-      <stop offset="65%" stop-color="#9b8bff"/>
-      <stop offset="100%" stop-color="#4ccbff"/>
-    </linearGradient>
-    <filter id="b" x="0" y="0" width="100%" height="100%">
-      <feGaussianBlur stdDeviation="40"/>
-    </filter>
-  </defs>
-  <rect width="800" height="540" fill="url(#g)" filter="url(#b)"/>
-</svg>`);
+// Gradient placeholder lives as a real asset, referenced by URL rather
+// than an inline `data:` blob — keeps the doc readable and the Image
+// block's Source field a tidy path instead of a 700-char URI. The
+// `?no-inline` query stops Vite from inlining the (small) SVG back into
+// a data URI, so we always get a served file path.
+import workGradient from "./assets/work-gradient.svg?no-inline";
+
+/** URL of the rainbow gradient placeholder used in the demo. */
+export const GRADIENT_IMAGE_URI = workGradient;
+
+/** A real photo hotlinked from Unsplash, so the demo shows the Image
+ *  block with actual content (not just the gradient placeholder).
+ *  Unsplash permits hotlinking `images.unsplash.com` URLs; the query
+ *  params ask their CDN for a reasonably-sized, auto-formatted crop. */
+export const WORK_PHOTO_URL =
+  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
 
 export function buildPersonalSiteDoc(schema: Schema): PmNode {
   const section = schema.nodes["section"]!;
@@ -60,6 +59,16 @@ export function buildPersonalSiteDoc(schema: Schema): PmNode {
         src: GRADIENT_IMAGE_URI,
         alt: "Recent work",
         aspect: "16/9",
+      }),
+      // A real photo example (hotlinked) so the Image block isn't only
+      // ever the gradient placeholder. Different aspect + shadow to show
+      // the new presentation controls on real content.
+      image.create({
+        src: WORK_PHOTO_URL,
+        alt: "Mountain landscape",
+        aspect: "3/2",
+        radius: "large",
+        frame: "shadow",
       }),
     ]),
   ]);

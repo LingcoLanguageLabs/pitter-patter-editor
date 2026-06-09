@@ -41,7 +41,7 @@ export const ALIGN_CONTENT_VALUES = [
   "top",
   "middle",
   "bottom",
-  "space-between",
+  "stretch",
 ] as const;
 export type Align = (typeof ALIGN_VALUES)[number];
 export type Size = (typeof SIZE_VALUES)[number];
@@ -173,7 +173,14 @@ const imageSpec: NodeSpec = {
   attrs: {
     src: { default: "" },
     alt: { default: "" },
+    /** "original" | "16/9" | "3/2" | "4/3" — ignored when `shape` is set. */
     aspect: { default: "16/9" as string },
+    /** "" (rectangle) | "square" | "circle". Square/circle force 1:1. */
+    shape: { default: "" as "" | "square" | "circle" },
+    /** Corner radius: "none" | "medium" | "large". */
+    radius: { default: "medium" as "none" | "medium" | "large" },
+    /** "" (plain) | "inset" | "shadow". */
+    frame: { default: "" as "" | "inset" | "shadow" },
   },
   parseDOM: [
     {
@@ -185,6 +192,9 @@ const imageSpec: NodeSpec = {
           src: el.getAttribute("src") || "",
           alt: el.getAttribute("alt") || "",
           aspect: fig?.getAttribute("data-aspect") || "16/9",
+          shape: fig?.getAttribute("data-shape") || "",
+          radius: fig?.getAttribute("data-radius") || "medium",
+          frame: fig?.getAttribute("data-frame") || "",
         };
       },
     },
@@ -195,7 +205,13 @@ const imageSpec: NodeSpec = {
       {
         "data-node-type": "image",
         "data-aspect": (node.attrs["aspect"] as string) || "16/9",
-        class: "pp-image",
+        "data-shape": (node.attrs["shape"] as string) || "",
+        "data-radius": (node.attrs["radius"] as string) || "medium",
+        "data-frame": (node.attrs["frame"] as string) || "",
+        // `pb-image`, not `pp-image`: the form-builder editor's global
+        // stylesheet targets `.ProseMirror figure.pp-image` at higher
+        // specificity and would otherwise clobber our radius/aspect.
+        class: "pb-image",
       },
       [
         "img",
@@ -210,13 +226,72 @@ const imageSpec: NodeSpec = {
 
 // ────────────────────────────────────────────────────────────────
 // Pipeline steps
+/**
+ * Card — a styled block container (Pagy's `card`). Same content model
+ * as shuffle's `container` (holds blocks, stacks them), but with a
+ * background (theme colour or image), padding, corner radius, and an
+ * optional image overlay. Being in the `block` group means
+ * `addShuffleNodes` later stamps it with shuffle attrs, so it drags /
+ * resizes / is section-contained exactly like a container — which is
+ * also what makes Container ↔ Card a clean `setNodeMarkup` swap.
+ */
+const cardSpec: NodeSpec = {
+  group: "block",
+  content: "block+",
+  attrs: {
+    /** Inner padding: xs | s | m | l | xl. */
+    padding: { default: "m" as Size },
+    /** Corner radius: none | medium | large. */
+    radius: { default: "large" as "none" | "medium" | "large" },
+    /** Theme background slot: "" (page background) | neutral | primary |
+     *  secondary | tertiary. */
+    color: { default: "" as "" | "neutral" | "primary" | "secondary" | "tertiary" },
+    /** Optional background image URL. */
+    image: { default: "" },
+    /** Scrim over the background image: "" | light | medium | strong. */
+    overlay: { default: "" as "" | "light" | "medium" | "strong" },
+  },
+  parseDOM: [
+    {
+      tag: 'div[data-node-type="card"]',
+      getAttrs(node) {
+        const el = node as HTMLElement;
+        return {
+          padding: el.getAttribute("data-padding") || "m",
+          radius: el.getAttribute("data-radius") || "large",
+          color: el.getAttribute("data-color") || "",
+          image: el.getAttribute("data-image") || "",
+          overlay: el.getAttribute("data-overlay") || "",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const a = node.attrs;
+    const attrs: Record<string, string> = {
+      "data-node-type": "card",
+      class: "pp-card",
+      "data-padding": (a["padding"] as string) || "m",
+      "data-radius": (a["radius"] as string) || "large",
+    };
+    if (a["color"]) attrs["data-color"] = a["color"] as string;
+    if (a["overlay"]) attrs["data-overlay"] = a["overlay"] as string;
+    if (a["image"]) {
+      attrs["data-image"] = a["image"] as string;
+      attrs["style"] = `background-image:url("${a["image"]}")`;
+    }
+    return ["div", attrs, 0];
+  },
+};
+
 // ────────────────────────────────────────────────────────────────
 
-/** Step 1 — adds section + button, replaces image with block-level. */
+/** Step 1 — adds section + button + card, replaces image with block-level. */
 function addPageBuilderNodes(schema: Schema): Schema {
   const nodes = schema.spec.nodes
     .addToEnd("section", sectionSpec)
     .addToEnd("button", buttonSpec)
+    .addToEnd("card", cardSpec)
     .update("image", imageSpec);
   return new Schema({ nodes, marks: schema.spec.marks });
 }

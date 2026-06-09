@@ -6,11 +6,13 @@
  */
 
 import { ButtonNodeView } from "./ButtonNodeView";
+import { CardNodeView } from "./CardNodeView";
 import { ImageNodeView } from "./ImageNodeView";
 import { SectionNodeView } from "./SectionNodeView";
 
 export const nodeViewComponents = {
   button: ButtonNodeView,
+  card: CardNodeView,
   image: ImageNodeView,
   section: SectionNodeView,
 };
