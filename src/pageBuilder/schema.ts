@@ -87,7 +87,26 @@ const sectionSpec: NodeSpec = {
   isolating: true,
   attrs: {
     padding: { default: "medium" },
+    /** Theme variant (pagy's section "Colors"): "" / null = page
+     *  default, else inverted | primary | secondary | tertiary. Maps
+     *  to the `.theme.-X` variable scopes `themeToCss` emits. */
     theme: { default: null as string | null },
+    /** Minimum height: none | medium (66dvh) | large (100dvh). */
+    minHeight: { default: "none" as "none" | "medium" | "large" },
+    /** Vertical content alignment — only meaningful when minHeight
+     *  leaves spare room: top | center | bottom. */
+    contentAlign: { default: "top" as "top" | "center" | "bottom" },
+    /** Background mode. Solid = just the theme color; image/video add
+     *  a media layer (rendered by `SectionBackgroundWidget`). */
+    background: { default: "solid" as "solid" | "image" | "video" },
+    /** Background image URL (used when background = "image"). */
+    image: { default: "" },
+    /** Background video URL (used when background = "video"). */
+    video: { default: "" },
+    /** Scrim over background media: "" | light | medium | strong. */
+    overlay: { default: "" as "" | "light" | "medium" | "strong" },
+    /** Unique HTML id rendered onto the <section> (anchor links). */
+    htmlId: { default: "" },
   },
   parseDOM: [
     {
@@ -97,19 +116,38 @@ const sectionSpec: NodeSpec = {
         return {
           padding: el.getAttribute("data-padding") || "medium",
           theme: el.getAttribute("data-theme"),
+          minHeight: el.getAttribute("data-min-height") || "none",
+          contentAlign: el.getAttribute("data-content-align") || "top",
+          background: el.getAttribute("data-background") || "solid",
+          image: el.getAttribute("data-image") || "",
+          video: el.getAttribute("data-video") || "",
+          overlay: el.getAttribute("data-overlay") || "",
+          htmlId: el.id || "",
         };
       },
     },
   ],
   toDOM(node) {
+    const a = node.attrs;
+    const theme = a["theme"] as string | null;
     const attrs: Record<string, string> = {
       "data-node-type": "section",
-      "data-padding": (node.attrs["padding"] as string) || "medium",
-      class: "pp-section",
+      "data-padding": (a["padding"] as string) || "medium",
+      // `theme -X` puts the section under the `.theme.-X` variable
+      // scope from `themeToCss`, exactly like pagy's section renderer.
+      class: `pp-section${theme ? ` theme -${theme}` : ""}`,
     };
-    if (node.attrs["theme"]) {
-      attrs["data-theme"] = node.attrs["theme"] as string;
-    }
+    if (theme) attrs["data-theme"] = theme;
+    if (a["minHeight"] && a["minHeight"] !== "none")
+      attrs["data-min-height"] = a["minHeight"] as string;
+    if (a["contentAlign"] && a["contentAlign"] !== "top")
+      attrs["data-content-align"] = a["contentAlign"] as string;
+    if (a["background"] && a["background"] !== "solid")
+      attrs["data-background"] = a["background"] as string;
+    if (a["image"]) attrs["data-image"] = a["image"] as string;
+    if (a["video"]) attrs["data-video"] = a["video"] as string;
+    if (a["overlay"]) attrs["data-overlay"] = a["overlay"] as string;
+    if (a["htmlId"]) attrs["id"] = a["htmlId"] as string;
     return ["section", attrs, 0];
   },
 };

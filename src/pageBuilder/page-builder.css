@@ -903,12 +903,60 @@
      grid columns (the wrapper's 1fr gutters), so we use 0 here so
      children at start-left/end-12 truly reach the edges. */
   padding: 80px 0;
-  background: transparent;
+  /* Same var the canvas paints with, so a default section is invisible
+     against the page — until a `theme -X` class rescopes the var
+     (pagy's section always paints --color-background the same way). */
+  background-color: var(--color-background, transparent);
   box-sizing: border-box;
 }
 .pp-section[data-padding="small"]  { padding: 40px 0; }
 .pp-section[data-padding="medium"] { padding: 80px 0; }
 .pp-section[data-padding="large"]  { padding: 120px 0; }
+
+/* Themed sections (`theme -inverted` etc. — scopes from themeToCss)
+   recolor their text along with the background. */
+.pp-section.theme { color: var(--color-neutral); }
+
+/* Minimum height + vertical content alignment (pagy's `.section.-medium`
+   / `.-large` and `-align-center` / `-align-bottom`). The section is a
+   grid, so align-content distributes the spare min-height room. */
+.pp-section[data-min-height="medium"] { min-height: 66dvh; }
+.pp-section[data-min-height="large"]  { min-height: 100dvh; }
+.pp-section[data-content-align="center"] { align-content: center; }
+.pp-section[data-content-align="bottom"] { align-content: end; }
+
+/* Background media layer (`SectionBackgroundWidget`) — pagy's
+   `.section_image` + `.section_overlay`. Absolutely positioned under
+   the content; blocks get position:relative below so they paint above. */
+.pp-section-media {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.pp-section-media img,
+.pp-section-media video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Scrim tints toward the section's background color (pagy uses
+   `background-color: inherit` for the same effect). */
+.pp-section-media-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-background, #fff);
+}
+.pp-section-media-overlay[data-overlay="light"]  { opacity: 0.25; }
+.pp-section-media-overlay[data-overlay="medium"] { opacity: 0.5; }
+.pp-section-media-overlay[data-overlay="strong"] { opacity: 0.75; }
+
+/* Positioned so content paints above the absolutely-positioned media
+   layer (paint order: positioned elements in DOM order). */
+.pp-section > .shuffle-block { position: relative; }
 
 /* Shuffle's container — give it the same column-stack rhythm as a section. */
 .container {
@@ -1666,6 +1714,9 @@
 }
 .pb-text-input {
   width: 100%;
+  /* No global border-box reset in pitter-patter (see note at top) —
+     without this, 100% + padding + border overflows the popover. */
+  box-sizing: border-box;
   padding: 8px 10px;
   background: #ffffff;
   border: 1px solid var(--pb-border);
@@ -1677,6 +1728,14 @@
 }
 .pb-text-input:focus {
   border-color: var(--pb-accent);
+}
+/* Soft validation (section ID field): flag, don't block. */
+.pb-text-input[data-invalid],
+.pb-text-input[data-invalid]:focus {
+  border-color: #ef4444;
+}
+.pb-field-hint[data-invalid] {
+  color: #ef4444;
 }
 .pb-color-swatches {
   display: inline-flex;
@@ -1693,4 +1752,39 @@
 .pb-color-swatch[data-active] {
   outline: 2px solid var(--pb-text);
   outline-offset: 2px;
+}
+
+/* Section "Colors" — pagy's theme-variant "A" tiles. Each swatch
+   carries `site theme -X`, so the injected themeToCss rules give it
+   that variant's live background/foreground. */
+.pb-theme-swatches {
+  display: flex;
+  gap: 8px;
+}
+.pb-theme-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: var(--font-family-heading, var(--font-family-base, inherit));
+  font-size: 16px;
+  font-weight: 600;
+  background: var(--color-background, #fff);
+  color: var(--color-neutral, var(--pb-text));
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+.pb-theme-swatch[data-active] {
+  outline: 2px solid var(--pb-text);
+  outline-offset: 2px;
+}
+
+/* Small helper line under a field control ("Unique HTML ID"). */
+.pb-field-hint {
+  font-size: 11px;
+  color: var(--pb-text-very-soft, var(--pb-text-soft));
+  margin-top: 2px;
 }

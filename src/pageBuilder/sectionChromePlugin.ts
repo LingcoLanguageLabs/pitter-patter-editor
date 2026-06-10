@@ -18,12 +18,23 @@ import { Plugin, type EditorState } from "prosemirror-state";
 import { DecorationSet } from "prosemirror-view";
 import { widget } from "@handlewithcare/react-prosemirror";
 
+import { SectionBackgroundWidget } from "./SectionBackgroundWidget";
 import { SectionChromeWidget } from "./SectionChromeWidget";
 
 function buildDecorations(state: EditorState) {
   const decos: ReturnType<typeof widget>[] = [];
   state.doc.descendants((node, pos) => {
     if (node.type.name !== "section") return true;
+    // Background media layer at start-of-content (before the first
+    // block), so it paints under everything. Same PM-opaque widget
+    // trick as the chrome — a raw DOM child would confuse shuffle.
+    decos.push(
+      widget(pos + 1, SectionBackgroundWidget, {
+        side: -1,
+        key: `section-bg-${pos}`,
+        ignoreSelection: true,
+      }),
+    );
     // Place the widget at the section's end-of-content position
     // (just inside the closing tag).
     const endOfContent = pos + node.nodeSize - 1;

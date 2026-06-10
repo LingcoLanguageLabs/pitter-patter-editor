@@ -15,56 +15,44 @@
 
 "use client";
 
-import { ArrowDown, ArrowUp, Copy, Plus, Trash } from "@phosphor-icons/react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Copy,
+  GearSix,
+  Plus,
+  Trash,
+} from "@phosphor-icons/react";
 import {
   useEditorEventCallback,
   useEditorState,
   type WidgetViewComponentProps,
 } from "@handlewithcare/react-prosemirror";
-import type { EditorView } from "prosemirror-view";
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 
 import { Tooltip, TooltipProvider } from "../editor/menu";
 
 import { BlockPicker } from "./blocks/BlockPicker";
 import type { BlockCatalogEntry } from "./blocks/catalog";
 import { createBlockNode } from "./blocks/createBlock";
+import { SectionSettings } from "./SectionSettings";
+import { findEnclosingSection } from "./sectionUtils";
 import { usePageBuilderStore } from "./store";
-
-interface SectionInfo {
-  /** Position of the section node itself in the doc. */
-  pos: number;
-  /** Total node size, including the open + close tokens. */
-  nodeSize: number;
-}
-
-/** Walks back from `widgetPos` (end-of-content for its section) to
- *  the enclosing section node. */
-function findEnclosingSection(
-  view: EditorView,
-  widgetPos: number,
-): SectionInfo | null {
-  const $pos = view.state.doc.resolve(widgetPos);
-  for (let depth = $pos.depth; depth >= 0; depth--) {
-    const node = $pos.node(depth);
-    if (node.type.name !== "section") continue;
-    const start = depth === 0 ? 0 : $pos.before(depth);
-    return { pos: start, nodeSize: node.nodeSize };
-  }
-  return null;
-}
 
 export const SectionChromeWidget = forwardRef<
   HTMLDivElement,
   WidgetViewComponentProps
 >(function SectionChromeWidget({ getPos, widget: _widget, ...rest }, ref) {
   const isDragging = usePageBuilderStore((s) => s.isDragging);
+  // Section settings popover (pagy's gear panel), anchored to the gear.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [gearEl, setGearEl] = useState<HTMLButtonElement | null>(null);
 
   /** Insert a block from the catalog into this section (or after it,
    *  if the entry is itself a section). */
   const insertBlock = useEditorEventCallback(
     (view, entry: BlockCatalogEntry) => {
-      const info = findEnclosingSection(view, getPos());
+      const info = findEnclosingSection(view.state, getPos());
       if (!info) return;
       const node = createBlockNode(view.state.schema, entry);
       const insertAt =
@@ -90,7 +78,7 @@ export const SectionChromeWidget = forwardRef<
 
   /** Move this section one slot up or down among its siblings. */
   const moveSection = useEditorEventCallback((view, dir: "up" | "down") => {
-    const info = findEnclosingSection(view, getPos());
+    const info = findEnclosingSection(view.state, getPos());
     if (!info) return;
     const { state } = view;
     const node = state.doc.nodeAt(info.pos);
@@ -110,18 +98,26 @@ export const SectionChromeWidget = forwardRef<
     view.dispatch(tr.scrollIntoView());
   });
 
-  /** Insert a copy of this section directly after it. */
+  /** Insert a copy of this section directly after it. The copy drops
+   *  the `htmlId` — an id names a unique anchor, so duplicating it is
+   *  never right, and clearing here keeps ids unique by construction
+   *  in the one flow that would silently copy them. */
   const duplicateSection = useEditorEventCallback((view) => {
-    const info = findEnclosingSection(view, getPos());
+    const info = findEnclosingSection(view.state, getPos());
     if (!info) return;
     const node = view.state.doc.nodeAt(info.pos);
     if (!node) return;
-    view.dispatch(view.state.tr.insert(info.pos + info.nodeSize, node));
+    const copy = node.type.create(
+      { ...node.attrs, htmlId: "" },
+      node.content,
+      node.marks,
+    );
+    view.dispatch(view.state.tr.insert(info.pos + info.nodeSize, copy));
   });
 
   /** Remove this section (guarded so the doc always keeps one). */
   const deleteSection = useEditorEventCallback((view) => {
-    const info = findEnclosingSection(view, getPos());
+    const info = findEnclosingSection(view.state, getPos());
     if (!info || view.state.doc.childCount <= 1) return;
     view.dispatch(view.state.tr.delete(info.pos, info.pos + info.nodeSize));
   });
@@ -129,7 +125,7 @@ export const SectionChromeWidget = forwardRef<
   /** Insert a new section either before or after this one. */
   const addSection = useEditorEventCallback(
     (view, where: "before" | "after") => {
-      const info = findEnclosingSection(view, getPos());
+      const info = findEnclosingSection(view.state, getPos());
       if (!info) return;
       const sectionType = view.state.schema.nodes["section"];
       const paragraph = view.state.schema.nodes["paragraph"];
@@ -181,6 +177,21 @@ export const SectionChromeWidget = forwardRef<
 
       <TooltipProvider delayDuration={200} skipDelayDuration={300}>
         <div className="pb-section-toolbar">
+          {/* Gear first, like pagy's section toolbar. `data-state` makes
+              the existing `:has([data-state="open"])` visibility rule
+              keep the toolbar shown while the popover is open. */}
+          <Tooltip label="Section settings">
+            <button
+              type="button"
+              className="pb-section-tool"
+              ref={setGearEl}
+              data-state={settingsOpen ? "open" : undefined}
+              onClick={() => setSettingsOpen((open) => !open)}
+              aria-label="Section settings"
+            >
+              <GearSix size={16} weight="regular" />
+            </button>
+          </Tooltip>
           {!isFirst && (
             <Tooltip label="Move up">
               <button
@@ -229,6 +240,14 @@ export const SectionChromeWidget = forwardRef<
           )}
         </div>
       </TooltipProvider>
+
+      {settingsOpen && (
+        <SectionSettings
+          anchor={gearEl}
+          getPos={getPos}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 });

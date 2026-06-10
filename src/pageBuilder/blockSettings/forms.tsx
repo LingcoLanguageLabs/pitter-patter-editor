@@ -52,8 +52,9 @@ type BlockForm = ComponentType<BlockFormProps>;
 // ────────────────────────────────────────────────────────────────
 
 /** Segmented-button group — used for align, size, variant, width,
- *  align-content, and anywhere else with a small set of options. */
-function Segmented<T extends string>({
+ *  align-content, and anywhere else with a small set of options.
+ *  Exported for the section settings popover (`SectionSettings.tsx`). */
+export function Segmented<T extends string>({
   value,
   options,
   onChange,
@@ -83,7 +84,7 @@ function Segmented<T extends string>({
   );
 }
 
-function Field({
+export function Field({
   label,
   children,
 }: {
@@ -359,17 +360,21 @@ function CornerIcon({ rx }: { rx: number }) {
   );
 }
 
-/** Thumbnail + Replace/Choose-file + Delete for an image URL attr.
- *  Shared by the Image block and the Card's background image. No upload
- *  backend yet, so the chosen file becomes an inline data URL — but the
- *  preview replaces a raw URL field, so it's never shown (matches pagy).
- *  `onChange("")` clears. */
-function ImagePicker({
+/** Thumbnail + Replace/Choose-file + Delete for an image (or video)
+ *  URL attr. Shared by the Image block, the Card's background image,
+ *  and the Section's background media. No upload backend yet, so the
+ *  chosen file becomes an inline data URL — but the preview replaces a
+ *  raw URL field, so it's never shown (matches pagy). `onChange("")`
+ *  clears. `kind="video"` swaps the accept filter (pagy allows
+ *  .mp4/.webm) and previews with a muted <video>. */
+export function ImagePicker({
   src,
   onChange,
+  kind = "image",
 }: {
   src: string;
   onChange: (dataUrl: string) => void;
+  kind?: "image" | "video";
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const onPickFile = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -383,9 +388,15 @@ function ImagePicker({
   return (
     <div className="pb-image-preview" data-empty={!src || undefined}>
       {src ? (
-        <img className="pb-image-preview-img" src={src} alt="" />
+        kind === "video" ? (
+          <video className="pb-image-preview-img" src={src} muted playsInline />
+        ) : (
+          <img className="pb-image-preview-img" src={src} alt="" />
+        )
       ) : (
-        <span className="pb-image-preview-placeholder">No image</span>
+        <span className="pb-image-preview-placeholder">
+          {kind === "video" ? "No video" : "No image"}
+        </span>
       )}
       <div className="pb-image-preview-actions">
         <button
@@ -409,7 +420,7 @@ function ImagePicker({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={kind === "video" ? "video/mp4,video/webm,.mp4,.webm" : "image/*"}
         hidden
         onChange={onPickFile}
       />
