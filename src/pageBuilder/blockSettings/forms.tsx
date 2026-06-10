@@ -29,7 +29,7 @@ import type { Node as PmNode } from "prosemirror-model";
 import { type ComponentType, useRef } from "react";
 
 import { usePageBuilderStore } from "../store";
-import type { Align, AlignContent, Size } from "../schema";
+import { defaultHeadingSize, type Align, type AlignContent, type Size } from "../schema";
 
 export interface ActiveBlock {
   /** Doc position of the node. */
@@ -158,7 +158,10 @@ const ParagraphForm: BlockForm = ({ active, setAttr }) => {
 const HeadingForm: BlockForm = ({ active, setAttr }) => {
   const level = (active.node.attrs["level"] as number) ?? 1;
   const align = (active.node.attrs["align"] as Align) ?? "left";
-  const size = (active.node.attrs["size"] as Size) ?? "m";
+  // size: null = "use the level's default" — show that default as the
+  // active segment so the control always reflects what's rendered.
+  const size =
+    (active.node.attrs["size"] as Size | null) ?? defaultHeadingSize(level);
   return (
     <>
       <Field label="Level">
@@ -169,7 +172,14 @@ const HeadingForm: BlockForm = ({ active, setAttr }) => {
             value: String(n),
             label: `H${n}`,
           }))}
-          onChange={(v) => setAttr("level", Number(v))}
+          onChange={(v) => {
+            // Changing level re-stamps that level's default size (pagy
+            // does the same on type switch) — a custom size is a choice
+            // about the old level, not the new one.
+            const next = Number(v);
+            setAttr("level", next);
+            setAttr("size", defaultHeadingSize(next));
+          }}
         />
       </Field>
       <Field label="Align">

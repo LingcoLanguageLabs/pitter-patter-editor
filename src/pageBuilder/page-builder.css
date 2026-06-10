@@ -936,10 +936,13 @@
   margin: 0;
   letter-spacing: -0.015em;
 }
-.pp-section h1 { font-size: 56px; }
-.pp-section h2 { font-size: 40px; }
-.pp-section h3 { font-size: 22px; }
-.pp-section h4 { font-size: 18px; }
+/* Per-level default sizes — the fallback when a heading has no `size`
+   attr (attr is null → no `pp-size-*` class). Values mirror
+   `defaultHeadingSize` in schema.ts (xl / l / s / xs): keep in sync. */
+.pp-section h1 { font-size: 64px; }
+.pp-section h2 { font-size: 48px; }
+.pp-section h3 { font-size: 28px; }
+.pp-section h4 { font-size: 22px; }
 
 .pp-section p {
   margin: 0;

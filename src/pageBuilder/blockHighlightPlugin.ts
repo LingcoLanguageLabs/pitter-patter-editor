@@ -26,7 +26,12 @@
  * `.highlight` rule surfaced through `-active`/`-selected` modifiers.
  */
 
-import { Plugin, PluginKey, type EditorState } from "prosemirror-state";
+import {
+  Plugin,
+  PluginKey,
+  type EditorState,
+  type Transaction,
+} from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { shufflePluginKey } from "@pitter-patter/shuffle";
 
@@ -83,6 +88,20 @@ export function selectBlockPos(view: EditorView, pos: number | null): void {
   view.dispatch(
     view.state.tr.setMeta(blockHighlightKey, { activePos: pos } as HighlightMeta),
   );
+}
+
+/**
+ * Stamp `tr` so the explicit block selection points at `pos` after the
+ * transaction applies — the meta wins over `apply`'s position mapping.
+ *
+ * Needed by anything that replaces the selected node in place via
+ * `setNodeMarkup` (type/level conversion): that's a ReplaceAroundStep,
+ * and mapping the before-node position through it reports `deleted`
+ * (the node's open token was swapped), which would clear the selection
+ * even though a block still lives at the same position.
+ */
+export function keepBlockSelected(tr: Transaction, pos: number): Transaction {
+  return tr.setMeta(blockHighlightKey, { activePos: pos } as HighlightMeta);
 }
 
 /** Clicks on these keep the selection alive — they're part of the block

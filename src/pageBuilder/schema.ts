@@ -48,6 +48,26 @@ export type Align = (typeof ALIGN_VALUES)[number];
 export type Size = (typeof SIZE_VALUES)[number];
 export type AlignContent = (typeof ALIGN_CONTENT_VALUES)[number];
 
+/** Default paragraph size — stamped when converting a heading back to
+ *  a paragraph (pagy: `defaultSizeForBlockType("paragraph")`). */
+export const PARAGRAPH_DEFAULT_SIZE: Size = "m";
+
+/**
+ * Default size for each heading level — pagy's
+ * `defaultSizeForBlockType` (heading-1 → large … heading-4 →
+ * extra-small) translated onto our t-shirt scale. Choosing a heading
+ * level chooses this size; the Size control can then override it.
+ *
+ * A heading whose `size` attr is null renders at this default via the
+ * per-level fallback rules in page-builder.css — keep the two in sync.
+ */
+export function defaultHeadingSize(level: number): Size {
+  if (level <= 1) return "xl"; // 64px — pagy h1 (4rem)
+  if (level === 2) return "l"; // 48px — pagy h2 (2.625rem)
+  if (level === 3) return "s"; // 28px — pagy h3 (1.75rem)
+  return "xs"; // 22px — pagy h4 (1.125rem)
+}
+
 // ────────────────────────────────────────────────────────────────
 // Node specs
 // ────────────────────────────────────────────────────────────────
@@ -311,7 +331,15 @@ function augmentTextBlockAttrs(schema: Schema): Schema {
       attrs: {
         ...spec.attrs,
         align: { default: "left" as Align },
-        size: { default: "m" as Size },
+        // Headings default to null = "use the level's default size"
+        // (`defaultHeadingSize` + the per-level CSS fallback), so a
+        // heading created by any path — markdown `#` shortcut, enter
+        // split — sizes by its level, not a flat default. The picker /
+        // type-switcher stamp the default explicitly, pagy-style.
+        size: {
+          default:
+            name === "heading" ? null : (PARAGRAPH_DEFAULT_SIZE as Size),
+        },
       },
     });
   }

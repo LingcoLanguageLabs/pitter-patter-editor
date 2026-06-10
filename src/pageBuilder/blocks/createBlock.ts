@@ -12,6 +12,7 @@
 
 import type { Node as PmNode, Schema } from "prosemirror-model";
 
+import { defaultHeadingSize } from "../schema";
 import type { BlockCatalogEntry } from "./catalog";
 
 function need(schema: Schema, type: string) {
@@ -36,8 +37,10 @@ export function createBlockNode(
         3: "Heading 3",
         4: "Heading 4",
       };
+      // Picking a heading level picks its default size too (pagy's
+      // `create-block.ts` does the same) — the Size control overrides.
       return need(schema, "heading").create(
-        { level },
+        { level, size: defaultHeadingSize(level) },
         schema.text(fallback[level] ?? "Heading"),
       );
     }

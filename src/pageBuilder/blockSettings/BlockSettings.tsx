@@ -40,7 +40,12 @@ import type { Node as PmNode } from "prosemirror-model";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { getActiveBlockPos, isBlockResizing } from "../blockHighlightPlugin";
+import {
+  getActiveBlockPos,
+  isBlockResizing,
+  keepBlockSelected,
+} from "../blockHighlightPlugin";
+import { PARAGRAPH_DEFAULT_SIZE, defaultHeadingSize } from "../schema";
 
 import { BLOCK_FORMS, BLOCK_TITLES, type ActiveBlock } from "./forms";
 
@@ -51,13 +56,24 @@ interface TypeOption {
   label: string;
   typeName: string;
   attrs?: Record<string, unknown>;
+  /** Attrs stamped on convert but NOT part of the option's identity —
+   *  a Heading 1 the user resized to "m" is still "Heading 1". Pagy
+   *  does the same: switching text type also sets
+   *  `size: defaultSizeForBlockType(type)`. */
+  defaults?: Record<string, unknown>;
 }
 const TEXT_TYPE_OPTIONS: readonly TypeOption[] = [
-  { label: "Paragraph", typeName: "paragraph" },
-  { label: "Heading 1", typeName: "heading", attrs: { level: 1 } },
-  { label: "Heading 2", typeName: "heading", attrs: { level: 2 } },
-  { label: "Heading 3", typeName: "heading", attrs: { level: 3 } },
-  { label: "Heading 4", typeName: "heading", attrs: { level: 4 } },
+  {
+    label: "Paragraph",
+    typeName: "paragraph",
+    defaults: { size: PARAGRAPH_DEFAULT_SIZE },
+  },
+  ...([1, 2, 3, 4] as const).map((level) => ({
+    label: `Heading ${level}`,
+    typeName: "heading",
+    attrs: { level },
+    defaults: { size: defaultHeadingSize(level) },
+  })),
 ];
 const LAYOUT_TYPE_OPTIONS: readonly TypeOption[] = [
   { label: "Container", typeName: "container" },
@@ -101,16 +117,20 @@ function BlockSettingsPopover({ active }: { active: ActiveBlock }) {
   const [referenceEl, setReferenceEl] = useState<HTMLElement | null>(null);
 
   /** Resolve the active block's DOM node from the view. `useEditorEffect`
-   *  is the right hook here: it waits until the PM view is mounted and
-   *  re-runs when the block's position changes (e.g. after an insert
-   *  above it). */
-  useEditorEffect(
-    (view) => {
-      const dom = view.nodeDOM(active.pos);
-      setReferenceEl(dom instanceof HTMLElement ? dom : null);
-    },
-    [active.pos],
-  );
+   *  is the right hook here: it waits until the PM view is mounted.
+   *
+   *  Deliberately NO dependency array — re-resolve after every render,
+   *  pagy-style (its `section-controls.tsx` effect also has no deps and
+   *  calls `toDOMNode` fresh each time). Anything that makes PM redraw
+   *  the block — `setNodeMarkup` on a level/type switch (h3 → h1 is a
+   *  new tag), decoration changes — replaces the DOM element, and a
+   *  stale reference is detached: it measures 0,0 and the popover jumps
+   *  to the viewport corner. `nodeDOM` is a cheap lookup and the
+   *  setState is a no-op while the element is unchanged. */
+  useEditorEffect((view) => {
+    const dom = view.nodeDOM(active.pos);
+    setReferenceEl(dom instanceof HTMLElement ? dom : null);
+  });
 
   const { x, y, strategy, refs } = useFloating({
     placement: "right-start",
@@ -130,18 +150,31 @@ function BlockSettingsPopover({ active }: { active: ActiveBlock }) {
 
   /** Convert the block to another type (e.g. Paragraph → Heading 2).
    *  Carries over whatever attrs the target type also declares (align,
-   *  size, shuffle columns) and applies the option's attrs (e.g. level),
-   *  so layout/placement survive the swap. */
+   *  shuffle columns) so layout/placement survive the swap, then applies
+   *  the option's defaults (e.g. the heading level's default size) and
+   *  identity attrs (e.g. level). */
   const setType = useEditorEventCallback((view, opt: TypeOption) => {
     const type = view.state.schema.nodes[opt.typeName];
     const node = view.state.doc.nodeAt(active.pos);
     if (!type || !node) return;
     const allowed = type.spec.attrs ?? {};
-    const merged: Record<string, unknown> = { ...node.attrs, ...opt.attrs };
+    const merged: Record<string, unknown> = {
+      ...node.attrs,
+      ...opt.defaults,
+      ...opt.attrs,
+    };
     const attrs = Object.fromEntries(
       Object.entries(merged).filter(([k]) => k in allowed),
     );
-    view.dispatch(view.state.tr.setNodeMarkup(active.pos, type, attrs));
+    // setNodeMarkup's ReplaceAroundStep maps the block's position as
+    // "deleted", which would clear the explicit selection and close this
+    // popover mid-convert — re-assert it on the same transaction.
+    view.dispatch(
+      keepBlockSelected(
+        view.state.tr.setNodeMarkup(active.pos, type, attrs),
+        active.pos,
+      ),
+    );
   });
 
   const duplicate = useEditorEventCallback((view) => {
