@@ -815,54 +815,6 @@
   scrollbar-gutter: stable;
 }
 
-/* Top-right action icons — wrapped in a single pill container (one
-   surface + shadow for the whole cluster, matching pagy image #8).
-   The container fades in on canvas hover; individual buttons get a
-   subtle hover/active tint inside the pill. */
-.pb-canvas-actions {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px;
-  background: var(--pb-surface);
-  border: 1px solid var(--pb-border);
-  border-radius: 100px;
-  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08);
-  z-index: 5;
-  opacity: 0;
-  transition: opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-.pb-canvas:hover .pb-canvas-actions {
-  opacity: 1;
-}
-.pb-canvas-actions[data-dragging] {
-  opacity: 0;
-}
-
-.pb-canvas-action {
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 0;
-  border-radius: 100px;
-  color: var(--pb-text-soft);
-  cursor: pointer;
-}
-.pb-canvas-action:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--pb-text);
-}
-.pb-canvas-action[data-active] {
-  background: rgba(41, 162, 255, 0.12);
-  color: var(--pb-accent-dark);
-}
-
 /* Bottom-right badges — pinned to the viewport, not the canvas. */
 .pb-viewport-badges {
   position: fixed;
@@ -991,6 +943,19 @@
 
 .pp-section p {
   margin: 0;
+}
+
+/* Placeholder text for empty paragraphs / headings (placeholder plugin via
+   `createPlaceholder`, see Editor.tsx). The decoration sets `data-placeholder`
+   ("Start writing…" / "Heading N"); we render it with `::before` floated so it
+   overlays the empty block without taking layout space — it vanishes the
+   moment the block has content. */
+.pb-empty-block::before {
+  content: attr(data-placeholder);
+  color: var(--pb-text-very-soft);
+  pointer-events: none;
+  float: left;
+  height: 0;
 }
 
 /* ─────────────────────────────────────── Block-settings utility classes
@@ -1464,9 +1429,94 @@
    `draggedBlock`-gated `-active` class). */
 .pp-section:hover .pb-add-block,
 .pp-section:hover .pb-add-section,
+.pp-section:hover .pb-section-toolbar,
 .pp-section:has([data-state="open"]) .pb-add-block,
-.pp-section:has([data-state="open"]) .pb-add-section {
+.pp-section:has([data-state="open"]) .pb-add-section,
+.pp-section:has([data-state="open"]) .pb-section-toolbar {
   opacity: 1;
+}
+
+/* Section toolbar — top-right cluster of section actions (move up/down,
+   duplicate, delete). A white pill like the canvas actions; fades in on
+   section hover via the rule above. */
+.pb-section-toolbar {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 10px;
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08);
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.pb-section-tool {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--pb-text-soft);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+.pb-section-tool:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--pb-text);
+}
+/* Destructive action — red icon on hover. */
+.pb-section-tool.-destructive:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* Tooltip — the page builder doesn't load the form-builder's global
+   `styles.css`, so the Radix `Tooltip` (src/editor/menu) needs its
+   `.pp-tooltip` styling defined here too. Verbatim from styles.css. */
+.pp-tooltip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #1a1a1a;
+  color: #f3f3ee;
+  font-family: var(--pb-font);
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 80;
+  user-select: none;
+  animation: pp-tooltip-in 0.08s ease-out;
+}
+.pp-tooltip-kbd {
+  display: inline-flex;
+  align-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  color: #c8c8c0;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  padding: 2px 5px;
+}
+@keyframes pp-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ─────────────────────────────────────── Block settings popover

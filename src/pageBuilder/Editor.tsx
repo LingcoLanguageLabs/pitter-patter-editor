@@ -40,7 +40,14 @@ import { useMemo } from "react";
 
 import "@pitter-patter/shuffle/style/shuffle.css";
 
-import { Bold, History, Italic, Strike, Underline } from "../editor/extensions";
+import {
+  Bold,
+  createPlaceholder,
+  History,
+  Italic,
+  Strike,
+  Underline,
+} from "../editor/extensions";
 import type { Extension } from "../editor/types";
 
 import { attrClassesPlugin } from "./attrClassesPlugin";
@@ -140,6 +147,19 @@ export function PageBuilderEditor({
         sectionChromePlugin(),
         blockHighlightPlugin(),
         attrClassesPlugin(),
+        // Placeholder text in empty text blocks: "Start writing…" for
+        // paragraphs, "Heading N" for headings (by level). Shown in every
+        // empty block, not just the focused one.
+        ...(createPlaceholder({
+          showOnlyCurrent: false,
+          className: "pb-empty-block",
+          placeholder: (node) =>
+            node.type.name === "heading"
+              ? `Heading ${(node.attrs["level"] as number) ?? 1}`
+              : node.type.name === "paragraph"
+                ? "Start writing…"
+                : "",
+        }).plugins?.(schema) ?? []),
         ...collectExtensionPlugins(schema),
         keymap(collectKeymap(schema)),
         keymap(baseKeymap),

@@ -15,13 +15,16 @@
 
 "use client";
 
-import { Plus } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Copy, Plus, Trash } from "@phosphor-icons/react";
 import {
   useEditorEventCallback,
+  useEditorState,
   type WidgetViewComponentProps,
 } from "@handlewithcare/react-prosemirror";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef } from "react";
+
+import { Tooltip, TooltipProvider } from "../editor/menu";
 
 import { BlockPicker } from "./blocks/BlockPicker";
 import type { BlockCatalogEntry } from "./blocks/catalog";
@@ -75,6 +78,54 @@ export const SectionChromeWidget = forwardRef<
     },
   );
 
+  // This section's position among the doc's sections, for gating the toolbar:
+  // hide Move-up on the first, Move-down on the last, Delete when it's the only
+  // one (doc.content is `section+`, so the last section can't be removed).
+  const editorState = useEditorState();
+  const sectionIndex = editorState.doc.resolve(getPos()).index(0);
+  const sectionCount = editorState.doc.childCount;
+  const isFirst = sectionIndex === 0;
+  const isLast = sectionIndex === sectionCount - 1;
+  const canDelete = sectionCount > 1;
+
+  /** Move this section one slot up or down among its siblings. */
+  const moveSection = useEditorEventCallback((view, dir: "up" | "down") => {
+    const info = findEnclosingSection(view, getPos());
+    if (!info) return;
+    const { state } = view;
+    const node = state.doc.nodeAt(info.pos);
+    if (!node) return;
+    const $pos = state.doc.resolve(info.pos);
+    const index = $pos.index(0);
+    if (dir === "up" && index === 0) return;
+    if (dir === "down" && index === state.doc.childCount - 1) return;
+    // Delete this section, then re-insert it on the far side of its neighbour.
+    // The insert position is mapped through the delete so it stays valid.
+    const target =
+      dir === "up"
+        ? $pos.posAtIndex(index - 1, 0) // before the previous section
+        : info.pos + info.nodeSize + (state.doc.nodeAt(info.pos + info.nodeSize)?.nodeSize ?? 0); // after the next
+    const tr = state.tr.delete(info.pos, info.pos + info.nodeSize);
+    tr.insert(tr.mapping.map(target), node);
+    view.dispatch(tr.scrollIntoView());
+  });
+
+  /** Insert a copy of this section directly after it. */
+  const duplicateSection = useEditorEventCallback((view) => {
+    const info = findEnclosingSection(view, getPos());
+    if (!info) return;
+    const node = view.state.doc.nodeAt(info.pos);
+    if (!node) return;
+    view.dispatch(view.state.tr.insert(info.pos + info.nodeSize, node));
+  });
+
+  /** Remove this section (guarded so the doc always keeps one). */
+  const deleteSection = useEditorEventCallback((view) => {
+    const info = findEnclosingSection(view, getPos());
+    if (!info || view.state.doc.childCount <= 1) return;
+    view.dispatch(view.state.tr.delete(info.pos, info.pos + info.nodeSize));
+  });
+
   /** Insert a new section either before or after this one. */
   const addSection = useEditorEventCallback(
     (view, where: "before" | "after") => {
@@ -127,6 +178,57 @@ export const SectionChromeWidget = forwardRef<
         <Plus size={12} weight="bold" />
         <span>Add section</span>
       </button>
+
+      <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+        <div className="pb-section-toolbar">
+          {!isFirst && (
+            <Tooltip label="Move up">
+              <button
+                type="button"
+                className="pb-section-tool"
+                onClick={() => moveSection("up")}
+                aria-label="Move section up"
+              >
+                <ArrowUp size={16} weight="regular" />
+              </button>
+            </Tooltip>
+          )}
+          {!isLast && (
+            <Tooltip label="Move down">
+              <button
+                type="button"
+                className="pb-section-tool"
+                onClick={() => moveSection("down")}
+                aria-label="Move section down"
+              >
+                <ArrowDown size={16} weight="regular" />
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip label="Duplicate">
+            <button
+              type="button"
+              className="pb-section-tool"
+              onClick={duplicateSection}
+              aria-label="Duplicate section"
+            >
+              <Copy size={16} weight="regular" />
+            </button>
+          </Tooltip>
+          {canDelete && (
+            <Tooltip label="Delete section">
+              <button
+                type="button"
+                className="pb-section-tool -destructive"
+                onClick={deleteSection}
+                aria-label="Delete section"
+              >
+                <Trash size={16} weight="regular" />
+              </button>
+            </Tooltip>
+          )}
+        </div>
+      </TooltipProvider>
     </div>
   );
 });
