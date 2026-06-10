@@ -148,6 +148,12 @@ export const SectionChromeWidget = forwardRef<
       contentEditable={false}
       data-dragging={isDragging || undefined}
     >
+      {/* Sticky top bar: "+ Add block" (left) and the section toolbar (right)
+          ride the top of the section and stick to the scroll viewport while you
+          scroll through a tall one — CSS `position: sticky`, bounded by the
+          section, so it parks at the section's bottom rather than spilling into
+          the next. */}
+      <div className="pb-section-bar">
       <BlockPicker
         side="bottom"
         onPick={insertBlock}
@@ -158,23 +164,6 @@ export const SectionChromeWidget = forwardRef<
           </button>
         }
       />
-      <button
-        type="button"
-        className="pb-add-section pb-add-section--top"
-        onClick={() => addSection("before")}
-      >
-        <Plus size={12} weight="bold" />
-        <span>Add section</span>
-      </button>
-      <button
-        type="button"
-        className="pb-add-section pb-add-section--bottom"
-        onClick={() => addSection("after")}
-      >
-        <Plus size={12} weight="bold" />
-        <span>Add section</span>
-      </button>
-
       <TooltipProvider delayDuration={200} skipDelayDuration={300}>
         <div className="pb-section-toolbar">
           {/* Gear first, like pagy's section toolbar. `data-state` makes
@@ -240,6 +229,30 @@ export const SectionChromeWidget = forwardRef<
           )}
         </div>
       </TooltipProvider>
+      </div>
+
+      {/* One "Add section" per gap, not two. Each section owns the button in
+          the gap *above* it (`before`); on the 2nd+ section it straddles the
+          boundary, centered between the two. The first sits inside its top; the
+          last additionally owns an `after` button to append at the very end. */}
+      <button
+        type="button"
+        className={`pb-add-section pb-add-section--before${isFirst ? "" : " -boundary"}`}
+        onClick={() => addSection("before")}
+      >
+        <Plus size={12} weight="bold" />
+        <span>Add section</span>
+      </button>
+      {isLast && (
+        <button
+          type="button"
+          className="pb-add-section pb-add-section--after"
+          onClick={() => addSection("after")}
+        >
+          <Plus size={12} weight="bold" />
+          <span>Add section</span>
+        </button>
+      )}
 
       {settingsOpen && (
         <SectionSettings

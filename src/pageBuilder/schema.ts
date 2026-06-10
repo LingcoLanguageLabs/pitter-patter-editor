@@ -26,6 +26,7 @@
 
 import {
   Schema,
+  type MarkSpec,
   type NodeSpec,
   type Node as PmNode,
 } from "prosemirror-model";
@@ -51,6 +52,24 @@ export type AlignContent = (typeof ALIGN_CONTENT_VALUES)[number];
 /** Default paragraph size — stamped when converting a heading back to
  *  a paragraph (pagy: `defaultSizeForBlockType("paragraph")`). */
 export const PARAGRAPH_DEFAULT_SIZE: Size = "m";
+
+/** Inline text colors — theme *slots*, not raw colors, exactly pagy's
+ *  `color` leaf values. The mark renders `pp-text -muted` etc. and the
+ *  canvas CSS maps each slot to its theme variable, so recoloring the
+ *  theme recolors marked text for free. */
+export const TEXT_COLOR_VALUES = [
+  "muted",
+  "light",
+  "primary",
+  "secondary",
+  "tertiary",
+] as const;
+export type TextColor = (typeof TEXT_COLOR_VALUES)[number];
+
+/** Link style variants — pagy's `style` on link elements: "" is the
+ *  default underlined treatment, "minimal" drops the underline. */
+export const LINK_VARIANTS = ["", "minimal"] as const;
+export type LinkVariant = (typeof LINK_VARIANTS)[number];
 
 /**
  * Default size for each heading level — pagy's
@@ -427,6 +446,87 @@ function constrainBlocksToSection(schema: Schema): Schema {
   return new Schema({ nodes, marks: schema.spec.marks });
 }
 
+/** Text color mark — pagy's `color` leaf (`<span class="text -muted">`),
+ *  pp-prefixed. The slot → color mapping lives in page-builder.css. */
+const textColorSpec: MarkSpec = {
+  attrs: { color: {} },
+  parseDOM: [
+    {
+      tag: "span[data-text-color]",
+      getAttrs: (el) => {
+        const color = (el as HTMLElement).getAttribute("data-text-color");
+        return color ? { color } : false;
+      },
+    },
+  ],
+  toDOM(mark) {
+    const color = mark.attrs["color"] as TextColor;
+    return [
+      "span",
+      { "data-text-color": color, class: `pp-text -${color}` },
+      0,
+    ];
+  },
+};
+
+/** Link mark — replaces the basic schema's `link` (href/title) with
+ *  pagy's link shape: a URL, an "open in new tab" flag, and a style
+ *  variant (underlined vs minimal). `inclusive: false` like the basic
+ *  spec, so typing at a link's edge doesn't extend it.
+ *
+ *  Pagy also links to site *pages* (`link.type: "page"` + pageId); the
+ *  page builder has no pages model yet, so this is URL-only. When pages
+ *  land, add `kind` + `pageId` attrs here and a Page/URL segmented
+ *  control in `LinkPopover`. */
+const linkSpec: MarkSpec = {
+  attrs: {
+    href: { default: "" },
+    newTab: { default: false },
+    variant: { default: "" as LinkVariant },
+  },
+  inclusive: false,
+  parseDOM: [
+    {
+      tag: "a[href]",
+      getAttrs: (el) => ({
+        href: (el as HTMLElement).getAttribute("href"),
+        newTab: (el as HTMLElement).getAttribute("target") === "_blank",
+        variant: (el as HTMLElement).classList.contains("-minimal")
+          ? "minimal"
+          : "",
+      }),
+    },
+  ],
+  toDOM(mark) {
+    const { href, newTab, variant } = mark.attrs as {
+      href: string;
+      newTab: boolean;
+      variant: LinkVariant;
+    };
+    return [
+      "a",
+      {
+        href,
+        class: `pp-link${variant === "minimal" ? " -minimal" : ""}`,
+        ...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {}),
+      },
+      0,
+    ];
+  },
+};
+
+/** Step 2b — text-level marks the selection toolbar edits: replaces the
+ *  basic `link` with pagy's richer shape and adds the theme-slot text
+ *  color. Node-only step ordering doesn't apply; this just needs to run
+ *  once anywhere in the pipeline. */
+function addTextMarks(schema: Schema): Schema {
+  let marks = schema.spec.marks.update("link", linkSpec);
+  if (!marks.get("textColor")) {
+    marks = marks.addToEnd("textColor", textColorSpec);
+  }
+  return new Schema({ nodes: schema.spec.nodes, marks });
+}
+
 // ────────────────────────────────────────────────────────────────
 // Public pipeline
 // ────────────────────────────────────────────────────────────────
@@ -439,7 +539,8 @@ function constrainBlocksToSection(schema: Schema): Schema {
 export function buildPageBuilderSchema(base: Schema): Schema {
   const withPageBuilder = addPageBuilderNodes(base);
   const withTextAttrs = augmentTextBlockAttrs(withPageBuilder);
-  const withSectionRoot = requireSectionRoot(withTextAttrs);
+  const withTextMarks = addTextMarks(withTextAttrs);
+  const withSectionRoot = requireSectionRoot(withTextMarks);
   // Shuffle adds the `container` + `row` block-group nodes here. Containment
   // MUST run after it: otherwise `container`/`row` never get
   // `containedBy: "section"`, so dragging one isn't constrained to its

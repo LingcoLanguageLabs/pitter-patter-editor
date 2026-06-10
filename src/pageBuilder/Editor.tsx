@@ -55,12 +55,14 @@ import {
   blockHighlightPlugin,
   getActiveBlockPos,
 } from "./blockHighlightPlugin";
+import { BlockContextMenu } from "./BlockContextMenu";
 import { BlockSettings } from "./blockSettings/BlockSettings";
 import { nodeViewComponents } from "./nodeViews";
 import { SelectableDragHandle } from "./SelectableDragHandle";
 import { buildPageBuilderSchema, type InitialDocBuilder } from "./schema";
 import { sectionChromePlugin } from "./sectionChromePlugin";
 import { ShuffleDragSync } from "./ShuffleDragSync";
+import { TextSelectionToolbar } from "./TextSelectionToolbar";
 
 const markExtensions: readonly Extension[] = [Bold, Italic, Underline, Strike];
 const systemExtensions: readonly Extension[] = [History];
@@ -180,6 +182,8 @@ export function PageBuilderEditor({
         <DragHandles handleComponent={SelectableDragHandle} />
       </ShuffleSkeleton>
       <BlockSettings />
+      <BlockContextMenu />
+      <TextSelectionToolbar />
       {overlays}
     </ProseMirror>
   );

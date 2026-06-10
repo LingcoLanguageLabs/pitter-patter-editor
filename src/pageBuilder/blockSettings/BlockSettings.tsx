@@ -43,65 +43,26 @@ import { createPortal } from "react-dom";
 import {
   getActiveBlockPos,
   isBlockResizing,
-  keepBlockSelected,
+  isQuietSelection,
 } from "../blockHighlightPlugin";
-import { PARAGRAPH_DEFAULT_SIZE, defaultHeadingSize } from "../schema";
 
 import { BLOCK_FORMS, BLOCK_TITLES, type ActiveBlock } from "./forms";
-
-/** Block types you can convert between, grouped by compatible content.
- *  Mirrors pagy's panel-header type picker (paragraph ↔ heading-N).
- *  Container ↔ Card would go here too once a `card` node exists. */
-interface TypeOption {
-  label: string;
-  typeName: string;
-  attrs?: Record<string, unknown>;
-  /** Attrs stamped on convert but NOT part of the option's identity —
-   *  a Heading 1 the user resized to "m" is still "Heading 1". Pagy
-   *  does the same: switching text type also sets
-   *  `size: defaultSizeForBlockType(type)`. */
-  defaults?: Record<string, unknown>;
-}
-const TEXT_TYPE_OPTIONS: readonly TypeOption[] = [
-  {
-    label: "Paragraph",
-    typeName: "paragraph",
-    defaults: { size: PARAGRAPH_DEFAULT_SIZE },
-  },
-  ...([1, 2, 3, 4] as const).map((level) => ({
-    label: `Heading ${level}`,
-    typeName: "heading",
-    attrs: { level },
-    defaults: { size: defaultHeadingSize(level) },
-  })),
-];
-const LAYOUT_TYPE_OPTIONS: readonly TypeOption[] = [
-  { label: "Container", typeName: "container" },
-  { label: "Card", typeName: "card" },
-];
-
-/** Options available for a given block, or null if it can't convert. */
-function typeOptionsFor(node: PmNode): readonly TypeOption[] | null {
-  const name = node.type.name;
-  if (name === "paragraph" || name === "heading") return TEXT_TYPE_OPTIONS;
-  if (name === "container" || name === "card") return LAYOUT_TYPE_OPTIONS;
-  return null;
-}
-
-function isCurrentType(node: PmNode, opt: TypeOption): boolean {
-  if (node.type.name !== opt.typeName) return false;
-  if (!opt.attrs) return true;
-  return Object.entries(opt.attrs).every(([k, v]) => node.attrs[k] === v);
-}
+import {
+  convertBlockType,
+  isCurrentType,
+  typeOptionsFor,
+  type TypeOption,
+} from "./typeOptions";
 
 export function BlockSettings() {
   const editorState = useEditorState();
   // The active block is the explicit, click-driven selection owned by
   // `blockHighlightPlugin`. Show the toolbar when it points at a block
-  // whose type has a settings form.
+  // whose type has a settings form — unless the selection is "quiet"
+  // (made by right-click): the context menu owns that interaction.
   const active = useMemo<ActiveBlock | null>(() => {
     const pos = getActiveBlockPos(editorState);
-    if (pos == null) return null;
+    if (pos == null || isQuietSelection(editorState)) return null;
     const node = editorState.doc.nodeAt(pos);
     if (!node || !(node.type.name in BLOCK_FORMS)) return null;
     return { pos, node, typeName: node.type.name as keyof typeof BLOCK_FORMS };
@@ -149,32 +110,9 @@ function BlockSettingsPopover({ active }: { active: ActiveBlock }) {
   );
 
   /** Convert the block to another type (e.g. Paragraph → Heading 2).
-   *  Carries over whatever attrs the target type also declares (align,
-   *  shuffle columns) so layout/placement survive the swap, then applies
-   *  the option's defaults (e.g. the heading level's default size) and
-   *  identity attrs (e.g. level). */
+   *  Shared with the context menu's "Turn into" — see typeOptions.ts. */
   const setType = useEditorEventCallback((view, opt: TypeOption) => {
-    const type = view.state.schema.nodes[opt.typeName];
-    const node = view.state.doc.nodeAt(active.pos);
-    if (!type || !node) return;
-    const allowed = type.spec.attrs ?? {};
-    const merged: Record<string, unknown> = {
-      ...node.attrs,
-      ...opt.defaults,
-      ...opt.attrs,
-    };
-    const attrs = Object.fromEntries(
-      Object.entries(merged).filter(([k]) => k in allowed),
-    );
-    // setNodeMarkup's ReplaceAroundStep maps the block's position as
-    // "deleted", which would clear the explicit selection and close this
-    // popover mid-convert — re-assert it on the same transaction.
-    view.dispatch(
-      keepBlockSelected(
-        view.state.tr.setNodeMarkup(active.pos, type, attrs),
-        active.pos,
-      ),
-    );
+    convertBlockType(view, active.pos, opt);
   });
 
   const duplicate = useEditorEventCallback((view) => {

@@ -1215,6 +1215,48 @@
   z-index: 1;
 }
 
+/* ─────────────────────────────────────── Inline text marks
+   Derived neutral tints — pagy's 01-tokens.css formulas verbatim.
+   `themeToCss` emits --color-neutral and --alpha-offset-neutral on
+   `.site`; these derive the steps the text colors and link underline
+   read. (Also resolved by the toolbar's swatches, which carry a `site`
+   class for exactly this reason.) */
+.site {
+  --color-neutral-80: rgb(from var(--color-neutral) r g b / calc(76% + var(--alpha-offset-neutral)));
+  --color-neutral-60: rgb(from var(--color-neutral) r g b / calc(56% + var(--alpha-offset-neutral)));
+  --color-neutral-40: rgb(from var(--color-neutral) r g b / calc(32% + var(--alpha-offset-neutral)));
+  --color-neutral-20: rgb(from var(--color-neutral) r g b / calc(16% + var(--alpha-offset-neutral)));
+}
+
+/* Text color mark — pagy's `.text.-x` (03-site.css), pp-prefixed.
+   Slots, not raw colors: retheming recolors marked text for free. */
+.pp-text.-muted { color: var(--color-neutral-80); }
+.pp-text.-light { color: var(--color-neutral-60); }
+.pp-text.-primary { color: var(--color-primary); }
+.pp-text.-secondary { color: var(--color-secondary); }
+.pp-text.-tertiary { color: var(--color-tertiary); }
+
+/* Link mark — pagy's `.link` verbatim: current text color, underline
+   in a faint neutral that darkens on hover; `-minimal` drops the
+   underline and tints on hover instead. Cursor stays `text` in the
+   canvas — links don't navigate while editing. */
+.pp-link {
+  color: currentColor;
+  cursor: text;
+  text-decoration: underline;
+  text-decoration-color: var(--color-neutral-20);
+  transition: text-decoration-color 100ms, color 100ms;
+}
+.pp-link:hover {
+  text-decoration-color: var(--color-neutral-40);
+}
+.pp-link.-minimal {
+  text-decoration: none;
+}
+.pp-link.-minimal:hover {
+  color: var(--color-neutral-80);
+}
+
 /* ─────────────────────────────────────── Image block: preview + Replace
    Replaces the raw Source field (pagy-style): a thumbnail with a
    Replace/Choose-file button and a destructive remove, controls
@@ -1399,6 +1441,16 @@
   pointer-events: none;
   z-index: 2;
 }
+/* Cards and images clip their children to their rounded shape
+   (`overflow: hidden` + radius), which shaves the corners off the
+   square ring overlay. The rectangle is unachievable inside that clip,
+   so on these blocks the ring follows the block's own radius instead. */
+.pp-card.pb-block-hovered::after,
+.pp-card.pb-block-active::after,
+.pb-image.pb-block-hovered::after,
+.pb-image.pb-block-active::after {
+  border-radius: inherit;
+}
 
 /* We draw our own selection ring above, so suppress ProseMirror's
    default atom-selection outline. It otherwise stacks a second outline
@@ -1448,12 +1500,6 @@
   font-size: 13px;
   font-weight: 500;
   box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08);
-  pointer-events: auto;
-  opacity: 0;
-  /* Pagy's tokens — `--transition-duration: 200ms` and
-     `--easing: cubic-bezier(0.32,0.72,0,1)` from editor.app.css.
-     Same curve as their fade-in affordances. */
-  transition: opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 .pb-add-block:hover,
 .pb-add-section:hover {
@@ -1469,10 +1515,42 @@
 }
 .pb-add-section {
   left: 50%;
-  transform: translateX(-50%);
+  /* Centering uses the standalone `translate` property (not
+     `transform`) so the reveal's `scale` below composes with it
+     cleanly — properties apply translate-then-scale, keeping the pill
+     pinned to center while it pops. */
+  translate: -50%;
 }
-.pb-add-section--top { top: 18px; }
-.pb-add-section--bottom { bottom: 18px; }
+/* `before` on the first section sits just inside its top; `after` on the last
+   section sits just inside its bottom (the append-at-end affordance). */
+.pb-add-section--before { top: 18px; }
+.pb-add-section--after { top: auto; bottom: 18px; }
+/* `before` on a 2nd+ section straddles the boundary with the previous
+   section, centered in the gap between the two — one button per gap. */
+.pb-add-section--before.-boundary {
+  top: 0;
+  translate: -50% -50%;
+}
+
+/* Reveal — pagy's `.toolbar` treatment verbatim (editor.css `.toolbar`
+   / `.toolbar:not(.-active)`): hidden is opacity 0 + scale(.95) with
+   pointer-events off; shown transitions BOTH opacity and scale on an
+   overshoot curve, cubic-bezier(.25,.25,0,1.2), so the pill pops just
+   past full size and settles. Durations are asymmetric: CSS transitions
+   take the destination state's values, so the 200ms here is the
+   ENTER and the 400ms on the hidden rule below is the EXIT — quick
+   appear, gentle linger-out. (Pagy hardcodes this curve on `.toolbar`;
+   it is NOT their `--easing` token.) */
+.pb-add-block,
+.pb-add-section,
+.pb-section-toolbar {
+  opacity: 0;
+  scale: 0.95;
+  pointer-events: none;
+  transition-property: opacity, scale;
+  transition-duration: 400ms;
+  transition-timing-function: cubic-bezier(0.25, 0.25, 0, 1.2);
+}
 
 /* Single visibility rule — section hover or open popover. Dragging
    isn't part of this rule because `SectionNodeView` literally
@@ -1485,15 +1563,42 @@
 .pp-section:has([data-state="open"]) .pb-add-section,
 .pp-section:has([data-state="open"]) .pb-section-toolbar {
   opacity: 1;
+  scale: 1;
+  pointer-events: auto;
+  transition-duration: 200ms;
 }
 
-/* Section toolbar — top-right cluster of section actions (move up/down,
-   duplicate, delete). A white pill like the canvas actions; fades in on
-   section hover via the rule above. */
+/* Sticky top bar — "+ Add block" (left) and the section toolbar (right) in one
+   row. It's a flow child of the (absolute, full-height) chrome with
+   `position: sticky`, so it rides the section's top, sticks to the scroll
+   viewport as you scroll into a tall section, and parks at the section's
+   bottom rather than spilling into the next — the section is its containing
+   block, which bounds the stick. Mirrors pagy's sticky toolbar. */
+.pb-section-bar {
+  position: sticky;
+  top: 14px;
+  margin: 14px 24px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  pointer-events: none; /* children re-enable when revealed */
+  z-index: 6;
+}
+/* Inside the bar the pills are flow children, not absolutely placed. Each
+   pill owns its reveal (fade + scale above) so it scales about its own
+   center — fading/scaling the full-width bar instead would visibly slide
+   the pills toward the middle. */
+.pb-section-bar .pb-add-block,
+.pb-section-bar .pb-section-toolbar {
+  position: static;
+  top: auto;
+  left: auto;
+  right: auto;
+}
+
+/* Section toolbar — the right cluster of section actions (settings, move
+   up/down, duplicate, delete). A white pill, laid out in the sticky bar. */
 .pb-section-toolbar {
-  position: absolute;
-  top: 18px;
-  right: 24px;
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -1502,9 +1607,6 @@
   border: 1px solid var(--pb-border);
   border-radius: 10px;
   box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08);
-  pointer-events: auto;
-  opacity: 0;
-  transition: opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 .pb-section-tool {
   width: 30px;
@@ -1528,6 +1630,117 @@
 .pb-section-tool.-destructive:hover {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+}
+
+/* ─────────────────────────────────────── Text-selection toolbar
+   Pagy's floating inline-formatting `.toolbar`: a white pill above
+   the selection. The anchor div is positioned by floating-ui; the
+   pill inside owns the same fade+scale reveal as the section pills
+   (200ms in / 400ms out on the overshoot curve), driven by
+   `data-open` since it stays mounted through hide. */
+.pb-text-toolbar-anchor {
+  z-index: 70;
+}
+.pb-text-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 10px;
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08);
+  font-family: var(--pb-font);
+  opacity: 0;
+  scale: 0.95;
+  pointer-events: none;
+  transition-property: opacity, scale;
+  transition-duration: 400ms;
+  transition-timing-function: cubic-bezier(0.25, 0.25, 0, 1.2);
+}
+.pb-text-toolbar[data-open] {
+  opacity: 1;
+  scale: 1;
+  pointer-events: auto;
+  transition-duration: 200ms;
+}
+.pb-text-tool {
+  height: 28px;
+  min-width: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 7px;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--pb-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 450;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pb-text-tool:hover,
+.pb-text-tool[data-state="open"] {
+  background: rgba(0, 0, 0, 0.05);
+}
+.pb-text-tool[data-active] {
+  color: var(--pb-accent);
+}
+.pb-text-tool.-bold {
+  font-weight: 700;
+}
+.pb-text-toolbar-separator {
+  width: 1px;
+  align-self: stretch;
+  margin: 5px 4px;
+  background: var(--pb-border);
+}
+/* Theme-color swatch — used in the trigger and the menu items. The
+   fill is set inline (a `var(--color-*)`), resolved by the `site`
+   class on the swatch itself. */
+.pb-text-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+/* Swatch + label cluster inside a type-menu item (the item itself is
+   space-between so the checkmark stays right-aligned). */
+.pb-type-menu-item-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ─────────────────────────────────────── Link popover
+   Opens below the selection from the toolbar's Link button. Same
+   panel surface as the settings popover. */
+.pb-link-popover {
+  z-index: 70;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px 14px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  box-shadow: var(--pb-panel-shadow);
+  font-family: var(--pb-font);
+}
+.pb-link-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pb-link-popover-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pb-text);
 }
 
 /* Tooltip — the page builder doesn't load the form-builder's global
@@ -1652,6 +1865,67 @@
 .pb-type-menu-item[data-active] {
   color: var(--pb-accent-dark);
   font-weight: 600;
+}
+
+/* Right-click context menu (BlockContextMenu) — same card styling as
+   the type menu, with leading icons and a destructive variant. */
+.pb-context-menu {
+  min-width: 180px;
+  padding: 6px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  box-shadow: var(--pb-panel-shadow);
+  z-index: 70;
+}
+.pb-context-menu.-sub {
+  min-width: 150px;
+}
+/* Items are Radix DropdownMenu.Item divs — hover/keyboard highlight is
+   `data-highlighted`, disabled is `data-disabled` (not :hover/:disabled). */
+.pb-context-menu-item {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: transparent;
+  border: 0;
+  font-family: var(--pb-font);
+  font-size: 14px;
+  text-align: left;
+  color: var(--pb-text);
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+.pb-context-menu-item[data-highlighted] {
+  background: var(--pb-bg);
+}
+.pb-context-menu-item[data-disabled] {
+  color: var(--pb-text-soft);
+  cursor: default;
+  opacity: 0.6;
+}
+.pb-context-menu-item[data-active] {
+  font-weight: 600;
+}
+.pb-context-menu-item.-destructive[data-highlighted] {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+.pb-context-menu-label {
+  flex: 1;
+}
+.pb-context-menu-caret {
+  color: var(--pb-text-soft);
+}
+.pb-context-menu-separator {
+  height: 1px;
+  background: var(--pb-border);
+  margin: 5px 4px;
 }
 .pb-block-settings-actions {
   display: inline-flex;

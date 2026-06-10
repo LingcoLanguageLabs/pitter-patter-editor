@@ -9,6 +9,14 @@
  *
  *   • pointerdown on a content block (`.shuffle-block` that isn't the
  *     editor root) selects it.
+ *   • shift+click adds/removes a block from the selection (multi-select).
+ *     Single-block UI (settings popover, resize handles) keys off
+ *     `getActiveBlockPos`, which is null while more than one block is
+ *     selected — so it hides itself automatically; the context menu is
+ *     the way to act on a multi-selection.
+ *   • right-click keeps a multi-selection when it lands on a member
+ *     (so the context menu can act on it), otherwise selects the
+ *     clicked block.
  *   • pointerdown on the gutter (resolves up to the editor root),
  *     a click anywhere outside the editor + toolbar + handles, or
  *     Escape clears it.
@@ -16,7 +24,8 @@
  *     the next click.
  *
  * Everything that should track "the active block" reads `activePos`:
- *   • this plugin paints the `.pb-block-active` ring on it,
+ *   • this plugin paints the `.pb-block-active` ring on every selected
+ *     block,
  *   • `BlockSettings` shows its toolbar for it,
  *   • `Editor` only renders shuffle's `ResizeHandles` while it's set.
  *
@@ -29,6 +38,7 @@
 import {
   Plugin,
   PluginKey,
+  TextSelection,
   type EditorState,
   type Transaction,
 } from "prosemirror-state";
@@ -36,7 +46,13 @@ import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { shufflePluginKey } from "@pitter-patter/shuffle";
 
 interface HighlightState {
-  activePos: number | null;
+  /** Doc positions (before-node) of the explicitly selected blocks. */
+  selected: number[];
+  /** True when the selection was made by right-click / a context-menu
+   *  action: the ring shows, but the settings popover stays closed —
+   *  the context menu is the UI for that interaction. A later plain
+   *  click re-selects loudly. */
+  quiet: boolean;
   /** True while a shuffle resize handle is held. Keeps the ring up but
    *  hides the settings toolbar, like pagy's `resizedBlock`. */
   resizing: boolean;
@@ -50,6 +66,8 @@ export const blockHighlightKey = new PluginKey<HighlightState>(
 
 /**
  * Doc position (before-node) of the explicitly selected block, or null.
+ * Null while the selection holds more (or fewer) than one block — the
+ * single-block UI keys off this, so a multi-select hides it for free.
  *
  * Migration seam — when shuffle ships an owned "selected block" (the
  * `selectedPos` + set/clear command we asked for), this should read
@@ -60,7 +78,20 @@ export const blockHighlightKey = new PluginKey<HighlightState>(
  * TODO(shuffle selectedPos API): replace body with shuffle plugin state.
  */
 export function getActiveBlockPos(state: EditorState): number | null {
-  return blockHighlightKey.getState(state)?.activePos ?? null;
+  const selected = blockHighlightKey.getState(state)?.selected ?? [];
+  return selected.length === 1 ? selected[0]! : null;
+}
+
+/** All explicitly selected block positions (before-node), in click
+ *  order. Empty when nothing is selected. */
+export function getSelectedBlockPositions(state: EditorState): number[] {
+  return blockHighlightKey.getState(state)?.selected ?? [];
+}
+
+/** True when the current selection is "quiet" (made by right-click or
+ *  a context-menu action) — the settings popover suppresses itself. */
+export function isQuietSelection(state: EditorState): boolean {
+  return blockHighlightKey.getState(state)?.quiet ?? false;
 }
 
 /**
@@ -82,26 +113,40 @@ export function isBlockResizing(state: EditorState): boolean {
  * with `null`. `SelectableDragHandle` calls this so clicking a block's
  * drag-handle pill selects it — the only reliable way to select a container,
  * since its children fill its box and a body click always resolves to the
- * inner block. Sets the same `activePos` everything else reads.
+ * inner block. Sets the same `selected` everything else reads.
  */
 export function selectBlockPos(view: EditorView, pos: number | null): void {
   view.dispatch(
-    view.state.tr.setMeta(blockHighlightKey, { activePos: pos } as HighlightMeta),
+    view.state.tr.setMeta(blockHighlightKey, {
+      selected: pos == null ? [] : [pos],
+      quiet: false,
+    } as HighlightMeta),
   );
 }
 
 /**
- * Stamp `tr` so the explicit block selection points at `pos` after the
- * transaction applies — the meta wins over `apply`'s position mapping.
+ * Stamp `tr` so the explicit block selection points at `positions`
+ * after the transaction applies — the meta wins over `apply`'s
+ * position mapping. Pass post-transaction positions.
  *
- * Needed by anything that replaces the selected node in place via
+ * Needed by anything that replaces a selected node in place via
  * `setNodeMarkup` (type/level conversion): that's a ReplaceAroundStep,
  * and mapping the before-node position through it reports `deleted`
  * (the node's open token was swapped), which would clear the selection
  * even though a block still lives at the same position.
+ *
+ * `quiet: true` keeps the settings popover suppressed — pass it from
+ * context-menu actions so a right-click flow never spawns the popover.
  */
-export function keepBlockSelected(tr: Transaction, pos: number): Transaction {
-  return tr.setMeta(blockHighlightKey, { activePos: pos } as HighlightMeta);
+export function setSelectedBlocks(
+  tr: Transaction,
+  positions: number[],
+  quiet = false,
+): Transaction {
+  return tr.setMeta(blockHighlightKey, {
+    selected: positions,
+    quiet,
+  } as HighlightMeta);
 }
 
 /** Clicks on these keep the selection alive — they're part of the block
@@ -109,52 +154,101 @@ export function keepBlockSelected(tr: Transaction, pos: number): Transaction {
  *  live outside the editor DOM, so a plain outside-click check would
  *  otherwise treat interacting with them as a dismissal. */
 const KEEP_ALIVE_SELECTOR =
-  ".pb-block-settings, .pb-type-menu, .shuffle-drag-handle, .shuffle-left-resize-handle, .shuffle-right-resize-handle";
+  ".pb-block-settings, .pb-type-menu, .pb-context-menu, .pb-text-toolbar, .pb-link-popover, .shuffle-drag-handle, .shuffle-left-resize-handle, .shuffle-right-resize-handle";
+
+/**
+ * True when a pointer event lands inside the current (non-collapsed)
+ * text selection. Right-click flows check this to step aside: over
+ * selected text, the browser's native Cut/Copy/Paste menu is the UI —
+ * neither the block context menu nor the quiet block selection should
+ * hijack it (pagy shows the native menu there too).
+ *
+ * Tested geometrically against the painted DOM selection rects — "did
+ * the click land on highlighted text" — which is also what the browser
+ * itself keys Copy on. (`view.posAtCoords` is unreliable over a
+ * native selection: it can report pos 0 for points squarely inside a
+ * selected text run.)
+ */
+export function isPointInTextSelection(
+  view: EditorView,
+  event: MouseEvent,
+): boolean {
+  const sel = view.state.selection;
+  if (sel.empty || !(sel instanceof TextSelection)) return false;
+  const domSel = view.dom.ownerDocument.getSelection();
+  if (!domSel || domSel.isCollapsed) return false;
+  const { clientX: x, clientY: y } = event;
+  for (let i = 0; i < domSel.rangeCount; i++) {
+    for (const rect of domSel.getRangeAt(i).getClientRects()) {
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function samePositions(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((pos, i) => pos === b[i]);
+}
 
 export function blockHighlightPlugin() {
   return new Plugin<HighlightState>({
     key: blockHighlightKey,
     state: {
-      init: () => ({ activePos: null, resizing: false }),
+      init: () => ({ selected: [], quiet: false, resizing: false }),
       apply(tr, value, _oldState, newState) {
         const meta = tr.getMeta(blockHighlightKey) as HighlightMeta | undefined;
-        let activePos =
-          meta && "activePos" in meta ? meta.activePos! : value.activePos;
+        let selected =
+          meta && "selected" in meta ? meta.selected! : value.selected;
+        const quiet =
+          meta && "selected" in meta ? (meta.quiet ?? false) : value.quiet;
         const resizing =
           meta && "resizing" in meta ? meta.resizing! : value.resizing;
-        // Keep the ring glued to its block across edits (e.g. resize).
-        if (!(meta && "activePos" in meta) && activePos != null && tr.docChanged) {
-          const mapped = tr.mapping.mapResult(activePos);
-          activePos = mapped.deleted ? null : mapped.pos;
+        // Keep the rings glued to their blocks across edits (e.g. resize).
+        if (!(meta && "selected" in meta) && selected.length && tr.docChanged) {
+          const mapped = selected
+            .map((pos) => tr.mapping.mapResult(pos))
+            .filter((result) => !result.deleted)
+            .map((result) => result.pos);
+          selected = [...new Set(mapped)];
         }
         // A shuffle drag clears the selection and keeps it cleared past
         // the drop (until the next click) — mirrors pagy on drag start.
         if (shufflePluginKey.getState(newState)?.activeNodePos != null) {
-          activePos = null;
+          selected = [];
         }
-        return { activePos, resizing };
+        return { selected, quiet, resizing };
       },
     },
     props: {
       decorations(state) {
-        const pos = getActiveBlockPos(state);
-        if (pos == null) return DecorationSet.empty;
-        const node = state.doc.nodeAt(pos);
-        if (!node) return DecorationSet.empty;
-        return DecorationSet.create(state.doc, [
-          Decoration.node(pos, pos + node.nodeSize, {
-            class: "pb-block-active",
-          }),
-        ]);
+        const positions = getSelectedBlockPositions(state);
+        if (!positions.length) return DecorationSet.empty;
+        const decos: Decoration[] = [];
+        for (const pos of positions) {
+          const node = state.doc.nodeAt(pos);
+          if (!node) continue;
+          decos.push(
+            Decoration.node(pos, pos + node.nodeSize, {
+              class: "pb-block-active",
+            }),
+          );
+        }
+        return DecorationSet.create(state.doc, decos);
       },
     },
     view(editorView) {
       const setMeta = (meta: HighlightMeta) => {
         editorView.dispatch(editorView.state.tr.setMeta(blockHighlightKey, meta));
       };
-      const select = (pos: number | null) => {
-        if (getActiveBlockPos(editorView.state) === pos) return;
-        setMeta({ activePos: pos });
+      const select = (positions: number[], quiet = false) => {
+        if (
+          samePositions(getSelectedBlockPositions(editorView.state), positions) &&
+          isQuietSelection(editorView.state) === quiet
+        )
+          return;
+        setMeta({ selected: positions, quiet });
       };
 
       // Select the clicked block; clear when the click lands in the
@@ -167,10 +261,20 @@ export function blockHighlightPlugin() {
       // a previous block click — otherwise a cursor keeps blinking in a
       // block that isn't active. (pagy blurs on click-off the same way.)
       const onMouseDown = (event: MouseEvent) => {
+        // Right-click on the live text selection: hands off entirely —
+        // the native Cut/Copy/Paste menu owns it (see
+        // isPointInTextSelection). Selecting a block here would also
+        // clobber the text selection the user is about to copy.
+        if (event.button === 2 && isPointInTextSelection(editorView, event)) {
+          return;
+        }
         const target = event.target as HTMLElement | null;
         const blockEl = target?.closest(".shuffle-block") ?? null;
         if (!blockEl || blockEl === editorView.dom) {
-          select(null);
+          // Right-click on the gutter: leave the selection alone so the
+          // native menu shows without nuking a multi-select in progress.
+          if (event.button !== 0) return;
+          select([]);
           event.preventDefault();
           editorView.dom.blur();
           return;
@@ -178,7 +282,48 @@ export function blockHighlightPlugin() {
         const desc = (blockEl as HTMLElement & {
           pmViewDesc?: { posBefore: number };
         }).pmViewDesc;
-        select(desc ? desc.posBefore : null);
+        if (!desc) {
+          select([]);
+          return;
+        }
+        const pos = desc.posBefore;
+        const current = getSelectedBlockPositions(editorView.state);
+
+        // Right-click: keep the selection when it lands on a member OR
+        // inside one (a selected container's children fill its box, so
+        // a click "on the container" always resolves to an inner block
+        // — stealing the selection would make container actions
+        // unreachable). Otherwise select the clicked block. Either way
+        // the selection goes quiet: the context menu is the UI here,
+        // not the settings popover.
+        if (event.button === 2) {
+          const insideSelection = current.some((selectedPos) => {
+            if (selectedPos === pos) return true;
+            const node = editorView.state.doc.nodeAt(selectedPos);
+            return (
+              node != null &&
+              pos > selectedPos &&
+              pos < selectedPos + node.nodeSize
+            );
+          });
+          select(insideSelection ? current : [pos], true);
+          return;
+        }
+
+        // Shift+click toggles the block in/out of the selection. Block
+        // the default so the browser doesn't extend a text selection
+        // across blocks.
+        if (event.shiftKey) {
+          event.preventDefault();
+          select(
+            current.includes(pos)
+              ? current.filter((p) => p !== pos)
+              : [...current, pos],
+          );
+          return;
+        }
+
+        select([pos]);
       };
 
       // Clicks fully outside the editor (chrome, side panels) clear the
@@ -188,11 +333,11 @@ export function blockHighlightPlugin() {
         if (!target) return;
         if (editorView.dom.contains(target)) return;
         if (target.closest(KEEP_ALIVE_SELECTOR)) return;
-        select(null);
+        select([]);
       };
 
       const onKey = (event: KeyboardEvent) => {
-        if (event.key === "Escape") select(null);
+        if (event.key === "Escape") select([]);
       };
 
       // DOM resize detection — throwaway once shuffle exposes `resizing`.
