@@ -492,7 +492,11 @@ const ImageForm: BlockForm = ({ active, setAttr }) => {
 // Layout-block forms (row, container)
 // ────────────────────────────────────────────────────────────────
 
-const LayoutAlignForm: BlockForm = ({ active, setAttr }) => {
+/** Row-only. A row lays its children out horizontally, so aligning them on
+ *  the cross (vertical) axis — top / middle / bottom / stretch — is meaningful.
+ *  A container stacks vertically, so there's no vertical alignment to expose;
+ *  it uses `ContainerForm` (header actions only, no body). */
+const RowAlignForm: BlockForm = ({ active, setAttr }) => {
   const alignContent =
     (active.node.attrs["alignContent"] as AlignContent) ?? "middle";
   return (
@@ -506,6 +510,12 @@ const LayoutAlignForm: BlockForm = ({ active, setAttr }) => {
     </Field>
   );
 };
+
+/** Container settings — intentionally no body. A container is a vertical
+ *  stack with no alignment control (that's row-only). Keeping it registered
+ *  in `BLOCK_FORMS` is what makes its settings popover appear at all (the
+ *  header: convert to Card, duplicate, delete); there's just no form below. */
+const ContainerForm: BlockForm = () => null;
 
 // ────────────────────────────────────────────────────────────────
 // Card form
@@ -619,8 +629,8 @@ export const BLOCK_FORMS = {
   heading: HeadingForm,
   button: ButtonForm,
   image: ImageForm,
-  row: LayoutAlignForm,
-  container: LayoutAlignForm,
+  row: RowAlignForm,
+  container: ContainerForm,
   card: CardForm,
 } as const;
 

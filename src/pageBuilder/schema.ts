@@ -9,18 +9,19 @@
  *   2. requireSectionRoot   — tightens `doc.content` from `block+` to
  *                              `section+` so paragraphs can't live at
  *                              the root.
- *   3. constrainBlocksToSection — stamps every block-group node with
+ *   3. addShuffleNodes      — shuffle's own augmentation: adds
+ *                              `container` + `row` nodes and
+ *                              `shuffleStart/End` attrs.
+ *   4. constrainBlocksToSection — stamps every block-group node with
  *                              `pitterPatter.shuffle.containedBy =
  *                              "section"` so shuffle aborts drops
  *                              that would land outside the dragged
  *                              block's section.
- *   4. addShuffleNodes      — shuffle's own augmentation: adds
- *                              `container` + `row` nodes and
- *                              `shuffleStart/End` attrs.
  *
  * Each step takes a `Schema` and returns a new `Schema`. The order
- * matters: shuffle needs to run last because `containedBy` is set
- * before it spreads its own `pitterPatter.shuffle` overrides.
+ * matters: containment runs AFTER shuffle so the `container`/`row`
+ * nodes shuffle adds are stamped too — otherwise dragging one isn't
+ * section-constrained and its drop escapes into a new section.
  */
 
 import {
@@ -373,12 +374,16 @@ export function buildPageBuilderSchema(base: Schema): Schema {
   const withPageBuilder = addPageBuilderNodes(base);
   const withTextAttrs = augmentTextBlockAttrs(withPageBuilder);
   const withSectionRoot = requireSectionRoot(withTextAttrs);
-  const withContainment = constrainBlocksToSection(withSectionRoot);
-  // Shuffle runs before `augmentLayoutBlockAttrs` because shuffle is
-  // what adds `row` + `container` to the schema; we attach our
-  // `alignContent` attr to them after they exist.
-  const withShuffle = addShuffleNodes(withContainment, "block+", "block");
-  return augmentLayoutBlockAttrs(withShuffle);
+  // Shuffle adds the `container` + `row` block-group nodes here. Containment
+  // MUST run after it: otherwise `container`/`row` never get
+  // `containedBy: "section"`, so dragging one isn't constrained to its
+  // section — the drop escapes and PM wraps it in a brand-new section. Running
+  // containment last stamps every block-group node (the originals AND
+  // shuffle's container/row). `augmentLayoutBlockAttrs` (alignContent on
+  // row/container) then runs after, preserving the containment.
+  const withShuffle = addShuffleNodes(withSectionRoot, "block+", "block");
+  const withContainment = constrainBlocksToSection(withShuffle);
+  return augmentLayoutBlockAttrs(withContainment);
 }
 
 /** Step 5 — adds `alignContent` attr to row + container so the

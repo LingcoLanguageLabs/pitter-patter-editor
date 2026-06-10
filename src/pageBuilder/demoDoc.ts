@@ -41,14 +41,20 @@ export function buildPersonalSiteDoc(schema: Schema): PmNode {
   const h = (level: number, text: string) =>
     heading.create({ level }, schema.text(text));
 
+  // Container wrapping the two intro paragraphs. No spread passed, so it
+  // takes shuffle's default 4/9 — the same start/stop the surrounding blocks
+  // get (the centered content column), NOT the section's full-width 0–12.
+  const container = schema.nodes["container"]!;
   return doc.create(null, [
     section.create(FULL, [
-      p(
-        "I’m Ethan Brooks, a designer based in Melbourne. I make digital experiences that are simple, intuitive, and mildly entertaining to use. If it’s not easy, it’s probably my fault, and I’m probably already fixing it while pretending everything’s fine.",
-      ),
-      p(
-        "Currently, I’m working on product design at Beacon. Before this, I designed at Lumen, Stitch, and a travel app that launched just before everyone stopped traveling.",
-      ),
+      container.create(null, [
+        p(
+          "I’m Ethan Brooks, a designer based in Melbourne. I make digital experiences that are simple, intuitive, and mildly entertaining to use. If it’s not easy, it’s probably my fault, and I’m probably already fixing it while pretending everything’s fine.",
+        ),
+        p(
+          "Currently, I’m working on product design at Beacon. Before this, I designed at Lumen, Stitch, and a travel app that launched just before everyone stopped traveling.",
+        ),
+      ]),
       buttonNode.create({
         label: "Get in touch",
         variant: "primary",

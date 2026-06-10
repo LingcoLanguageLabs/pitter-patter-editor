@@ -27,7 +27,7 @@
  */
 
 import { Plugin, PluginKey, type EditorState } from "prosemirror-state";
-import { Decoration, DecorationSet } from "prosemirror-view";
+import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { shufflePluginKey } from "@pitter-patter/shuffle";
 
 interface HighlightState {
@@ -70,6 +70,19 @@ export function getActiveBlockPos(state: EditorState): number | null {
  */
 export function isBlockResizing(state: EditorState): boolean {
   return blockHighlightKey.getState(state)?.resizing ?? false;
+}
+
+/**
+ * Select the block whose node starts at `pos` (its before-position), or clear
+ * with `null`. `SelectableDragHandle` calls this so clicking a block's
+ * drag-handle pill selects it — the only reliable way to select a container,
+ * since its children fill its box and a body click always resolves to the
+ * inner block. Sets the same `activePos` everything else reads.
+ */
+export function selectBlockPos(view: EditorView, pos: number | null): void {
+  view.dispatch(
+    view.state.tr.setMeta(blockHighlightKey, { activePos: pos } as HighlightMeta),
+  );
 }
 
 /** Clicks on these keep the selection alive — they're part of the block

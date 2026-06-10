@@ -50,6 +50,7 @@ import {
 } from "./blockHighlightPlugin";
 import { BlockSettings } from "./blockSettings/BlockSettings";
 import { nodeViewComponents } from "./nodeViews";
+import { SelectableDragHandle } from "./SelectableDragHandle";
 import { buildPageBuilderSchema, type InitialDocBuilder } from "./schema";
 import { sectionChromePlugin } from "./sectionChromePlugin";
 import { ShuffleDragSync } from "./ShuffleDragSync";
@@ -156,7 +157,7 @@ export function PageBuilderEditor({
       <ShuffleSkeleton>
         <ProseMirrorDoc />
         <ActiveResizeHandles />
-        <DragHandles />
+        <DragHandles handleComponent={SelectableDragHandle} />
       </ShuffleSkeleton>
       <BlockSettings />
       {overlays}
