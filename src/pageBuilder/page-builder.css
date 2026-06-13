@@ -1063,17 +1063,10 @@
 .pp-button.pp-width-fit  { width: auto; }
 .pp-button.pp-width-fill { justify-self: stretch; width: 100%; }
 
-/* Row + container alignContent. Shuffle's `.row` defaults to
-   align-items: center; we override per class. */
-.row.pp-align-content-top     { align-items: start; }
-.row.pp-align-content-middle  { align-items: center; }
-.row.pp-align-content-bottom  { align-items: end; }
-.row.pp-align-content-stretch { align-items: stretch; }
-
-.container.pp-align-content-top     { align-items: flex-start; }
-.container.pp-align-content-middle  { align-items: center; }
-.container.pp-align-content-bottom  { align-items: flex-end; }
-.container.pp-align-content-stretch { align-items: stretch; }
+/* Row/container vertical alignment isn't classed here: shuffle owns it via
+   its `alignment` attr, written as an inline `align-items` style on the
+   block (which no class could override). The Row settings control drives
+   that attr directly — see `RowAlignForm`. */
 
 /* ─────────────────────────────────────── Card (pagy's `.card`)
    A styled block container: theme/image background, padding, corner
@@ -1215,6 +1208,95 @@
   z-index: 1;
 }
 
+/* Video + audio mirror pagy's `.media`: a full-column-width box with a
+   `--radius` custom property the corner/style modifiers drive. The
+   crucial bit is `margin: 0` + `width: 100%` — a bare `<figure>` carries
+   the browser's UA `margin: 1em 40px`, and the inner `<video>`/`<audio>`
+   render at their intrinsic size (≈300×150 / ≈300px) left-aligned. That
+   (not shuffle) is why these two blocks sat inset from the grid and
+   narrower than their selection ring, while `.pb-image` — which already
+   resets both — stayed flush. */
+.pb-video {
+  --radius: 12px;
+  margin: 0;
+  width: 100%;
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.pb-video video {
+  display: block;
+  width: 100%;
+  /* No file metadata yet, so default to 16/9 (the common case) and crop
+     to fill — same shape as the empty placeholder. Swap to a
+     metadata-driven ratio when uploads carry dimensions (pagy's
+     PagyVideo sets `aspect-ratio` inline from `element.metadata`). */
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: #0b0b0f;
+}
+
+/* Empty-state placeholder — the NodeView renders this in place of the
+   `<video>` when there's no source, exactly like pagy's
+   `.media_placeholder` (a grey 16/9 box with a centred glyph). */
+.pb-media-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  background: #f3f4f6;
+  color: #cbd5e1;
+  user-select: none;
+}
+
+/* Corners + Style reuse the image vocabulary (applied via
+   `attrClassesPlugin`: `pp-radius-*` / `pp-frame-*`). */
+.pb-video.pp-radius-none   { --radius: 0; }
+.pb-video.pp-radius-medium { --radius: 12px; }
+.pb-video.pp-radius-large  { --radius: 28px; }
+.pb-video.pp-frame-shadow {
+  box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.35);
+}
+.pb-video.pp-frame-inset::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Audio has no media frame (corners/shadow don't read on a native
+   control). Just zero the figure margin and stretch the control to the
+   column so it lines up with the selection ring. */
+.pb-audio {
+  margin: 0;
+  width: 100%;
+}
+.pb-audio audio {
+  display: block;
+  width: 100%;
+}
+
+/* In the editor canvas the native media controls must be INERT. A real
+   `<audio>`/`<video>` control captures pointer events, which both hijacks
+   click-to-select and — the reason you couldn't drop a picked-up audio —
+   breaks shuffle's drag-to-reorder: `reorder()` resolves the drop target
+   with `view.posAtCoords()`, and when the pointer hit-tests the media
+   control's UA shadow DOM that returns null, so no reorder transaction is
+   produced and the block snaps back. (Images/empty-video drop fine
+   because an `<img>`/placeholder `<div>` isn't an interactive control.)
+   Scoped to `.ProseMirror` so the published page and the settings-panel
+   preview — where playback is meant to happen — stay fully playable. */
+.pb-canvas-scroll .ProseMirror .pb-audio audio,
+.pb-canvas-scroll .ProseMirror .pb-video video {
+  pointer-events: none;
+}
+
 /* ─────────────────────────────────────── Inline text marks
    Derived neutral tints — pagy's 01-tokens.css formulas verbatim.
    `themeToCss` emits --color-neutral and --alpha-offset-neutral on
@@ -1326,6 +1408,24 @@
 .pb-image-delete:hover {
   background: #dc2626;
 }
+/* Audio picker: the native control IS the preview, so drop the 16/9
+   thumbnail box and stack the control over its actions instead of
+   overlaying them (there's no image to scrim). */
+.pb-image-preview[data-kind="audio"] {
+  aspect-ratio: auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px;
+}
+.pb-image-preview[data-kind="audio"] .pb-image-preview-actions {
+  position: static;
+  background: none;
+  justify-content: center;
+}
+.pb-audio-preview {
+  width: 100%;
+}
 
 /* ─────────────────────────────────────── Shuffle skeleton (grid tracks)
    Shuffle's plugin animates the skeleton's opacity from 0 → 0.5 on
@@ -1342,19 +1442,6 @@
 /* Highlight overlay removed — shuffle's drag/resize handles and the
    skeleton bars are the source of truth for selection/hover feedback.
    The old .pb-highlights/.pb-highlight rules are gone with it. */
-
-/* shuffle's drag clone copies every computed style off the block. Our
-   `.pb-block-*` ring makes the block `position: relative`, so its
-   `right`/`bottom` resolve to `0px` (positioned elements report used
-   offsets, not `auto`) and get copied onto the clone. shuffle then only
-   overrides the clone's `left`/`top`, leaving `right: 0` to pin it to
-   the body's right edge — a large offset, worst on right-aligned
-   blocks. Neutralize the copied insets so shuffle's `left`/`top` place
-   the clone. (`!important` to beat the clone's copied inline styles.) */
-[data-shuffle-clone] {
-  right: auto !important;
-  bottom: auto !important;
-}
 
 
 /* Shuffle's drag-handle — the type-label pill above the hovered block.
@@ -1448,7 +1535,9 @@
 .pp-card.pb-block-hovered::after,
 .pp-card.pb-block-active::after,
 .pb-image.pb-block-hovered::after,
-.pb-image.pb-block-active::after {
+.pb-image.pb-block-active::after,
+.pb-video.pb-block-hovered::after,
+.pb-video.pb-block-active::after {
   border-radius: inherit;
 }
 

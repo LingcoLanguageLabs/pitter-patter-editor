@@ -59,6 +59,7 @@ import { BlockContextMenu } from "./BlockContextMenu";
 import { BlockSettings } from "./blockSettings/BlockSettings";
 import { nodeViewComponents } from "./nodeViews";
 import { SelectableDragHandle } from "./SelectableDragHandle";
+import { splitRowCellIntoContainer } from "./rowEnterCommand";
 import { buildPageBuilderSchema, type InitialDocBuilder } from "./schema";
 import { sectionChromePlugin } from "./sectionChromePlugin";
 import { ShuffleDragSync } from "./ShuffleDragSync";
@@ -164,6 +165,10 @@ export function PageBuilderEditor({
         }).plugins?.(schema) ?? []),
         ...collectExtensionPlugins(schema),
         keymap(collectKeymap(schema)),
+        // Enter inside a row cell wraps it in a container so the new line
+        // stacks within that column instead of becoming a 3rd row cell.
+        // Returns false for everything else → falls through to baseKeymap.
+        keymap({ Enter: splitRowCellIntoContainer }),
         keymap(baseKeymap),
       ],
     });

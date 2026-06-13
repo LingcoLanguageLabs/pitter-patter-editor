@@ -742,18 +742,18 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@pitter-patter/refs@npm:0.1.0, @pitter-patter/refs@npm:^0.1.0":
+"@pitter-patter/refs@npm:^0.1.0":
   version: 0.1.0
   resolution: "@pitter-patter/refs@npm:0.1.0"
   checksum: 10c0/7e8f27bedd09315687f77f93778806ef6b04bae64bc80cdfbd24499811ac5ac91a9d34edc20fbf7ae00ec1cac690d8e66be76a8520e1d14dff9ecd2fc0e2391d
   languageName: node
   linkType: hard
 
-"@pitter-patter/shuffle@npm:0.2.1":
-  version: 0.2.1
-  resolution: "@pitter-patter/shuffle@npm:0.2.1"
+"@pitter-patter/shuffle@portal:../pitter-patter/packages/shuffle::locator=pitter-patter-editor%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@pitter-patter/shuffle@portal:../pitter-patter/packages/shuffle::locator=pitter-patter-editor%40workspace%3A."
   dependencies:
-    "@pitter-patter/refs": "npm:0.1.0"
+    "@pitter-patter/refs": "workspace:*"
     animejs: "npm:^4.3.6"
     classnames: "npm:^2.5.1"
     motion: "npm:^12.38.0"
@@ -769,9 +769,8 @@ __metadata:
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
     prosemirror-view: ^1.0.0
-  checksum: 10c0/4bb75208604ff444d0ad90214eda01091e9dc84201b1f0a6cc24eb2c3747bae0fe81f4b99029322379d9b5fe409cbb727d978f9f31f8a5b5f77690fc975f7a7e
   languageName: node
-  linkType: hard
+  linkType: soft
 
 "@pitter-patter/version-history-client@portal:../pitter-patter/packages/version-history-client::locator=pitter-patter-editor%40workspace%3A.":
   version: 0.0.0-use.local
@@ -3017,7 +3016,7 @@ __metadata:
     "@pitter-patter/presence-client": "portal:../pitter-patter/packages/presence-client"
     "@pitter-patter/presence-server": "portal:../pitter-patter/packages/presence-server"
     "@pitter-patter/refs": "npm:^0.1.0"
-    "@pitter-patter/shuffle": "npm:0.2.1"
+    "@pitter-patter/shuffle": "portal:../pitter-patter/packages/shuffle"
     "@pitter-patter/version-history-client": "portal:../pitter-patter/packages/version-history-client"
     "@pitter-patter/version-history-server": "portal:../pitter-patter/packages/version-history-server"
     "@radix-ui/react-dropdown-menu": "npm:^2.1.6"

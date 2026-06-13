@@ -5,8 +5,10 @@
  *                              Duplicate, Ungroup (when nested), Delete
  *   • Container or card      → Turn into ▸ (Container/Card),
  *                              Duplicate, Ungroup, Delete
- *   • Other single blocks    → Duplicate, Ungroup (when nested), Delete
- *   • Multi-selection        → Group (wrap in a container), Delete
+ *   • Other single blocks    → Duplicate, Ungroup (when in a
+ *                              container/card/row), Delete
+ *   • Multi-selection        → Group into container / Group into row,
+ *                              Delete
  *
  * Which blocks it acts on is owned by `blockHighlightPlugin`: its
  * mousedown handler makes right-click selections *quiet* (ring shows,
@@ -28,7 +30,15 @@ import {
   useEditorEventCallback,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
-import { CaretRight, Check, Copy, StackSimple, Trash } from "@phosphor-icons/react";
+import {
+  CaretRight,
+  Check,
+  Copy,
+  Rows,
+  SelectionSlash,
+  StackSimple,
+  Trash,
+} from "@phosphor-icons/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { EditorState } from "prosemirror-state";
 import { useState, type ReactNode } from "react";
@@ -53,10 +63,13 @@ import {
   type Size,
 } from "./schema";
 
-/** Node types a right-click offers "Ungroup" for. Container and card
- *  share the same content model (`block+`), so unwrapping is the same
- *  operation for both. */
-const GROUP_TYPES = new Set(["container", "card"]);
+/** Node types a right-click offers "Ungroup" for. Container, card, and
+ *  row all hold `block+`, so unwrapping is the same `replaceWith` for all
+ *  three — the children flow back into the parent (and rows, having lost
+ *  shuffle's `.row` row-1 pinning, naturally stack again, keeping their
+ *  widths). This set also gates re-grouping: blocks already inside one of
+ *  these don't get a Group option, since nesting another wrapper is waste. */
+const GROUP_TYPES = new Set(["container", "card", "row"]);
 
 /** Drops positions nested inside other selected nodes — acting on a
  *  parent already covers its children, and deleting/moving a child
@@ -165,10 +178,27 @@ function CheckItem({
   );
 }
 
-function Sub({ label, children }: { label: string; children: ReactNode }) {
+function Sub({
+  label,
+  icon,
+  disabled,
+  title,
+  children,
+}: {
+  label: string;
+  icon?: ReactNode;
+  disabled?: boolean;
+  title?: string;
+  children: ReactNode;
+}) {
   return (
     <DropdownMenu.Sub>
-      <DropdownMenu.SubTrigger className="pb-context-menu-item">
+      <DropdownMenu.SubTrigger
+        className="pb-context-menu-item"
+        disabled={disabled}
+        title={title}
+      >
+        {icon}
         <span className="pb-context-menu-label">{label}</span>
         <CaretRight size={12} weight="bold" className="pb-context-menu-caret" />
       </DropdownMenu.SubTrigger>
@@ -243,44 +273,74 @@ export function BlockContextMenu() {
     view.dispatch(setSelectedBlocks(tr, []));
   });
 
-  /** Wrap the selected siblings in a container, in document order, at
-   *  the first block's slot. The container spans the union of the
-   *  blocks' explicit shuffle columns when they all have them. */
-  const group = useEditorEventCallback((view, positions: number[]) => {
-    const { state } = view;
-    const containerType = state.schema.nodes["container"];
-    if (!containerType) return;
-    const sorted = pruneNested(state, positions).sort((a, b) => a - b);
-    const parent = sharedParent(state, sorted);
-    if (sorted.length < 2 || !parent || GROUP_TYPES.has(parent.typeName))
-      return;
-    const nodes = sorted
-      .map((pos) => state.doc.nodeAt(pos))
-      .filter((node): node is NonNullable<typeof node> => node != null);
+  /** Wrap the selected siblings — in document order, at the first block's
+   *  slot — in either a container or a row.
+   *
+   *  • container: stays a vertical stack. The container spans the union of
+   *    the blocks' explicit shuffle columns when they all have them; the
+   *    children keep their own widths.
+   *  • row: lays the blocks out side by side, split evenly across the 12
+   *    content columns with no gaps — 2 → 6/6, 3 → 4/4/4, 4 → 3/3/3/3, …
+   *    (uneven counts round, still filling 1–12). Only the children carry
+   *    columns; the row itself is full-width via its `.row` class. */
+  const groupInto = useEditorEventCallback(
+    (view, positions: number[], kind: "container" | "row") => {
+      const { state } = view;
+      const wrapperType = state.schema.nodes[kind];
+      if (!wrapperType) return;
+      const sorted = pruneNested(state, positions).sort((a, b) => a - b);
+      const parent = sharedParent(state, sorted);
+      if (sorted.length < 2 || !parent || GROUP_TYPES.has(parent.typeName))
+        return;
+      const nodes = sorted
+        .map((pos) => state.doc.nodeAt(pos))
+        .filter((node): node is NonNullable<typeof node> => node != null);
 
-    const starts = nodes
-      .map((node) => node.attrs["shuffleStart"])
-      .filter((v): v is number => typeof v === "number");
-    const ends = nodes
-      .map((node) => node.attrs["shuffleEnd"])
-      .filter((v): v is number => typeof v === "number");
-    const attrs =
-      starts.length === nodes.length && ends.length === nodes.length
-        ? { shuffleStart: Math.min(...starts), shuffleEnd: Math.max(...ends) }
-        : null;
+      let children = nodes;
+      let wrapperAttrs: Record<string, number> | null = null;
 
-    const tr = state.tr;
-    // Delete top-down so lower positions stay valid; the first block's
-    // position then doubles as the insertion slot.
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      const pos = sorted[i]!;
-      const node = state.doc.nodeAt(pos)!;
-      tr.delete(pos, pos + node.nodeSize);
-    }
-    const insertAt = sorted[0]!;
-    tr.insert(insertAt, containerType.create(attrs, nodes));
-    view.dispatch(setSelectedBlocks(tr, [insertAt], true));
-  });
+      if (kind === "row") {
+        // Even split across the 12 content columns. Block i spans columns
+        // [1 + round(i·12/n)] … [round((i+1)·12/n)] — contiguous, so the
+        // next block starts one column after this one ends (no gaps).
+        const n = nodes.length;
+        children = nodes.map((node, i) =>
+          node.type.create(
+            {
+              ...node.attrs,
+              shuffleStart: 1 + Math.round((i * 12) / n),
+              shuffleEnd: Math.round(((i + 1) * 12) / n),
+            },
+            node.content,
+            node.marks,
+          ),
+        );
+      } else {
+        const starts = nodes
+          .map((node) => node.attrs["shuffleStart"])
+          .filter((v): v is number => typeof v === "number");
+        const ends = nodes
+          .map((node) => node.attrs["shuffleEnd"])
+          .filter((v): v is number => typeof v === "number");
+        wrapperAttrs =
+          starts.length === nodes.length && ends.length === nodes.length
+            ? { shuffleStart: Math.min(...starts), shuffleEnd: Math.max(...ends) }
+            : null;
+      }
+
+      const tr = state.tr;
+      // Delete top-down so lower positions stay valid; the first block's
+      // position then doubles as the insertion slot.
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        const pos = sorted[i]!;
+        const node = state.doc.nodeAt(pos)!;
+        tr.delete(pos, pos + node.nodeSize);
+      }
+      const insertAt = sorted[0]!;
+      tr.insert(insertAt, wrapperType.create(wrapperAttrs, children));
+      view.dispatch(setSelectedBlocks(tr, [insertAt], true));
+    },
+  );
 
   /** Replace a container/card with its children, selecting them. */
   const ungroup = useEditorEventCallback((view, pos: number) => {
@@ -361,21 +421,47 @@ export function BlockContextMenu() {
           collisionPadding={8}
           onCloseAutoFocus={(e) => e.preventDefault()}
           onContextMenu={(e) => e.preventDefault()}
+          // Right-clicking a non-editable atom (button/image) makes the
+          // editor refocus itself, firing a `focusin` Radix treats as
+          // "focus left the menu" — which dismissed the menu the instant it
+          // opened. (Text blocks keep focus in the contenteditable, so they
+          // were unaffected.) Ignore focus moving back into the editor;
+          // genuine outside clicks (onPointerDownOutside) and Escape still
+          // dismiss normally.
+          onFocusOutside={(e) => {
+            const t = e.detail.originalEvent.target as HTMLElement | null;
+            if (t?.closest(".ProseMirror")) e.preventDefault();
+          }}
+          onInteractOutside={(e) => {
+            if (e.detail.originalEvent.type !== "focusin") return;
+            const t = e.detail.originalEvent.target as HTMLElement | null;
+            if (t?.closest(".ProseMirror")) e.preventDefault();
+          }}
         >
           {multi ? (
             showGroup && (
               <>
-                <Item
+                <Sub
+                  label="Group"
                   icon={<StackSimple size={15} weight="regular" />}
-                  label={`Group ${pruned.length} blocks`}
                   disabled={!canGroup}
                   title={
                     canGroup
                       ? undefined
                       : "Blocks must share a parent to group"
                   }
-                  onSelect={() => group(pruned)}
-                />
+                >
+                  <Item
+                    icon={<StackSimple size={15} weight="regular" />}
+                    label="Container"
+                    onSelect={() => groupInto(pruned, "container")}
+                  />
+                  <Item
+                    icon={<Rows size={15} weight="regular" />}
+                    label="Row"
+                    onSelect={() => groupInto(pruned, "row")}
+                  />
+                </Sub>
                 <Separator />
               </>
             )
@@ -425,7 +511,7 @@ export function BlockContextMenu() {
               />
               {groupPos != null && (
                 <Item
-                  icon={<StackSimple size={15} weight="regular" />}
+                  icon={<SelectionSlash size={15} weight="regular" />}
                   label="Ungroup"
                   onSelect={() => ungroup(groupPos)}
                 />

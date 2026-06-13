@@ -28,7 +28,6 @@ const ATTR_TO_CLASS_PREFIX: Record<string, string> = {
   size: "pp-size",
   width: "pp-width",
   color: "pp-color",
-  alignContent: "pp-align-content",
   // Image presentation (mirrors pagy's `.media` modifiers).
   shape: "pp-shape",
   radius: "pp-radius",

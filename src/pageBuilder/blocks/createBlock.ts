@@ -70,6 +70,17 @@ export function createBlockNode(
         aspect: "16/9",
       });
 
+    case "video":
+      return need(schema, "video").create({
+        src: "",
+        poster: "",
+      });
+
+    case "audio":
+      return need(schema, "audio").create({
+        src: "",
+      });
+
     case "container": {
       const container = need(schema, "container");
       const para = need(schema, "paragraph");

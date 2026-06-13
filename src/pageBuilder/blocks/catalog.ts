@@ -24,6 +24,8 @@ import {
   ListNumbers,
   Cursor,
   Image as ImageIcon,
+  VideoCamera,
+  MusicNotes,
   StackSimple,
   Layout,
   Rows,
@@ -97,6 +99,8 @@ export const BLOCK_CATALOG: BlockCatalogEntry[] = [
 
   // Media
   { name: "Image", type: "image", icon: ImageIcon, group: "Media" },
+  { name: "Video", type: "video", icon: VideoCamera, group: "Media" },
+  { name: "Audio", type: "audio", icon: MusicNotes, group: "Media" },
 
   // Layout
   { name: "Row", type: "row", icon: Rows, group: "Layout" },

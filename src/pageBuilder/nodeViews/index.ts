@@ -5,14 +5,18 @@
  * so the schema → view mapping is obvious at a glance.
  */
 
+import { AudioNodeView } from "./AudioNodeView";
 import { ButtonNodeView } from "./ButtonNodeView";
 import { CardNodeView } from "./CardNodeView";
 import { ImageNodeView } from "./ImageNodeView";
 import { SectionNodeView } from "./SectionNodeView";
+import { VideoNodeView } from "./VideoNodeView";
 
 export const nodeViewComponents = {
+  audio: AudioNodeView,
   button: ButtonNodeView,
   card: CardNodeView,
   image: ImageNodeView,
   section: SectionNodeView,
+  video: VideoNodeView,
 };

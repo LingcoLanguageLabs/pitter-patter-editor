@@ -360,13 +360,22 @@ function CornerIcon({ rx }: { rx: number }) {
   );
 }
 
-/** Thumbnail + Replace/Choose-file + Delete for an image (or video)
- *  URL attr. Shared by the Image block, the Card's background image,
- *  and the Section's background media. No upload backend yet, so the
- *  chosen file becomes an inline data URL — but the preview replaces a
- *  raw URL field, so it's never shown (matches pagy). `onChange("")`
- *  clears. `kind="video"` swaps the accept filter (pagy allows
- *  .mp4/.webm) and previews with a muted <video>. */
+/** Thumbnail + Replace/Choose-file + Delete for an image / video / audio
+ *  URL attr. Shared by the Image block, the Video + Audio blocks, the
+ *  Card's background image, and the Section's background media. No upload
+ *  backend yet, so the chosen file becomes an inline data URL — but the
+ *  preview replaces a raw URL field, so it's never shown (matches pagy).
+ *  `onChange("")` clears. `kind` swaps the accept filter and the preview:
+ *  a muted `<video>` thumbnail for video, the native `<audio>` control
+ *  for audio (which is also where the audio actually plays — the canvas
+ *  control is inert). The audio layout drops the 16/9 thumbnail box (see
+ *  `[data-kind="audio"]` in page-builder.css). */
+const ACCEPT_BY_KIND: Record<"image" | "video" | "audio", string> = {
+  image: "image/*",
+  video: "video/mp4,video/webm,.mp4,.webm",
+  audio: "audio/*,.mp3,.wav,.m4a,.ogg",
+};
+
 export function ImagePicker({
   src,
   onChange,
@@ -374,7 +383,7 @@ export function ImagePicker({
 }: {
   src: string;
   onChange: (dataUrl: string) => void;
-  kind?: "image" | "video";
+  kind?: "image" | "video" | "audio";
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const onPickFile = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -386,16 +395,26 @@ export function ImagePicker({
     reader.readAsDataURL(file);
   };
   return (
-    <div className="pb-image-preview" data-empty={!src || undefined}>
+    <div
+      className="pb-image-preview"
+      data-kind={kind}
+      data-empty={!src || undefined}
+    >
       {src ? (
         kind === "video" ? (
           <video className="pb-image-preview-img" src={src} muted playsInline />
+        ) : kind === "audio" ? (
+          <audio className="pb-audio-preview" src={src} controls />
         ) : (
           <img className="pb-image-preview-img" src={src} alt="" />
         )
       ) : (
         <span className="pb-image-preview-placeholder">
-          {kind === "video" ? "No video" : "No image"}
+          {kind === "video"
+            ? "No video"
+            : kind === "audio"
+              ? "No audio"
+              : "No image"}
         </span>
       )}
       <div className="pb-image-preview-actions">
@@ -410,7 +429,7 @@ export function ImagePicker({
           <button
             type="button"
             className="pb-image-delete"
-            aria-label="Remove image"
+            aria-label={`Remove ${kind}`}
             onClick={() => onChange("")}
           >
             <Trash size={14} weight="regular" />
@@ -420,7 +439,7 @@ export function ImagePicker({
       <input
         ref={fileInputRef}
         type="file"
-        accept={kind === "video" ? "video/mp4,video/webm,.mp4,.webm" : "image/*"}
+        accept={ACCEPT_BY_KIND[kind]}
         hidden
         onChange={onPickFile}
       />
@@ -510,23 +529,166 @@ const ImageForm: BlockForm = ({ active, setAttr }) => {
 };
 
 // ────────────────────────────────────────────────────────────────
+// Video + audio forms
+// ────────────────────────────────────────────────────────────────
+
+/** Yes/No segmented control over a boolean attr — the shape pagy's video
+ *  panel uses for Show controls / Autoplay / Muted / Loop. */
+function YesNoField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <Field label={label}>
+      <Segmented
+        ariaLabel={label}
+        value={value ? "yes" : "no"}
+        options={[
+          { value: "no", label: "No" },
+          { value: "yes", label: "Yes" },
+        ]}
+        onChange={(v) => onChange(v === "yes")}
+      />
+    </Field>
+  );
+}
+
+/* Mirrors pagy's video panel (`panels/block-settings/video.tsx`): the
+   media picker (Add / Replace), Style, Corners, then — once a source is
+   set — Show controls, Autoplay, Muted, Loop, and a Preview image
+   (poster). We have no embed providers, so the picker uploads a file
+   (inline data URL) rather than pagy's Embed/Upload tab split. */
+const VideoForm: BlockForm = ({ active, setAttr }) => {
+  const attrs = active.node.attrs;
+  const src = (attrs["src"] as string) ?? "";
+  const poster = (attrs["poster"] as string) ?? "";
+  const radius = (attrs["radius"] as string) ?? "medium";
+  const frame = (attrs["frame"] as string) ?? "";
+  const controls = !!attrs["controls"];
+  const autoplay = !!attrs["autoplay"];
+  const muted = !!attrs["muted"];
+  const loop = !!attrs["loop"];
+  return (
+    <>
+      <ImagePicker
+        src={src}
+        kind="video"
+        onChange={(url) => setAttr("src", url)}
+      />
+      <Field label="Style">
+        <Segmented
+          ariaLabel="Style"
+          value={frame}
+          options={[
+            { value: "", label: "Plain" },
+            { value: "inset", label: "Inset" },
+            { value: "shadow", label: "Shadow" },
+          ]}
+          onChange={(v) => setAttr("frame", v)}
+        />
+      </Field>
+      <Field label="Corners">
+        <Segmented
+          ariaLabel="Corners"
+          value={radius}
+          options={[
+            { value: "none", label: <CornerIcon rx={0.5} /> },
+            { value: "medium", label: <CornerIcon rx={3} /> },
+            { value: "large", label: <CornerIcon rx={6} /> },
+          ]}
+          onChange={(v) => setAttr("radius", v)}
+        />
+      </Field>
+      {/* Playback options only matter once there's a source — pagy hides
+          them too until the video is set. */}
+      {src && (
+        <>
+          <YesNoField
+            label="Show controls"
+            value={controls}
+            onChange={(v) => setAttr("controls", v)}
+          />
+          <YesNoField
+            label="Autoplay"
+            value={autoplay}
+            onChange={(v) => setAttr("autoplay", v)}
+          />
+          <YesNoField
+            label="Muted"
+            value={muted}
+            onChange={(v) => setAttr("muted", v)}
+          />
+          <YesNoField
+            label="Loop"
+            value={loop}
+            onChange={(v) => setAttr("loop", v)}
+          />
+          <Field label="Preview image">
+            <ImagePicker
+              src={poster}
+              onChange={(url) => setAttr("poster", url)}
+            />
+          </Field>
+        </>
+      )}
+    </>
+  );
+};
+
+/* Audio has no pagy equivalent and no media frame — just the source
+   picker, which doubles as the inline player (the canvas control is
+   inert; playback happens here, like the video preview). */
+const AudioForm: BlockForm = ({ active, setAttr }) => {
+  const src = (active.node.attrs["src"] as string) ?? "";
+  return (
+    <ImagePicker src={src} kind="audio" onChange={(url) => setAttr("src", url)} />
+  );
+};
+
+// ────────────────────────────────────────────────────────────────
 // Layout-block forms (row, container)
 // ────────────────────────────────────────────────────────────────
+
+/** A row's cross-axis (vertical) alignment is owned by shuffle's own
+ *  `alignment` attr, which shuffle writes as an *inline* `align-items`
+ *  style on the row (see its plugin decoration). An inline style beats any
+ *  class, so this control MUST drive `alignment` directly — the old
+ *  `alignContent` class had matching CSS but could never win against the
+ *  inline `align-items`. These maps bridge our top/middle/bottom/stretch
+ *  labels to shuffle's start/center/end/stretch. */
+type ShuffleAlignment = "start" | "center" | "end" | "stretch";
+const ALIGN_CONTENT_TO_SHUFFLE: Record<AlignContent, ShuffleAlignment> = {
+  top: "start",
+  middle: "center",
+  bottom: "end",
+  stretch: "stretch",
+};
+const SHUFFLE_TO_ALIGN_CONTENT: Record<ShuffleAlignment, AlignContent> = {
+  start: "top",
+  center: "middle",
+  end: "bottom",
+  stretch: "stretch",
+};
 
 /** Row-only. A row lays its children out horizontally, so aligning them on
  *  the cross (vertical) axis — top / middle / bottom / stretch — is meaningful.
  *  A container stacks vertically, so there's no vertical alignment to expose;
  *  it uses `ContainerForm` (header actions only, no body). */
 const RowAlignForm: BlockForm = ({ active, setAttr }) => {
-  const alignContent =
-    (active.node.attrs["alignContent"] as AlignContent) ?? "middle";
+  const alignment =
+    (active.node.attrs["alignment"] as ShuffleAlignment) ?? "center";
   return (
     <Field label="Align content">
       <Segmented
         ariaLabel="Align content"
-        value={alignContent}
+        value={SHUFFLE_TO_ALIGN_CONTENT[alignment] ?? "middle"}
         options={ALIGN_CONTENT_OPTIONS}
-        onChange={(v) => setAttr("alignContent", v)}
+        onChange={(v) => setAttr("alignment", ALIGN_CONTENT_TO_SHUFFLE[v])}
       />
     </Field>
   );
@@ -650,6 +812,8 @@ export const BLOCK_FORMS = {
   heading: HeadingForm,
   button: ButtonForm,
   image: ImageForm,
+  video: VideoForm,
+  audio: AudioForm,
   row: RowAlignForm,
   container: ContainerForm,
   card: CardForm,
@@ -660,6 +824,8 @@ export const BLOCK_TITLES: Record<keyof typeof BLOCK_FORMS, string> = {
   heading: "Heading",
   button: "Button",
   image: "Image",
+  video: "Video",
+  audio: "Audio",
   row: "Row",
   container: "Container",
   card: "Card",

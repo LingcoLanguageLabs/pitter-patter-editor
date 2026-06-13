@@ -4,8 +4,9 @@
  * The schema is built in a small pipeline (`buildPageBuilderSchema`)
  * that runs five named steps:
  *
- *   1. addPageBuilderNodes  — adds `section`, `button`, swaps `image`
- *                              to a block-level node.
+ *   1. addPageBuilderNodes  — adds `section`, `button`, `card`,
+ *                              `video`, `audio`, swaps `image` to a
+ *                              block-level node.
  *   2. requireSectionRoot   — tightens `doc.content` from `block+` to
  *                              `section+` so paragraphs can't live at
  *                              the root.
@@ -302,6 +303,112 @@ const imageSpec: NodeSpec = {
   },
 };
 
+/** Block-level video — pagy's video block, minus the embed providers:
+ *  a hosted/uploaded file rendered by a native `<video>`, same as the
+ *  section background video. Corners/Style reuse the image vocabulary
+ *  (`pp-radius-*` / `pp-frame-*` via `attrClassesPlugin`); the aspect
+ *  comes from the file's own metadata (16/9 placeholder while empty). */
+const videoSpec: NodeSpec = {
+  group: "block",
+  atom: true,
+  selectable: true,
+  draggable: false,
+  attrs: {
+    src: { default: "" },
+    /** Optional preview image shown before playback starts. */
+    poster: { default: "" },
+    /** Corner radius: "none" | "medium" | "large". */
+    radius: { default: "medium" as "none" | "medium" | "large" },
+    /** "" (plain) | "inset" | "shadow". */
+    frame: { default: "" as "" | "inset" | "shadow" },
+    controls: { default: true },
+    autoplay: { default: false },
+    muted: { default: false },
+    loop: { default: false },
+  },
+  parseDOM: [
+    {
+      tag: 'figure[data-node-type="video"] video',
+      getAttrs(node) {
+        const el = node as HTMLVideoElement;
+        const fig = el.closest("figure");
+        return {
+          src: el.getAttribute("src") || "",
+          poster: el.getAttribute("poster") || "",
+          radius: fig?.getAttribute("data-radius") || "medium",
+          frame: fig?.getAttribute("data-frame") || "",
+          controls: el.hasAttribute("controls"),
+          autoplay: el.hasAttribute("autoplay"),
+          muted: el.hasAttribute("muted"),
+          loop: el.hasAttribute("loop"),
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const a = node.attrs;
+    return [
+      "figure",
+      {
+        "data-node-type": "video",
+        "data-radius": (a["radius"] as string) || "medium",
+        "data-frame": (a["frame"] as string) || "",
+        class: "pb-video",
+      },
+      [
+        "video",
+        {
+          src: (a["src"] as string) || "",
+          ...(a["poster"] ? { poster: a["poster"] as string } : {}),
+          ...(a["controls"] ? { controls: "" } : {}),
+          ...(a["autoplay"] ? { autoplay: "" } : {}),
+          ...(a["muted"] ? { muted: "" } : {}),
+          ...(a["loop"] ? { loop: "" } : {}),
+          playsinline: "",
+          preload: "metadata",
+        },
+      ],
+    ];
+  },
+};
+
+/** Block-level audio. No pagy equivalent — designed in the video
+ *  block's image: a hosted/uploaded file rendered by a native
+ *  `<audio>`. Always shows controls (a control-less audio element is
+ *  invisible), so the only attr is the source. */
+const audioSpec: NodeSpec = {
+  group: "block",
+  atom: true,
+  selectable: true,
+  draggable: false,
+  attrs: {
+    src: { default: "" },
+  },
+  parseDOM: [
+    {
+      tag: 'figure[data-node-type="audio"] audio',
+      getAttrs(node) {
+        const el = node as HTMLAudioElement;
+        return { src: el.getAttribute("src") || "" };
+      },
+    },
+  ],
+  toDOM(node) {
+    return [
+      "figure",
+      { "data-node-type": "audio", class: "pb-audio" },
+      [
+        "audio",
+        {
+          src: (node.attrs["src"] as string) || "",
+          controls: "",
+          preload: "metadata",
+        },
+      ],
+    ];
+  },
+};
+
 // ────────────────────────────────────────────────────────────────
 // Pipeline steps
 /**
@@ -364,12 +471,15 @@ const cardSpec: NodeSpec = {
 
 // ────────────────────────────────────────────────────────────────
 
-/** Step 1 — adds section + button + card, replaces image with block-level. */
+/** Step 1 — adds section + button + card + video + audio, replaces
+ *  image with block-level. */
 function addPageBuilderNodes(schema: Schema): Schema {
   const nodes = schema.spec.nodes
     .addToEnd("section", sectionSpec)
     .addToEnd("button", buttonSpec)
     .addToEnd("card", cardSpec)
+    .addToEnd("video", videoSpec)
+    .addToEnd("audio", audioSpec)
     .update("image", imageSpec);
   return new Schema({ nodes, marks: schema.spec.marks });
 }
@@ -546,31 +656,15 @@ export function buildPageBuilderSchema(base: Schema): Schema {
   // `containedBy: "section"`, so dragging one isn't constrained to its
   // section — the drop escapes and PM wraps it in a brand-new section. Running
   // containment last stamps every block-group node (the originals AND
-  // shuffle's container/row). `augmentLayoutBlockAttrs` (alignContent on
-  // row/container) then runs after, preserving the containment.
+  // shuffle's container/row).
+  //
+  // Row/container vertical alignment is NOT augmented here: shuffle already
+  // owns it via its `alignment` attr (written as an inline `align-items`
+  // style), and the Row settings control drives that attr directly. An
+  // earlier `alignContent` attr/class duplicated it but was inert — no class
+  // can beat the inline style — so it's gone.
   const withShuffle = addShuffleNodes(withSectionRoot, "block+", "block");
-  const withContainment = constrainBlocksToSection(withShuffle);
-  return augmentLayoutBlockAttrs(withContainment);
-}
-
-/** Step 5 — adds `alignContent` attr to row + container so the
- *  BlockSettings popover can edit how children are aligned inside
- *  them. The visual class (`pp-align-content-*`) is added at render
- *  time by `attrClassesPlugin`. */
-function augmentLayoutBlockAttrs(schema: Schema): Schema {
-  let nodes = schema.spec.nodes;
-  for (const name of ["row", "container"] as const) {
-    const spec = nodes.get(name);
-    if (!spec) continue;
-    nodes = nodes.update(name, {
-      ...spec,
-      attrs: {
-        ...spec.attrs,
-        alignContent: { default: "middle" as AlignContent },
-      },
-    });
-  }
-  return new Schema({ nodes, marks: schema.spec.marks });
+  return constrainBlocksToSection(withShuffle);
 }
 
 /** Signature for the function that builds the initial doc from the

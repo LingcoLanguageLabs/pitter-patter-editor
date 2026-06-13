@@ -24,7 +24,7 @@
     "@pitter-patter/presence-client": "portal:../pitter-patter/packages/presence-client",
     "@pitter-patter/presence-server": "portal:../pitter-patter/packages/presence-server",
     "@pitter-patter/refs": "^0.1.0",
-    "@pitter-patter/shuffle": "0.2.1",
+    "@pitter-patter/shuffle": "portal:../pitter-patter/packages/shuffle",
     "@pitter-patter/version-history-client": "portal:../pitter-patter/packages/version-history-client",
     "@pitter-patter/version-history-server": "portal:../pitter-patter/packages/version-history-server",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
