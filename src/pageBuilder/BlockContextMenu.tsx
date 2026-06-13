@@ -31,12 +31,17 @@ import {
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import {
+  ArrowsClockwise,
+  Cards,
   CaretRight,
   Check,
   Copy,
+  Package,
   Rows,
   SelectionSlash,
   StackSimple,
+  TextAlignLeft,
+  TextT,
   Trash,
 } from "@phosphor-icons/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -273,25 +278,29 @@ export function BlockContextMenu() {
     view.dispatch(setSelectedBlocks(tr, []));
   });
 
-  /** Wrap the selected siblings — in document order, at the first block's
-   *  slot — in either a container or a row.
+  /** Wrap the selected block(s) — in document order, at the first block's
+   *  slot — in a container, card, or row. Drives both multi-select
+   *  "Group ▸" and single-block "Wrap in ▸" (a wrap is just a group of
+   *  one); callers decide which options to surface.
    *
-   *  • container: stays a vertical stack. The container spans the union of
+   *  • container / card: a vertical stack. The wrapper spans the union of
    *    the blocks' explicit shuffle columns when they all have them; the
-   *    children keep their own widths.
+   *    children keep their own widths. (Card is a styled container.)
    *  • row: lays the blocks out side by side, split evenly across the 12
    *    content columns with no gaps — 2 → 6/6, 3 → 4/4/4, 4 → 3/3/3/3, …
-   *    (uneven counts round, still filling 1–12). Only the children carry
-   *    columns; the row itself is full-width via its `.row` class. */
+   *    (uneven counts round, still filling 1–12; a lone block fills 1–12).
+   *    Only the children carry columns; the row is full-width via `.row`. */
   const groupInto = useEditorEventCallback(
-    (view, positions: number[], kind: "container" | "row") => {
+    (view, positions: number[], kind: "container" | "card" | "row") => {
       const { state } = view;
       const wrapperType = state.schema.nodes[kind];
       if (!wrapperType) return;
       const sorted = pruneNested(state, positions).sort((a, b) => a - b);
       const parent = sharedParent(state, sorted);
-      if (sorted.length < 2 || !parent || GROUP_TYPES.has(parent.typeName))
-        return;
+      // Need at least one block sharing one parent. (Multi-group's parent
+      // restriction is enforced by the menu's `canGroup`; a single-block
+      // wrap is allowed anywhere, including inside another wrapper.)
+      if (sorted.length === 0 || !parent) return;
       const nodes = sorted
         .map((pos) => state.doc.nodeAt(pos))
         .filter((node): node is NonNullable<typeof node> => node != null);
@@ -467,8 +476,14 @@ export function BlockContextMenu() {
             )
           ) : (
             <>
+              {/* Group 1 — identity & format: what the block is + text
+                  styling. Submenu rows carry leading icons so the left
+                  column lines up with the direct-action rows below. */}
               {typeOptions && (
-                <Sub label="Turn into">
+                <Sub
+                  label="Turn into"
+                  icon={<ArrowsClockwise size={15} weight="regular" />}
+                >
                   {typeOptions.map((opt) => (
                     <CheckItem
                       key={opt.label}
@@ -481,7 +496,10 @@ export function BlockContextMenu() {
               )}
               {isTextBlock && (
                 <>
-                  <Sub label="Align">
+                  <Sub
+                    label="Align"
+                    icon={<TextAlignLeft size={15} weight="regular" />}
+                  >
                     {ALIGN_VALUES.map((value) => (
                       <CheckItem
                         key={value}
@@ -491,7 +509,10 @@ export function BlockContextMenu() {
                       />
                     ))}
                   </Sub>
-                  <Sub label="Size">
+                  <Sub
+                    label="Size"
+                    icon={<TextT size={15} weight="regular" />}
+                  >
                     {SIZE_VALUES.map((value) => (
                       <CheckItem
                         key={value}
@@ -504,11 +525,27 @@ export function BlockContextMenu() {
                 </>
               )}
               {(typeOptions || isTextBlock) && <Separator />}
-              <Item
-                icon={<Copy size={15} weight="regular" />}
-                label="Duplicate"
-                onSelect={() => duplicate(singlePos)}
-              />
+              {/* Group 2 — structure: nest / un-nest (inverses, adjacent). */}
+              <Sub
+                label="Wrap in"
+                icon={<Package size={15} weight="regular" />}
+              >
+                <Item
+                  icon={<StackSimple size={15} weight="regular" />}
+                  label="Container"
+                  onSelect={() => groupInto([singlePos], "container")}
+                />
+                <Item
+                  icon={<Cards size={15} weight="regular" />}
+                  label="Card"
+                  onSelect={() => groupInto([singlePos], "card")}
+                />
+                <Item
+                  icon={<Rows size={15} weight="regular" />}
+                  label="Row"
+                  onSelect={() => groupInto([singlePos], "row")}
+                />
+              </Sub>
               {groupPos != null && (
                 <Item
                   icon={<SelectionSlash size={15} weight="regular" />}
@@ -517,6 +554,13 @@ export function BlockContextMenu() {
                 />
               )}
               <Separator />
+              {/* Group 3 — lifecycle: Duplicate pairs with the shared,
+                  destructive Delete rendered just below (no divider). */}
+              <Item
+                icon={<Copy size={15} weight="regular" />}
+                label="Duplicate"
+                onSelect={() => duplicate(singlePos)}
+              />
             </>
           )}
           <Item

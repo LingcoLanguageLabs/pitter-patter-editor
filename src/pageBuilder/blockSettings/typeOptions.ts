@@ -63,13 +63,18 @@ export const TEXT_TYPE_OPTIONS: readonly TypeOption[] = [
 export const LAYOUT_TYPE_OPTIONS: readonly TypeOption[] = [
   { label: "Container", typeName: "container" },
   { label: "Card", typeName: "card" },
+  { label: "Row", typeName: "row" },
 ];
 
-/** Options available for a given block, or null if it can't convert. */
+/** Options available for a given block, or null if it can't convert.
+ *  Container / Card / Row all hold `block+`, so they interconvert
+ *  (setNodeMarkup keeps the children; non-shared attrs like the row's
+ *  lack of columns just fall back to the target's defaults). */
 export function typeOptionsFor(node: PmNode): readonly TypeOption[] | null {
   const name = node.type.name;
   if (name === "paragraph" || name === "heading") return TEXT_TYPE_OPTIONS;
-  if (name === "container" || name === "card") return LAYOUT_TYPE_OPTIONS;
+  if (name === "container" || name === "card" || name === "row")
+    return LAYOUT_TYPE_OPTIONS;
   return null;
 }
 
