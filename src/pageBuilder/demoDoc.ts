@@ -1,7 +1,9 @@
 /**
- * Demo document for the PageBuilder story — mirrors the Pagy screenshot:
- * a single section containing a container (two paragraphs + "Get in
- * touch" button), then a "Work" heading, then a gradient image.
+ * Demo document for the PageBuilder story — a two-slide deck. Slide 1
+ * mirrors the Pagy screenshot (a section with a container of two intro
+ * paragraphs + a "Get in touch" button, a "Work" heading, and images);
+ * slide 2 is a minimal section so render-gating (only the active slide
+ * mounts) is observable.
  */
 
 import type { Schema, Node as PmNode } from "prosemirror-model";
@@ -45,37 +47,50 @@ export function buildPersonalSiteDoc(schema: Schema): PmNode {
   // takes shuffle's default 4/9 — the same start/stop the surrounding blocks
   // get (the centered content column), NOT the section's full-width 0–12.
   const container = schema.nodes["container"]!;
+  const page = schema.nodes["page"]!;
+  // The doc is `page+` — a deck of slides in one document. Two pages here
+  // so render-gating is observable: only the active slide's content mounts.
   return doc.create(null, [
-    section.create(FULL, [
-      container.create(null, [
+    page.create({ id: "page-1", title: "Intro" }, [
+      section.create(FULL, [
+        container.create(null, [
+          p(
+            "I’m Ethan Brooks, a designer based in Melbourne. I make digital experiences that are simple, intuitive, and mildly entertaining to use. If it’s not easy, it’s probably my fault, and I’m probably already fixing it while pretending everything’s fine.",
+          ),
+          p(
+            "Currently, I’m working on product design at Beacon. Before this, I designed at Lumen, Stitch, and a travel app that launched just before everyone stopped traveling.",
+          ),
+        ]),
+        buttonNode.create({
+          label: "Get in touch",
+          variant: "primary",
+          href: "#",
+        }),
+        h(3, "Work"),
+        image.create({
+          src: GRADIENT_IMAGE_URI,
+          alt: "Recent work",
+          aspect: "16/9",
+        }),
+        // A real photo example (hotlinked) so the Image block isn't only
+        // ever the gradient placeholder. Different aspect + shadow to show
+        // the new presentation controls on real content.
+        image.create({
+          src: WORK_PHOTO_URL,
+          alt: "Mountain landscape",
+          aspect: "3/2",
+          radius: "large",
+          frame: "shadow",
+        }),
+      ]),
+    ]),
+    page.create({ id: "page-2", title: "Work" }, [
+      section.create(FULL, [
+        h(1, "Second slide"),
         p(
-          "I’m Ethan Brooks, a designer based in Melbourne. I make digital experiences that are simple, intuitive, and mildly entertaining to use. If it’s not easy, it’s probably my fault, and I’m probably already fixing it while pretending everything’s fine.",
-        ),
-        p(
-          "Currently, I’m working on product design at Beacon. Before this, I designed at Lumen, Stitch, and a travel app that launched just before everyone stopped traveling.",
+          "This slide’s content only mounts while it’s the active slide — the deck stays one document, but the canvas renders one page at a time.",
         ),
       ]),
-      buttonNode.create({
-        label: "Get in touch",
-        variant: "primary",
-        href: "#",
-      }),
-      h(3, "Work"),
-      image.create({
-        src: GRADIENT_IMAGE_URI,
-        alt: "Recent work",
-        aspect: "16/9",
-      }),
-      // A real photo example (hotlinked) so the Image block isn't only
-      // ever the gradient placeholder. Different aspect + shadow to show
-      // the new presentation controls on real content.
-      image.create({
-        src: WORK_PHOTO_URL,
-        alt: "Mountain landscape",
-        aspect: "3/2",
-        radius: "large",
-        frame: "shadow",
-      }),
     ]),
   ]);
 }

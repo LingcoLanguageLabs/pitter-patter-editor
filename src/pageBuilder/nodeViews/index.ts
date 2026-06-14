@@ -9,6 +9,7 @@ import { AudioNodeView } from "./AudioNodeView";
 import { ButtonNodeView } from "./ButtonNodeView";
 import { CardNodeView } from "./CardNodeView";
 import { ImageNodeView } from "./ImageNodeView";
+import { PageNodeView } from "./PageNodeView";
 import { SectionNodeView } from "./SectionNodeView";
 import { VideoNodeView } from "./VideoNodeView";
 
@@ -17,6 +18,7 @@ export const nodeViewComponents = {
   button: ButtonNodeView,
   card: CardNodeView,
   image: ImageNodeView,
+  page: PageNodeView,
   section: SectionNodeView,
   video: VideoNodeView,
 };

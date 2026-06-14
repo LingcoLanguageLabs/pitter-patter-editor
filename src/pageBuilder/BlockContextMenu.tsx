@@ -31,7 +31,11 @@ import {
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import {
+  ArrowLineDown,
+  ArrowLineUp,
   ArrowsClockwise,
+  ArrowDown,
+  ArrowUp,
   Cards,
   CaretRight,
   Check,
@@ -39,6 +43,7 @@ import {
   Package,
   Rows,
   SelectionSlash,
+  Stack,
   StackSimple,
   TextAlignLeft,
   TextT,
@@ -60,6 +65,7 @@ import {
   isCurrentType,
   typeOptionsFor,
 } from "./blockSettings/typeOptions";
+import { orderAvailability, orderCommand, type OrderOp } from "./orderCommands";
 import {
   ALIGN_VALUES,
   SIZE_VALUES,
@@ -137,6 +143,7 @@ function nearestGroupPos(state: EditorState, pos: number): number | null {
 function Item({
   icon,
   label,
+  shortcut,
   destructive,
   disabled,
   title,
@@ -144,6 +151,7 @@ function Item({
 }: {
   icon?: ReactNode;
   label: string;
+  shortcut?: string;
   destructive?: boolean;
   disabled?: boolean;
   title?: string;
@@ -158,6 +166,7 @@ function Item({
     >
       {icon}
       <span className="pb-context-menu-label">{label}</span>
+      {shortcut && <span className="pb-context-menu-shortcut">{shortcut}</span>}
     </DropdownMenu.Item>
   );
 }
@@ -266,6 +275,10 @@ export function BlockContextMenu() {
     const node = view.state.doc.nodeAt(pos);
     if (!node) return;
     view.dispatch(view.state.tr.insert(pos + node.nodeSize, node));
+  });
+
+  const order = useEditorEventCallback((view, op: OrderOp, pos: number) => {
+    orderCommand(op, pos)(view.state, view.dispatch);
   });
 
   const remove = useEditorEventCallback((view, positions: number[]) => {
@@ -400,6 +413,9 @@ export function BlockContextMenu() {
     (singleNode.type.name === "heading"
       ? defaultHeadingSize((singleNode.attrs["level"] as number) ?? 1)
       : "m");
+  // Z-ordering is only offered when the block overlaps siblings — i.e. it's a
+  // child of a row with ≥2 children. Null hides the submenu (lone object).
+  const orderInfo = multi ? null : orderAvailability(editorState, singlePos);
 
   return (
     <DropdownMenu.Root
@@ -552,6 +568,38 @@ export function BlockContextMenu() {
                   label="Ungroup"
                   onSelect={() => ungroup(groupPos)}
                 />
+              )}
+              {orderInfo && (
+                <Sub label="Order" icon={<Stack size={15} weight="regular" />}>
+                  <Item
+                    icon={<ArrowLineUp size={15} weight="regular" />}
+                    label="Bring to front"
+                    shortcut="⌘⇧↑"
+                    disabled={!orderInfo.canRaise}
+                    onSelect={() => order("front", singlePos)}
+                  />
+                  <Item
+                    icon={<ArrowUp size={15} weight="regular" />}
+                    label="Bring forward"
+                    shortcut="⌘↑"
+                    disabled={!orderInfo.canRaise}
+                    onSelect={() => order("forward", singlePos)}
+                  />
+                  <Item
+                    icon={<ArrowDown size={15} weight="regular" />}
+                    label="Send backward"
+                    shortcut="⌘↓"
+                    disabled={!orderInfo.canLower}
+                    onSelect={() => order("backward", singlePos)}
+                  />
+                  <Item
+                    icon={<ArrowLineDown size={15} weight="regular" />}
+                    label="Send to back"
+                    shortcut="⌘⇧↓"
+                    disabled={!orderInfo.canLower}
+                    onSelect={() => order("back", singlePos)}
+                  />
+                </Sub>
               )}
               <Separator />
               {/* Group 3 — lifecycle: Duplicate pairs with the shared,

@@ -66,15 +66,32 @@ export const SectionChromeWidget = forwardRef<
     },
   );
 
-  // This section's position among the doc's sections, for gating the toolbar:
-  // hide Move-up on the first, Move-down on the last, Delete when it's the only
-  // one (doc.content is `section+`, so the last section can't be removed).
+  // This section's position among its PAGE's sections, for gating the
+  // toolbar: hide Move-up on the first, Move-down on the last, Delete when
+  // it's the only one (a page is `section+`, so its last section can't be
+  // removed). Sections live inside a page now, so we count within the page
+  // (`$section.parent`), not at the doc root (whose children are pages).
   const editorState = useEditorState();
-  const sectionIndex = editorState.doc.resolve(getPos()).index(0);
-  const sectionCount = editorState.doc.childCount;
+  const sectionInfo = findEnclosingSection(editorState, getPos());
+  const $section = sectionInfo
+    ? editorState.doc.resolve(sectionInfo.pos)
+    : null;
+  const sectionIndex = $section ? $section.index() : 0;
+  const sectionCount = $section ? $section.parent.childCount : 1;
   const isFirst = sectionIndex === 0;
   const isLast = sectionIndex === sectionCount - 1;
   const canDelete = sectionCount > 1;
+
+  /** Serialized node JSON for a catalog entry. Stamped onto each picker
+   *  item as `data-shuffle-inflatable` so shuffle lets you DRAG an item
+   *  into the canvas to create that node (alongside click-to-insert). */
+  const inflatableJSON = (entry: BlockCatalogEntry): string | undefined => {
+    try {
+      return JSON.stringify(createBlockNode(editorState.schema, entry).toJSON());
+    } catch {
+      return undefined;
+    }
+  };
 
   /** Move this section one slot up or down among its siblings. */
   const moveSection = useEditorEventCallback((view, dir: "up" | "down") => {
@@ -84,14 +101,16 @@ export const SectionChromeWidget = forwardRef<
     const node = state.doc.nodeAt(info.pos);
     if (!node) return;
     const $pos = state.doc.resolve(info.pos);
-    const index = $pos.index(0);
+    // Index/count are within the section's parent PAGE (its siblings), not
+    // the doc root.
+    const index = $pos.index();
     if (dir === "up" && index === 0) return;
-    if (dir === "down" && index === state.doc.childCount - 1) return;
+    if (dir === "down" && index === $pos.parent.childCount - 1) return;
     // Delete this section, then re-insert it on the far side of its neighbour.
     // The insert position is mapped through the delete so it stays valid.
     const target =
       dir === "up"
-        ? $pos.posAtIndex(index - 1, 0) // before the previous section
+        ? $pos.posAtIndex(index - 1) // before the previous section (in-page)
         : info.pos + info.nodeSize + (state.doc.nodeAt(info.pos + info.nodeSize)?.nodeSize ?? 0); // after the next
     const tr = state.tr.delete(info.pos, info.pos + info.nodeSize);
     tr.insert(tr.mapping.map(target), node);
@@ -115,10 +134,12 @@ export const SectionChromeWidget = forwardRef<
     view.dispatch(view.state.tr.insert(info.pos + info.nodeSize, copy));
   });
 
-  /** Remove this section (guarded so the doc always keeps one). */
+  /** Remove this section (guarded so its page always keeps one). */
   const deleteSection = useEditorEventCallback((view) => {
     const info = findEnclosingSection(view.state, getPos());
-    if (!info || view.state.doc.childCount <= 1) return;
+    if (!info) return;
+    // A page is `section+`, so don't remove its last section.
+    if (view.state.doc.resolve(info.pos).parent.childCount <= 1) return;
     view.dispatch(view.state.tr.delete(info.pos, info.pos + info.nodeSize));
   });
 
@@ -157,6 +178,7 @@ export const SectionChromeWidget = forwardRef<
       <BlockPicker
         side="bottom"
         onPick={insertBlock}
+        inflatableJSON={inflatableJSON}
         trigger={
           <button type="button" className="pb-add-block">
             <Plus size={12} weight="bold" />

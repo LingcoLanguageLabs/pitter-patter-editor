@@ -595,6 +595,13 @@
 .pb-block-picker-item:hover {
   background: rgba(0, 0, 0, 0.05);
 }
+/* Draggable items (shuffle inflate) signal grab; click-to-insert still works. */
+.pb-block-picker-item[data-shuffle-inflatable] {
+  cursor: grab;
+}
+.pb-block-picker-item[data-shuffle-inflatable]:active {
+  cursor: grabbing;
+}
 .pb-block-picker-item svg {
   color: var(--pb-text-soft);
   flex-shrink: 0;
@@ -885,6 +892,173 @@
 .pb-canvas-scroll .ProseMirror h6 {
   font-family: var(--font-family-heading, var(--font-family-base, var(--pb-font)));
   font-weight: var(--font-weight-heading, 700);
+}
+
+/* Page (slide). The doc is `page+`, so pages are the direct grid children
+   of `.ProseMirror`. A page must itself be a subgrid passthrough (grid +
+   `subgrid`, spanning the full 1/15) so its sections keep the 14-column
+   track context shuffle relies on — same reason `.pp-section` is a subgrid.
+   Only the active slide renders content; inactive slides render no children
+   and are hidden so they don't occupy a grid row. */
+.pb-page {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column-start: 1;
+  grid-column-end: 15;
+  row-gap: var(--shuffle-row-gap, 1rem);
+}
+.pb-page:not([data-active]) {
+  display: none;
+}
+
+/* ─────────────────────────────── Pages panel: slide filmstrip
+   A Slides/PowerPoint-style navigator: numbered slide cards (a 16:9 frame
+   with the title — NOT a live mini-render, which would mount every slide
+   and undo the active-slide gating), active highlighted, drag to reorder,
+   hover for duplicate/delete, "+" to add. */
+.pb-panel-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pb-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  background: var(--pb-surface);
+  color: var(--pb-text);
+  cursor: pointer;
+}
+.pb-icon-button:hover { background: var(--pb-bg); }
+.pb-icon-button:disabled { opacity: 0.5; cursor: default; }
+
+.pb-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  overflow-y: auto;
+}
+.pb-page-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 10px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.pb-page-card:active { cursor: grabbing; }
+.pb-page-card:hover { background: var(--pb-bg); }
+.pb-page-card[data-active] {
+  background: var(--pb-accent-line);
+}
+/* Selected (incl. active) cards ring the thumb; the active card additionally
+   fills the row above. Multi-select reuses the same accent so a range reads
+   as one block, à la Google Slides. */
+.pb-page-card[data-active] .pb-page-thumb,
+.pb-page-card[data-selected] .pb-page-thumb {
+  box-shadow: 0 0 0 2px var(--pb-accent);
+  border-color: transparent;
+}
+.pb-page-card[data-selected]:not([data-active]) {
+  background: var(--pb-accent-line);
+}
+/* The in-list card while its lifted clone rides the DragOverlay. */
+.pb-page-card[data-dragging] { opacity: 0.35; }
+/* The lifted clone in the DragOverlay. */
+.pb-page-card.-overlay {
+  cursor: grabbing;
+  background: var(--pb-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+.pb-page-num {
+  width: 18px;
+  flex-shrink: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pb-text-soft);
+}
+.pb-page-thumb {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  aspect-ratio: 16 / 9;
+  min-width: 0;
+  border: 1px solid var(--pb-border);
+  border-radius: 6px;
+  background: var(--pb-surface);
+  overflow: hidden;
+}
+.pb-page-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.pb-page-title {
+  padding: 8px;
+  font-family: var(--pb-font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pb-text);
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.pb-page-actions {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  display: none;
+  gap: 4px;
+}
+.pb-page-card:hover .pb-page-actions { display: flex; }
+.pb-page-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--pb-border);
+  border-radius: 6px;
+  background: var(--pb-surface);
+  color: var(--pb-text-soft);
+  cursor: pointer;
+}
+.pb-page-action:hover { color: var(--pb-text); background: var(--pb-bg); }
+.pb-page-action.-danger:hover { color: #ef4444; }
+.pb-page-action:disabled { opacity: 0.4; cursor: default; }
+
+/* Off-screen page renderer (PageSnapshotFactory). Parked far off-screen at
+   the live canvas width so the grid lays out identically, then snapshotted.
+   We keep the `.pb-canvas` / `.pb-canvas-scroll` classes (theme vars + the
+   `.pb-canvas-scroll .ProseMirror` text styling are scoped to them) but undo
+   their height/overflow clamps so the page grows to its full content height. */
+.pb-snapshot-stage {
+  position: fixed;
+  left: -100000px;
+  top: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: visible;
+  height: auto;
+  contain: layout paint;
+}
+.pb-snapshot-stage .pb-canvas-scroll {
+  height: auto;
+  overflow: visible;
 }
 
 /* Section is a subgrid in shuffle's 14-column grid. We CANNOT use
@@ -1541,6 +1715,38 @@
   border-radius: inherit;
 }
 
+/* Active + hover section ring — the section-level twin of the block ring
+   above (`.pb-block-active`). Set by `sectionHighlightPlugin` (active) or
+   plain CSS `:hover`. Drawn on an overlay pseudo-element so it never
+   reflows the subgrid.
+
+   Tight to the edge, like pagy — `inset: 0`, so the 2px accent ring hugs
+   the section box. A section is full-bleed: it fills `.pb-canvas`, which
+   clips to `--pb-frame-radius` (`overflow: hidden`). So the ring matches
+   that SAME radius — its rounded corners land exactly on the canvas's
+   rounded clip instead of poking past it as square corners and getting
+   shaved (which is what read as the corner "cutoff"). `.pp-section` is
+   already `position: relative`; z-index 2 keeps it below the section
+   chrome (z-index 5), so the toolbar/pills stay above it. */
+.pb-section-active::after,
+.pp-section:hover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--pb-frame-radius);
+  box-shadow: inset 0 0 0 2px var(--pb-accent);
+  pointer-events: none;
+  z-index: 2;
+}
+/* Drop the hover ring mid-drag: every section's chrome carries
+   `data-dragging` while a shuffle drag is in flight, so this hides the
+   hover ring on all of them — matching how the block hover ring and the
+   chrome itself fade out during a drag. (The active ring is already
+   cleared by the plugin on drag start.) */
+.pp-section:has(.pb-section-chrome[data-dragging]):hover::after {
+  display: none;
+}
+
 /* We draw our own selection ring above, so suppress ProseMirror's
    default atom-selection outline. It otherwise stacks a second outline
    that follows the node's border-radius — e.g. it bends into a pill on
@@ -2010,6 +2216,17 @@
 }
 .pb-context-menu-caret {
   color: var(--pb-text-soft);
+}
+/* Keyboard-shortcut hint, right-aligned after the flexible label. */
+.pb-context-menu-shortcut {
+  margin-left: 16px;
+  color: var(--pb-text-soft);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.pb-context-menu-item[data-disabled] .pb-context-menu-shortcut {
+  color: inherit;
 }
 .pb-context-menu-separator {
   height: 1px;

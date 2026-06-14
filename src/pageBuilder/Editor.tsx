@@ -50,6 +50,7 @@ import {
 } from "../editor/extensions";
 import type { Extension } from "../editor/types";
 
+import { activePagePlugin } from "./activePagePlugin";
 import { attrClassesPlugin } from "./attrClassesPlugin";
 import {
   blockHighlightPlugin,
@@ -58,10 +59,13 @@ import {
 import { BlockContextMenu } from "./BlockContextMenu";
 import { BlockSettings } from "./blockSettings/BlockSettings";
 import { nodeViewComponents } from "./nodeViews";
+import { orderCommand } from "./orderCommands";
+import { PagesSync } from "./PagesSync";
 import { SelectableDragHandle } from "./SelectableDragHandle";
 import { splitRowCellIntoContainer } from "./rowEnterCommand";
 import { buildPageBuilderSchema, type InitialDocBuilder } from "./schema";
 import { sectionChromePlugin } from "./sectionChromePlugin";
+import { sectionHighlightPlugin } from "./sectionHighlightPlugin";
 import { ShuffleDragSync } from "./ShuffleDragSync";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
 
@@ -149,6 +153,12 @@ export function PageBuilderEditor({
         }),
         sectionChromePlugin(),
         blockHighlightPlugin(),
+        // Section-level twin of blockHighlightPlugin: rings the active
+        // section in the accent color. Independent of the block ring, so
+        // clicking a block shows both (the section outline + the inner
+        // block outline), like pagy.
+        sectionHighlightPlugin(),
+        activePagePlugin(),
         attrClassesPlugin(),
         // Placeholder text in empty text blocks: "Start writing…" for
         // paragraphs, "Heading N" for headings (by level). Shown in every
@@ -165,6 +175,15 @@ export function PageBuilderEditor({
         }).plugins?.(schema) ?? []),
         ...collectExtensionPlugins(schema),
         keymap(collectKeymap(schema)),
+        // Z-order arrange shortcuts (Google Slides parity) for a block that
+        // overlaps its row siblings. Each returns false when ordering doesn't
+        // apply, so the arrow keys fall through to normal navigation.
+        keymap({
+          "Mod-Shift-ArrowUp": orderCommand("front"),
+          "Mod-ArrowUp": orderCommand("forward"),
+          "Mod-ArrowDown": orderCommand("backward"),
+          "Mod-Shift-ArrowDown": orderCommand("back"),
+        }),
         // Enter inside a row cell wraps it in a container so the new line
         // stacks within that column instead of becoming a 3rd row cell.
         // Returns false for everything else → falls through to baseKeymap.
@@ -189,6 +208,7 @@ export function PageBuilderEditor({
       <BlockSettings />
       <BlockContextMenu />
       <TextSelectionToolbar />
+      <PagesSync />
       {overlays}
     </ProseMirror>
   );

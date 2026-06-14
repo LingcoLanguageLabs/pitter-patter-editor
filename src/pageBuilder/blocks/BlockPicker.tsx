@@ -35,10 +35,17 @@ interface BlockPickerProps {
   initialQuery?: string;
   /** Popover side relative to the trigger — default "right". */
   side?: RadixPopover.PopoverContentProps["side"];
+  /** Serialized PM node JSON for an entry. When provided, each item is
+   *  draggable into the canvas via shuffle's `data-shuffle-inflatable`
+   *  (drag-to-create), in addition to click-to-insert. */
+  inflatableJSON?: (entry: BlockCatalogEntry) => string | undefined;
 }
 
 export const BlockPicker = forwardRef<HTMLButtonElement, BlockPickerProps>(
-  function BlockPicker({ trigger, onPick, initialQuery = "", side = "right" }, _ref) {
+  function BlockPicker(
+    { trigger, onPick, initialQuery = "", side = "right", inflatableJSON },
+    _ref,
+  ) {
     const [open, setOpen] = useState(false);
     const [q, setQ] = useState(initialQuery);
 
@@ -99,6 +106,10 @@ export const BlockPicker = forwardRef<HTMLButtonElement, BlockPickerProps>(
                         key={`${entry.type}-${entry.name}`}
                         type="button"
                         className="pb-block-picker-item"
+                        // shuffle reads this on pointerdown to drag-create
+                        // the node; click-to-insert still works alongside.
+                        data-shuffle-inflatable={inflatableJSON?.(entry)}
+                        draggable={false}
                         onClick={() => pickAndClose(entry)}
                       >
                         <Icon size={16} weight="regular" />

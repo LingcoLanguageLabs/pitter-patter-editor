@@ -37,11 +37,12 @@ export function findEnclosingSection(
   return null;
 }
 
-/** True when another section (not the one at `sectionPos`) already
- *  uses `htmlId`. Sections are the doc's root children and the only
- *  nodes carrying `htmlId`, so one pass over them is the whole check.
- *  Used by the ID field's soft validation — we warn rather than block,
- *  so typing toward a free name ("hero" → "hero-2") never fights. */
+/** True when another section (not the one at `sectionPos`) already uses
+ *  `htmlId`. Sections live inside pages now, so we scan all descendants
+ *  (not just the doc's root children, which are pages). Sections are the
+ *  only nodes carrying `htmlId`. Used by the ID field's soft validation —
+ *  we warn rather than block, so typing toward a free name ("hero" →
+ *  "hero-2") never fights. */
 export function isHtmlIdTaken(
   state: EditorState,
   sectionPos: number,
@@ -49,8 +50,8 @@ export function isHtmlIdTaken(
 ): boolean {
   if (!htmlId) return false;
   let taken = false;
-  state.doc.forEach((node, offset) => {
-    if (offset === sectionPos) return;
+  state.doc.descendants((node, pos) => {
+    if (pos === sectionPos) return;
     if (node.type.name === "section" && node.attrs["htmlId"] === htmlId) {
       taken = true;
     }

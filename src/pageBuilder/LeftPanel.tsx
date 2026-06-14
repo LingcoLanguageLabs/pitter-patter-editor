@@ -24,6 +24,7 @@ import { PanelAnimator } from "./PanelAnimator";
 import { ColorsPanel } from "./panels/ColorsPanel";
 import { DesignPanel } from "./panels/DesignPanel";
 import { FontsPanel } from "./panels/FontsPanel";
+import { PagesPanel } from "./panels/PagesPanel";
 import {
   navigateTo,
   usePageBuilderStore,
@@ -50,7 +51,7 @@ const SHEETS: Record<Sheet, SheetDef> = {
   design: { width: "-medium", Component: DesignPanel },
   colors: { width: "-medium", Component: ColorsPanel },
   fonts: { width: "-medium", Component: FontsPanel },
-  pages: { width: "-medium", Component: () => <Placeholder title="Pages" /> },
+  pages: { width: "-medium", Component: PagesPanel },
   forms: { width: "-medium", Component: () => <Placeholder title="Forms" /> },
   settings: {
     width: "-medium",

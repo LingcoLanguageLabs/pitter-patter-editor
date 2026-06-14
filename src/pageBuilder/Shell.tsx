@@ -16,6 +16,7 @@
 import { Canvas } from "./Canvas";
 import { PageBuilderEditor, type PageBuilderEditorProps } from "./Editor";
 import { LeftPanel } from "./LeftPanel";
+import { PageSnapshotFactory } from "./PageSnapshotFactory";
 import { ThemeStyle } from "./ThemeStyle";
 import { TopBar } from "./TopBar";
 import { usePageBuilderStore } from "./store";
@@ -43,6 +44,10 @@ export function Shell(props: ShellProps) {
           />
         </Canvas>
       </div>
+      {/* Hidden off-screen renderer that keeps every slide's thumbnail fresh.
+          Sits outside the canvas (and the main ProseMirror) since it mounts
+          its own editor instances. */}
+      <PageSnapshotFactory />
     </div>
   );
 }

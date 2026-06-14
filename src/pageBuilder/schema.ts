@@ -4,12 +4,12 @@
  * The schema is built in a small pipeline (`buildPageBuilderSchema`)
  * that runs five named steps:
  *
- *   1. addPageBuilderNodes  — adds `section`, `button`, `card`,
+ *   1. addPageBuilderNodes  — adds `page`, `section`, `button`, `card`,
  *                              `video`, `audio`, swaps `image` to a
  *                              block-level node.
- *   2. requireSectionRoot   — tightens `doc.content` from `block+` to
- *                              `section+` so paragraphs can't live at
- *                              the root.
+ *   2. requirePageRoot      — tightens `doc.content` to `page+` so the
+ *                              root holds slides (each a `section+`
+ *                              page), not bare sections/paragraphs.
  *   3. addShuffleNodes      — shuffle's own augmentation: adds
  *                              `container` + `row` nodes and
  *                              `shuffleStart/End` attrs.
@@ -169,6 +169,54 @@ const sectionSpec: NodeSpec = {
     if (a["overlay"]) attrs["data-overlay"] = a["overlay"] as string;
     if (a["htmlId"]) attrs["id"] = a["htmlId"] as string;
     return ["section", attrs, 0];
+  },
+};
+
+/**
+ * Page — the top-level "slide" wrapper. The doc is `page+` and each page
+ * is `section+`, so the whole deck lives in ONE ProseMirror document: one
+ * save / undo / collab stream, and slides can't travel or persist
+ * separately. `isolating` keeps content from crossing page boundaries.
+ *
+ * Only the *active* page's content is mounted in the canvas (see
+ * `PageNodeView` + `activePagePlugin`) — a 40-slide deck doesn't render 40
+ * slides' worth of (often interactive) DOM at once; inactive slides mount
+ * no descendants at all.
+ */
+const pageSpec: NodeSpec = {
+  content: "section+",
+  defining: true,
+  isolating: true,
+  attrs: {
+    /** Stable id — drives active-page tracking and (later) slide links.
+     *  Assigned on creation (demo doc / "add slide"); never auto-derived. */
+    id: { default: "" },
+    /** Shown in the slide rail. */
+    title: { default: "Untitled" },
+  },
+  parseDOM: [
+    {
+      tag: 'div[data-node-type="page"]',
+      getAttrs(node) {
+        const el = node as HTMLElement;
+        return {
+          id: el.getAttribute("data-page-id") || "",
+          title: el.getAttribute("data-title") || "Untitled",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    return [
+      "div",
+      {
+        "data-node-type": "page",
+        "data-page-id": (node.attrs["id"] as string) || "",
+        "data-title": (node.attrs["title"] as string) || "",
+        class: "pb-page",
+      },
+      0,
+    ];
   },
 };
 
@@ -471,10 +519,11 @@ const cardSpec: NodeSpec = {
 
 // ────────────────────────────────────────────────────────────────
 
-/** Step 1 — adds section + button + card + video + audio, replaces
+/** Step 1 — adds page + section + button + card + video + audio, replaces
  *  image with block-level. */
 function addPageBuilderNodes(schema: Schema): Schema {
   const nodes = schema.spec.nodes
+    .addToEnd("page", pageSpec)
     .addToEnd("section", sectionSpec)
     .addToEnd("button", buttonSpec)
     .addToEnd("card", cardSpec)
@@ -513,14 +562,14 @@ function augmentTextBlockAttrs(schema: Schema): Schema {
   return new Schema({ nodes, marks: schema.spec.marks });
 }
 
-/** Step 3 — `doc.content` becomes `section+` so paragraphs can't be
- *  inserted at the root. Run after section is in the schema. */
-function requireSectionRoot(schema: Schema): Schema {
+/** Step 3 — `doc.content` becomes `page+` so the root holds slides (each
+ *  a `section+` page), not bare sections. Run after page is in the schema. */
+function requirePageRoot(schema: Schema): Schema {
   const docSpec = schema.spec.nodes.get("doc");
   if (!docSpec) return schema;
   const nodes = schema.spec.nodes.update("doc", {
     ...docSpec,
-    content: "section+",
+    content: "page+",
   });
   return new Schema({ nodes, marks: schema.spec.marks });
 }
@@ -650,7 +699,7 @@ export function buildPageBuilderSchema(base: Schema): Schema {
   const withPageBuilder = addPageBuilderNodes(base);
   const withTextAttrs = augmentTextBlockAttrs(withPageBuilder);
   const withTextMarks = addTextMarks(withTextAttrs);
-  const withSectionRoot = requireSectionRoot(withTextMarks);
+  const withPageRoot = requirePageRoot(withTextMarks);
   // Shuffle adds the `container` + `row` block-group nodes here. Containment
   // MUST run after it: otherwise `container`/`row` never get
   // `containedBy: "section"`, so dragging one isn't constrained to its
@@ -663,7 +712,7 @@ export function buildPageBuilderSchema(base: Schema): Schema {
   // style), and the Row settings control drives that attr directly. An
   // earlier `alignContent` attr/class duplicated it but was inert — no class
   // can beat the inline style — so it's gone.
-  const withShuffle = addShuffleNodes(withSectionRoot, "block+", "block");
+  const withShuffle = addShuffleNodes(withPageRoot, "block+", "block");
   return constrainBlocksToSection(withShuffle);
 }
 
