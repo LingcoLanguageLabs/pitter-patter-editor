@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { Shell } from "./pageBuilder/Shell";
-import { buildPersonalSiteDoc } from "./pageBuilder/demoDoc";
+import { buildLayoutTestDoc, buildPersonalSiteDoc } from "./pageBuilder/demoDoc";
 
 const meta: Meta = {
   title: "Page Builder",
@@ -15,4 +15,9 @@ type Story = StoryObj;
 export const PersonalSite: Story = {
   name: "Personal site",
   render: () => <Shell initialDoc={buildPersonalSiteDoc} />,
+};
+
+export const LayoutTest: Story = {
+  name: "Layout test (row + card)",
+  render: () => <Shell initialDoc={buildLayoutTestDoc} />,
 };

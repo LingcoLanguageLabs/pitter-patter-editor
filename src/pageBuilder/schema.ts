@@ -33,6 +33,8 @@ import {
 } from "prosemirror-model";
 import { addShuffleNodes } from "@pitter-patter/shuffle";
 
+import type { TransitionSpeed, TransitionType } from "./transitions";
+
 // ────────────────────────────────────────────────────────────────
 // Shared attr value types — referenced by node specs + by the
 // BlockSettings forms so the schema and the UI can't drift.
@@ -193,6 +195,14 @@ const pageSpec: NodeSpec = {
     id: { default: "" },
     /** Shown in the slide rail. */
     title: { default: "Untitled" },
+    /** Entry transition (PowerPoint/Slides "Transitions"). Plays when the deck
+     *  navigates TO this page while viewing the site (`<SiteRenderer>`); the
+     *  editor canvas always cuts instantly. See `transitions.ts`. */
+    transition: { default: "none" as TransitionType },
+    /** The transition's "Effect Option" (e.g. "from-left", "circle-out"). */
+    transitionVariant: { default: "" },
+    /** How fast that transition runs: fast | medium | slow. */
+    transitionSpeed: { default: "medium" as TransitionSpeed },
   },
   parseDOM: [
     {
@@ -202,21 +212,31 @@ const pageSpec: NodeSpec = {
         return {
           id: el.getAttribute("data-page-id") || "",
           title: el.getAttribute("data-title") || "Untitled",
+          transition: el.getAttribute("data-transition") || "none",
+          transitionVariant: el.getAttribute("data-transition-variant") || "",
+          transitionSpeed: el.getAttribute("data-transition-speed") || "medium",
         };
       },
     },
   ],
   toDOM(node) {
-    return [
-      "div",
-      {
-        "data-node-type": "page",
-        "data-page-id": (node.attrs["id"] as string) || "",
-        "data-title": (node.attrs["title"] as string) || "",
-        class: "pb-page",
-      },
-      0,
-    ];
+    const a = node.attrs;
+    const transition = (a["transition"] as string) || "none";
+    const variant = (a["transitionVariant"] as string) || "";
+    const speed = (a["transitionSpeed"] as string) || "medium";
+    const attrs: Record<string, string> = {
+      "data-node-type": "page",
+      "data-page-id": (a["id"] as string) || "",
+      "data-title": (a["title"] as string) || "",
+      class: "pb-page",
+    };
+    // Only stamp the transition attrs when they're non-default, mirroring how
+    // section/card omit default attrs — keeps the serialized DOM clean.
+    if (transition !== "none") attrs["data-transition"] = transition;
+    if (transition !== "none" && variant) attrs["data-transition-variant"] = variant;
+    if (transition !== "none" && speed !== "medium")
+      attrs["data-transition-speed"] = speed;
+    return ["div", attrs, 0];
   },
 };
 
@@ -243,6 +263,10 @@ const buttonSpec: NodeSpec = {
     width: { default: "fit" as "fit" | "fill" },
     /** Alignment within its column (when width is `fit`). */
     align: { default: "left" as Align },
+    /** Link target kind: a deck page (`pageId`) or an explicit `href`. */
+    linkType: { default: "url" as "page" | "url" },
+    /** Target page id when `linkType` is "page" (else ""). */
+    pageId: { default: "" },
     href: { default: "#" },
     /** Adds `target="_blank"` when true. */
     openInNewTab: { default: false },
@@ -262,6 +286,8 @@ const buttonSpec: NodeSpec = {
           size: after("pp-size-") || "s",
           width: after("pp-width-") || "fit",
           align: after("pp-align-") || "left",
+          linkType: el.getAttribute("data-link-type") === "page" ? "page" : "url",
+          pageId: el.getAttribute("data-page-id") || "",
           href: el.getAttribute("href") || "#",
           openInNewTab: el.getAttribute("target") === "_blank",
         };
@@ -271,6 +297,10 @@ const buttonSpec: NodeSpec = {
   toDOM(node) {
     const variant = (node.attrs["variant"] as string) || "primary";
     const openInNewTab = !!node.attrs["openInNewTab"];
+    const linkType = node.attrs["linkType"] === "page" ? "page" : "url";
+    const pageId = (node.attrs["pageId"] as string) || "";
+    // Page links carry the target id for the renderer/publish step to
+    // resolve; there's no live site routing yet, so the href stays "#".
     // Only the BEM variant class is emitted here; the rest of the
     // visual classes (pp-color-*, pp-size-*, pp-width-*, pp-align-*)
     // are added by `attrClassesPlugin` at render time. That way new
@@ -279,7 +309,10 @@ const buttonSpec: NodeSpec = {
       "a",
       {
         "data-node-type": "button",
-        href: (node.attrs["href"] as string) || "#",
+        href: linkType === "page" ? "#" : (node.attrs["href"] as string) || "#",
+        ...(linkType === "page"
+          ? { "data-link-type": "page", "data-page-id": pageId }
+          : {}),
         ...(openInNewTab
           ? { target: "_blank", rel: "noopener noreferrer" }
           : {}),
@@ -476,9 +509,12 @@ const cardSpec: NodeSpec = {
     padding: { default: "m" as Size },
     /** Corner radius: none | medium | large. */
     radius: { default: "large" as "none" | "medium" | "large" },
-    /** Theme background slot: "" (page background) | neutral | primary |
-     *  secondary | tertiary. */
-    color: { default: "" as "" | "neutral" | "primary" | "secondary" | "tertiary" },
+    /** Theme variant (pagy's card "Colors"), self-rescoping exactly like a
+     *  section's: "" (default) | inverted | primary | secondary | tertiary.
+     *  Maps to the `.theme.-X` variable scopes `themeToCss` emits, so the
+     *  card re-establishes its OWN palette and its look depends only on this
+     *  choice — never on the section it's nested in. */
+    theme: { default: "" as "" | "inverted" | "primary" | "secondary" | "tertiary" },
     /** Optional background image URL. */
     image: { default: "" },
     /** Scrim over the background image: "" | light | medium | strong. */
@@ -492,7 +528,14 @@ const cardSpec: NodeSpec = {
         return {
           padding: el.getAttribute("data-padding") || "m",
           radius: el.getAttribute("data-radius") || "large",
-          color: el.getAttribute("data-color") || "",
+          // Migrate the old color-slot attr: the "neutral" slot was a
+          // neutral-background card, i.e. the new "-inverted" variant; the
+          // other slots map 1:1.
+          theme:
+            el.getAttribute("data-theme") ||
+            (el.getAttribute("data-color") === "neutral"
+              ? "inverted"
+              : el.getAttribute("data-color") || ""),
           image: el.getAttribute("data-image") || "",
           overlay: el.getAttribute("data-overlay") || "",
         };
@@ -501,13 +544,17 @@ const cardSpec: NodeSpec = {
   ],
   toDOM(node) {
     const a = node.attrs;
+    const theme = (a["theme"] as string) || "";
     const attrs: Record<string, string> = {
       "data-node-type": "card",
-      class: "pp-card",
+      // Always carry a `theme -X` (default included) so the card re-asserts its
+      // own palette via themeToCss's `.theme.-X` scope, independent of the
+      // section it sits in — the same mechanism `.pp-section` uses.
+      class: `pp-card theme -${theme || "default"}`,
       "data-padding": (a["padding"] as string) || "m",
       "data-radius": (a["radius"] as string) || "large",
     };
-    if (a["color"]) attrs["data-color"] = a["color"] as string;
+    if (theme) attrs["data-theme"] = theme;
     if (a["overlay"]) attrs["data-overlay"] = a["overlay"] as string;
     if (a["image"]) {
       attrs["data-image"] = a["image"] as string;

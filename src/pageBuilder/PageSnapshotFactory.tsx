@@ -15,7 +15,7 @@
  *     looking at refreshes first.
  *
  * Lives OUTSIDE the main `<ProseMirror>` (it mounts its own), reading the deck
- * from the store mirror (`PagesSync` → `pages` / `pagesView`).
+ * from the store mirror (`editorStoreSyncPlugin` → `pages` / `pagesView`).
  *
  * Deferred: visible-first ordering via IntersectionObserver and list
  * virtualization for very large decks — the queue already scales (sequential,

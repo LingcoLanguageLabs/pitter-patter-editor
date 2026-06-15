@@ -40,9 +40,13 @@ import {
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-import { Field, ImagePicker, Segmented } from "./blockSettings/forms";
+import {
+  Field,
+  ImagePicker,
+  Segmented,
+  ThemeVariantPicker,
+} from "./blockSettings/forms";
 import { findEnclosingSection, isHtmlIdTaken } from "./sectionUtils";
-import { usePageBuilderStore } from "./store";
 
 const MIN_HEIGHT_OPTIONS = [
   { value: "none", label: "None" },
@@ -69,48 +73,9 @@ const OVERLAY_OPTIONS = [
   { value: "strong", label: "Strong" },
 ] as const;
 
-/** Theme-variant swatches — pagy's "A" tiles. Each button carries
- *  `site theme -X`, so the globally injected `themeToCss` rules style
- *  it with that variant's actual background/foreground; the preview is
- *  always live against the current theme. Secondary/tertiary only show
- *  when the theme defines those colors (pagy gates them the same). */
-function ThemeSwatches({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  const theme = usePageBuilderStore((s) => s.theme);
-  const variants: { key: string; className: string; label: string }[] = [
-    { key: "", className: "-default", label: "Default" },
-    { key: "inverted", className: "-inverted", label: "Inverted" },
-    { key: "primary", className: "-primary", label: "Primary" },
-    ...(theme.colors.secondary
-      ? [{ key: "secondary", className: "-secondary", label: "Secondary" }]
-      : []),
-    ...(theme.colors.tertiary
-      ? [{ key: "tertiary", className: "-tertiary", label: "Tertiary" }]
-      : []),
-  ];
-  return (
-    <div className="pb-theme-swatches" role="group" aria-label="Colors">
-      {variants.map((v) => (
-        <button
-          key={v.key || "default"}
-          type="button"
-          className={`pb-theme-swatch site theme ${v.className}`}
-          data-active={v.key === value || undefined}
-          onClick={() => onChange(v.key)}
-          aria-label={v.label}
-          title={v.label}
-        >
-          A
-        </button>
-      ))}
-    </div>
-  );
-}
+// The section's "Colors" swatches are the shared `ThemeVariantPicker` (in
+// blockSettings/forms) — the same control the Card form uses, so sections and
+// cards stay aligned on one vocabulary + mechanism.
 
 export function SectionSettings({
   anchor,
@@ -251,7 +216,7 @@ export function SectionSettings({
           </Field>
         )}
         <Field label="Colors">
-          <ThemeSwatches
+          <ThemeVariantPicker
             value={theme}
             onChange={(v) => setAttr("theme", v || null)}
           />

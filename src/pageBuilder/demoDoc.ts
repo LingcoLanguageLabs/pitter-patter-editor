@@ -94,3 +94,42 @@ export function buildPersonalSiteDoc(schema: Schema): PmNode {
     ]),
   ]);
 }
+
+/**
+ * Layout-coverage deck — exercises the grid features the personal-site demo
+ * doesn't: a multi-column `row` (two `container`s side by side) and a themed
+ * `card`. Used to confirm the static `SiteRenderer` reproduces shuffle's grid
+ * (column spans + side-by-side rows) identically to the editor.
+ */
+export function buildLayoutTestDoc(schema: Schema): PmNode {
+  const n = schema.nodes;
+  const t = (s: string) => schema.text(s);
+  const p = (s: string) => n["paragraph"]!.create(null, t(s));
+  const h = (level: number, s: string) =>
+    n["heading"]!.create({ level }, t(s));
+  const FULL = { shuffleStart: 0, shuffleEnd: 12 } as const;
+
+  return n["doc"]!.create(null, [
+    n["page"]!.create({ id: "layout-1", title: "Layout" }, [
+      n["section"]!.create(FULL, [
+        h(2, "Two-column row"),
+        n["row"]!.create(null, [
+          n["container"]!.create({ shuffleStart: 0, shuffleEnd: 6 }, [
+            h(3, "Left"),
+            p("Left column — should occupy the left half of the grid, beside the right column (not stacked)."),
+          ]),
+          n["container"]!.create({ shuffleStart: 6, shuffleEnd: 12 }, [
+            h(3, "Right"),
+            p("Right column — sits to the right of the left column on the same row."),
+          ]),
+        ]),
+        h(2, "Card"),
+        n["card"]!.create({ padding: "l", radius: "large", theme: "primary" }, [
+          h(3, "Card title"),
+          p("Card body text inside a themed card with padding and a large radius."),
+          n["button"]!.create({ label: "Card button", variant: "primary", href: "#" }),
+        ]),
+      ]),
+    ]),
+  ]);
+}

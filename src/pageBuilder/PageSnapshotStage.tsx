@@ -31,6 +31,7 @@ import { attrClassesPlugin } from "./attrClassesPlugin";
 import { nodeViewComponents } from "./nodeViews";
 import { snapshotPage } from "./pageSnapshot";
 import { usePageBuilderStore } from "./store";
+import { themeClassName } from "./theme/css";
 
 export interface PageSnapshotStageProps {
   pageId: string;
@@ -50,6 +51,7 @@ export function PageSnapshotStage({
   onDone,
 }: PageSnapshotStageProps) {
   const setPageThumb = usePageBuilderStore((s) => s.setPageThumb);
+  const theme = usePageBuilderStore((s) => s.theme);
   const hostRef = useRef<HTMLDivElement>(null);
 
   // A single-page doc on the SAME schema the page node came from (node types
@@ -112,7 +114,7 @@ export function PageSnapshotStage({
     <div
       ref={hostRef}
       aria-hidden
-      className="pb-snapshot-stage pb-canvas site"
+      className={`pb-snapshot-stage pb-canvas site ${themeClassName(theme)}`}
       style={{ width }}
     >
       <div className="pb-canvas-scroll">

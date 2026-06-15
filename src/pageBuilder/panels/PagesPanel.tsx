@@ -20,7 +20,8 @@
  * doc stays the source of truth and the rail re-mirrors from it.
  *
  * Lives outside the ProseMirror context, so it reads the deck from the
- * store (mirrored by `PagesSync`) and dispatches through the stashed view.
+ * store (mirrored by `editorStoreSyncPlugin`) and dispatches through the
+ * stashed view.
  */
 
 import {
@@ -45,17 +46,29 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLineDown,
   ArrowLineUp,
+  Cards,
   Copy,
+  Intersect,
+  ListBullets,
+  PencilSimple,
   Plus,
   Rows,
   Stack,
   Trash,
 } from "@phosphor-icons/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { AnimatePresence, motion } from "motion/react";
 import type { EditorView } from "prosemirror-view";
-import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 
 import { pageList, setActivePage } from "../activePagePlugin";
+import { transitionLabel } from "../transitions";
 import {
   addPage,
   deletePage,
@@ -66,17 +79,36 @@ import {
   movePage,
   movePageToEnd,
   movePageToStart,
+  renamePage,
   splitPageSections,
 } from "../pageCommands";
 import { PageThumbnail } from "../PageThumbnail";
-import { navigateTo, usePageBuilderStore, type PageMeta } from "../store";
+import {
+  navigateTo,
+  usePageBuilderStore,
+  type PageMeta,
+  type PagesViewMode,
+} from "../store";
+
+/** Thumbnail width, in px. MUST match `.pb-page-thumb { width }` in
+ *  page-builder.css — it's the target the thumb animates to when the rail
+ *  switches into thumbnails mode (and the gap from the slide number). */
+const THUMB_W = 176;
+const THUMB_GAP = 10;
+/** Shared spring for the thumbnails ⇄ list morph; matches PanelAnimator. */
+const MODE_TRANSITION = { type: "spring", bounce: 0, duration: 0.35 } as const;
 
 export function PagesPanel() {
   const pages = usePageBuilderStore((s) => s.pages);
   const activeId = usePageBuilderStore((s) => s.activePageId);
   const view = usePageBuilderStore((s) => s.pagesView);
+  const viewMode = usePageBuilderStore((s) => s.pagesViewMode);
+  const setViewMode = usePageBuilderStore((s) => s.setPagesViewMode);
 
   const [dragId, setDragId] = useState<string | null>(null);
+  // The page whose name is being edited inline (context-menu Rename or a
+  // double-click on the name). Null when no rename is in progress.
+  const [editingId, setEditingId] = useState<string | null>(null);
   // Right-click context menu, anchored at the cursor and targeting one page.
   const [menu, setMenu] = useState<{ x: number; y: number; pageId: string } | null>(
     null,
@@ -173,16 +205,40 @@ export function PagesPanel() {
       </button>
       <div className="pb-panel-titlebar">
         <h1 className="pb-panel-title">Pages</h1>
-        <button
-          type="button"
-          className="pb-icon-button"
-          aria-label="Add page"
-          title="Add page"
-          disabled={!view}
-          onClick={() => view && selectResult([addPage(view)])}
-        >
-          <Plus size={16} weight="bold" />
-        </button>
+        <div className="pb-pages-tools">
+          <div className="pb-seg" role="group" aria-label="Filmstrip view">
+            <button
+              type="button"
+              aria-label="Thumbnail view"
+              title="Thumbnails"
+              aria-pressed={viewMode === "thumbnails"}
+              data-active={viewMode === "thumbnails" || undefined}
+              onClick={() => setViewMode("thumbnails")}
+            >
+              <Cards size={16} weight="regular" />
+            </button>
+            <button
+              type="button"
+              aria-label="List view"
+              title="List"
+              aria-pressed={viewMode === "list"}
+              data-active={viewMode === "list" || undefined}
+              onClick={() => setViewMode("list")}
+            >
+              <ListBullets size={16} weight="regular" />
+            </button>
+          </div>
+          <button
+            type="button"
+            className="pb-icon-button"
+            aria-label="Add page"
+            title="Add page"
+            disabled={!view}
+            onClick={() => view && selectResult([addPage(view)])}
+          >
+            <Plus size={16} weight="bold" />
+          </button>
+        </div>
       </div>
 
       <DndContext
@@ -196,35 +252,53 @@ export function PagesPanel() {
           items={pages.map((p) => p.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="pb-pages">
+          <motion.div
+            className="pb-pages"
+            data-mode={viewMode}
+            initial={false}
+            animate={{ gap: viewMode === "list" ? 2 : 8 }}
+            transition={MODE_TRANSITION}
+          >
             {pages.map((page, i) => (
               <SortablePageCard
                 key={page.id}
                 page={page}
                 index={i}
+                mode={viewMode}
                 active={page.id === activeId}
                 selected={selectedIds.has(page.id)}
                 canDelete={pages.length > 1}
+                editing={editingId === page.id}
                 view={view}
                 onSelect={(e) => onCardClick(e, page.id)}
                 onContextMenu={(e) => onCardContextMenu(e, page.id)}
+                onStartRename={() => setEditingId(page.id)}
+                onRename={(title) => {
+                  if (view) renamePage(view, page.id, title);
+                  setEditingId(null);
+                }}
+                onCancelRename={() => setEditingId(null)}
                 onResult={selectResult}
               />
             ))}
-          </div>
+          </motion.div>
         </SortableContext>
         <DragOverlay>
           {dragged ? (
             <div
               className="pb-page-card -overlay"
+              data-mode={viewMode}
               data-active={dragged.id === activeId || undefined}
             >
               <span className="pb-page-num">
                 {pages.findIndex((p) => p.id === dragged.id) + 1}
               </span>
-              <div className="pb-page-thumb">
-                <PageThumbnail pageId={dragged.id} title={dragged.title} />
-              </div>
+              {viewMode === "thumbnails" && (
+                <div className="pb-page-thumb">
+                  <PageThumbnail pageId={dragged.id} title={dragged.title} />
+                </div>
+              )}
+              <span className="pb-page-name">{dragged.title}</span>
             </div>
           ) : null}
         </DragOverlay>
@@ -245,6 +319,7 @@ export function PagesPanel() {
           pages={pages}
           view={view}
           onResult={selectResult}
+          onRename={(id) => setEditingId(id)}
           onClose={() => setMenu(null)}
         />
       )}
@@ -268,6 +343,7 @@ function PageContextMenu({
   pages,
   view,
   onResult,
+  onRename,
   onClose,
 }: {
   x: number;
@@ -276,6 +352,7 @@ function PageContextMenu({
   pages: PageMeta[];
   view: EditorView;
   onResult: (ids: string[]) => void;
+  onRename: (id: string) => void;
   onClose: () => void;
 }) {
   const multi = targetIds.length > 1;
@@ -348,18 +425,40 @@ function PageContextMenu({
                 onSelect={run(() => [addPage(view, id)])}
               />
               <MenuItem
+                icon={<PencilSimple size={15} weight="regular" />}
+                label="Rename"
+                // Radix closes the menu on select; the rail then focuses the
+                // inline input (see SortablePageCard's focus effect).
+                onSelect={() => onRename(id)}
+              />
+              <MenuItem
                 icon={<Copy size={15} weight="regular" />}
                 label="Duplicate Page"
                 onSelect={run(() => [duplicatePage(view, id)])}
               />
-              {sectionCount >= 2 && (
-                <MenuItem
-                  icon={<Rows size={15} weight="regular" />}
-                  label="Split into Pages"
-                  onSelect={run(() => splitPageSections(view, id))}
-                />
-              )}
               <Separator />
+              <MenuItem
+                icon={<Intersect size={15} weight="regular" />}
+                label="Transition…"
+                // Make this the active page so the panel edits it, then open
+                // the transitions sub-panel.
+                onSelect={() => {
+                  setActivePage(view, id);
+                  navigateTo("transitions");
+                  onClose();
+                }}
+              />
+              <Separator />
+              {sectionCount >= 2 && (
+                <>
+                  <MenuItem
+                    icon={<Rows size={15} weight="regular" />}
+                    label="Split into Pages"
+                    onSelect={run(() => splitPageSections(view, id))}
+                  />
+                  <Separator />
+                </>
+              )}
               <MenuItem
                 icon={<ArrowLineUp size={15} weight="regular" />}
                 label="Move to Beginning"
@@ -431,30 +530,61 @@ const Separator = () => (
  * must run per item. The whole card is the drag handle (pointer sensor with
  * a small activation distance keeps clicks working); action buttons stop
  * pointer/​click propagation so they don't initiate a drag or switch slides.
+ *
+ * Renders the slide name beside the thumbnail (thumbnails mode) or on its own
+ * (list mode). While `editing`, the name becomes a text input — Enter / blur
+ * commits via `onRename`, Esc cancels via `onCancelRename`; both stop pointer
+ * and click propagation so typing never starts a drag or switches slides.
  */
 function SortablePageCard({
   page,
   index,
+  mode,
   active,
   selected,
   canDelete,
+  editing,
   view,
   onSelect,
   onContextMenu,
+  onStartRename,
+  onRename,
+  onCancelRename,
   onResult,
 }: {
   page: PageMeta;
   index: number;
+  mode: PagesViewMode;
   active: boolean;
   selected: boolean;
   canDelete: boolean;
+  editing: boolean;
   view: EditorView | null;
   onSelect: (e: ReactMouseEvent) => void;
   onContextMenu: (e: ReactMouseEvent) => void;
+  onStartRename: () => void;
+  onRename: (title: string) => void;
+  onCancelRename: () => void;
   onResult: (ids: string[]) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: page.id });
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Set on Esc so the input's blur cancels instead of committing.
+  const cancelledRef = useRef(false);
+
+  // Focus + select the input once it mounts. Deferred a frame so Radix's
+  // menu-close focus-return (when rename came from the context menu) doesn't
+  // immediately steal focus back to the trigger.
+  useEffect(() => {
+    if (!editing) return;
+    const raf = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [editing]);
 
   return (
     <div
@@ -469,10 +599,77 @@ function SortablePageCard({
       {...attributes}
       {...listeners}
     >
-      <span className="pb-page-num">{index + 1}</span>
-      <div className="pb-page-thumb">
-        <PageThumbnail pageId={page.id} title={page.title} />
-      </div>
+      <span className="pb-page-num">
+        {index + 1}
+        {/* Filmstrip badge: which pages carry an entry transition. Absolutely
+            positioned below the number (inside this fixed-width column) so it
+            never shifts the thumbnail — every tile stays aligned. */}
+        {page.transition && page.transition !== "none" && (
+          <span
+            className="pb-page-trans-badge"
+            title={`Transition: ${transitionLabel(page.transition)}`}
+          >
+            <Intersect size={11} weight="bold" />
+          </span>
+        )}
+      </span>
+      {/* The thumb collapses its own width + leading gap to 0 so the name
+          slides flush against the number — a smooth morph between modes with
+          no snap when it finally unmounts. `initial={false}` keeps the very
+          first render (and slide switches) static; only a mode toggle animates. */}
+      <AnimatePresence initial={false}>
+        {mode === "thumbnails" && (
+          <motion.div
+            key="thumb"
+            className="pb-page-thumb"
+            initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+            animate={{ opacity: 1, width: THUMB_W, marginLeft: THUMB_GAP }}
+            exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+            transition={MODE_TRANSITION}
+          >
+            <PageThumbnail pageId={page.id} title={page.title} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {editing ? (
+        <input
+          ref={inputRef}
+          className="pb-page-name-input"
+          defaultValue={page.title}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.blur();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              cancelledRef.current = true;
+              e.currentTarget.blur();
+            }
+          }}
+          onBlur={(e) => {
+            if (cancelledRef.current) {
+              cancelledRef.current = false;
+              onCancelRename();
+            } else {
+              onRename(e.currentTarget.value);
+            }
+          }}
+        />
+      ) : (
+        <span
+          className="pb-page-name"
+          title={page.title}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onStartRename();
+          }}
+        >
+          {page.title}
+        </span>
+      )}
       <div className="pb-page-actions">
         <button
           type="button"

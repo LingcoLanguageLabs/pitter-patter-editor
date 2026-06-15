@@ -35,6 +35,9 @@ yarn-error.log*
 .env.*
 !.env.example
 
+# Motion+ token-gated package download (fetched via scripts/install-motion-plus.sh)
+vendor/
+
 # Editor / OS
 .DS_Store
 .idea/

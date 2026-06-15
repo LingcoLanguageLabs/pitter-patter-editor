@@ -11,8 +11,9 @@
  *   • `sectionChromePlugin` — adds the "+ Add block / + Add section"
  *                              affordances per section via a widget
  *                              decoration.
- *   • `ShuffleDragSync`     — mirrors shuffle's drag state into
- *                              `usePageBuilderStore`.
+ *   • `editorStoreSync`     — the one bridge to `usePageBuilderStore`:
+ *                              mirrors deck + drag state out, pushes the
+ *                              mobile flag in.
  *
  * This file's job is to wire them together inside one ProseMirror.
  */
@@ -58,15 +59,14 @@ import {
 } from "./blockHighlightPlugin";
 import { BlockContextMenu } from "./BlockContextMenu";
 import { BlockSettings } from "./blockSettings/BlockSettings";
+import { editorStoreSyncPlugin } from "./editorStoreSync";
 import { nodeViewComponents } from "./nodeViews";
 import { orderCommand } from "./orderCommands";
-import { PagesSync } from "./PagesSync";
 import { SelectableDragHandle } from "./SelectableDragHandle";
 import { splitRowCellIntoContainer } from "./rowEnterCommand";
 import { buildPageBuilderSchema, type InitialDocBuilder } from "./schema";
 import { sectionChromePlugin } from "./sectionChromePlugin";
 import { sectionHighlightPlugin } from "./sectionHighlightPlugin";
-import { ShuffleDragSync } from "./ShuffleDragSync";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
 
 const markExtensions: readonly Extension[] = [Bold, Italic, Underline, Strike];
@@ -160,6 +160,11 @@ export function PageBuilderEditor({
         sectionHighlightPlugin(),
         activePagePlugin(),
         attrClassesPlugin(),
+        // The one bridge to the zustand UI store: mirrors deck + drag state
+        // out (for the Pages panel / chrome) and pushes the mobile flag in
+        // (single-column shuffle mode). Replaces the old per-value *Sync
+        // components. See `editorStoreSync.ts`.
+        editorStoreSyncPlugin(),
         // Placeholder text in empty text blocks: "Start writing…" for
         // paragraphs, "Heading N" for headings (by level). Shown in every
         // empty block, not just the focused one.
@@ -199,7 +204,6 @@ export function PageBuilderEditor({
       defaultState={editorState}
       nodeViewComponents={nodeViewComponents}
     >
-      <ShuffleDragSync />
       <ShuffleSkeleton>
         <ProseMirrorDoc />
         <ActiveResizeHandles />
@@ -208,7 +212,6 @@ export function PageBuilderEditor({
       <BlockSettings />
       <BlockContextMenu />
       <TextSelectionToolbar />
-      <PagesSync />
       {overlays}
     </ProseMirror>
   );

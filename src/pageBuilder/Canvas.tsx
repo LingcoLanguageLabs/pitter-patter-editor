@@ -12,13 +12,18 @@
 import type { ReactNode } from "react";
 
 import { usePageBuilderStore } from "./store";
+import { themeClassName } from "./theme/css";
 
 export function Canvas({ children }: { children: ReactNode }) {
   const mobile = usePageBuilderStore((s) => s.mobile);
+  const theme = usePageBuilderStore((s) => s.theme);
 
+  // `themeClassName` adds the button-radius / button-style / input-* token
+  // classes the design panels write into `theme.buttons` / `theme.inputs`;
+  // the CSS for them is scoped under `.site`.
   return (
     <div className={`pb-canvas-wrap${mobile ? " -mobile" : ""}`}>
-      <div className="pb-canvas site">
+      <div className={`pb-canvas site ${themeClassName(theme)}`}>
         <div className="pb-canvas-scroll">{children}</div>
       </div>
     </div>

@@ -37,14 +37,23 @@ const ATTR_TO_CLASS_PREFIX: Record<string, string> = {
   overlay: "pp-overlay",
 };
 
-function classesFor(node: PmNode): string[] {
+/**
+ * Pure attr → utility-class list. Shared by this plugin (editor render)
+ * and the runtime walker (`runtime/renderNode`, the published-site render)
+ * so both emit the identical `pp-*` classes from the same attrs — no drift.
+ */
+export function attrClasses(attrs: Record<string, unknown>): string[] {
   const out: string[] = [];
   for (const attr of Object.keys(ATTR_TO_CLASS_PREFIX)) {
-    const value = node.attrs[attr];
+    const value = attrs[attr];
     if (value == null || value === "") continue;
     out.push(`${ATTR_TO_CLASS_PREFIX[attr]}-${value}`);
   }
   return out;
+}
+
+function classesFor(node: PmNode): string[] {
+  return attrClasses(node.attrs);
 }
 
 function buildDecorations(state: EditorState) {

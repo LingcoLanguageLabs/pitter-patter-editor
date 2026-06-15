@@ -13,6 +13,7 @@ import type { Schema, Node as PmNode } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 
 import { activePageKey, getActivePageId, pageList } from "./activePagePlugin";
+import type { TransitionSpeed, TransitionType } from "./transitions";
 
 /** A stable id for a new page. */
 function newPageId(): string {
@@ -89,6 +90,22 @@ export function deletePage(view: EditorView, id: string): string | null {
   return neighbor.id;
 }
 
+/** Rename a slide. A blank/whitespace title falls back to "Untitled". Edits
+ *  only the page node's `title` attr (so content + active slide are untouched)
+ *  and never steals focus from the rail's rename input. No-op when the title is
+ *  unchanged. Returns the id, for selection symmetry with the other ops. */
+export function renamePage(view: EditorView, id: string, title: string): string {
+  const { state } = view;
+  const entry = pageList(state.doc).find((p) => p.id === id);
+  if (!entry) return id;
+  const next = title.trim() || "Untitled";
+  if (next === entry.title) return id;
+  view.dispatch(
+    state.tr.setNodeMarkup(entry.pos, undefined, { ...entry.node.attrs, title: next }),
+  );
+  return id;
+}
+
 /** Reorder: move slide `fromId` to sit before slide `beforeId` (or to the
  *  end when `beforeId` is null). The moved slide stays active. */
 export function movePage(view: EditorView, fromId: string, beforeId: string | null): void {
@@ -115,6 +132,58 @@ export function movePageToEnd(view: EditorView, id: string): void {
   const pages = pageList(view.state.doc);
   if (pages[pages.length - 1]?.id === id) return;
   movePage(view, id, null);
+}
+
+// ────────────────────────────────────────────────────────────────
+// Transitions — the entry animation each page plays when viewing the
+// site (see transitions.ts; played by runtime/SiteRenderer). Pure attr
+// edits: they don't move the cursor or change the active page, so they
+// dispatch directly (like renamePage) rather than via commitWithActive.
+// ────────────────────────────────────────────────────────────────
+
+/** Set one page's entry transition + Effect Option + speed. No-op when gone. */
+export function setPageTransition(
+  view: EditorView,
+  id: string,
+  transition: TransitionType,
+  variant: string,
+  speed: TransitionSpeed,
+): void {
+  const { state } = view;
+  const entry = pageList(state.doc).find((p) => p.id === id);
+  if (!entry) return;
+  view.dispatch(
+    state.tr.setNodeMarkup(entry.pos, undefined, {
+      ...entry.node.attrs,
+      transition,
+      transitionVariant: variant,
+      transitionSpeed: speed,
+    }),
+  );
+}
+
+/** "Apply to all pages" — stamp the same transition + Effect Option + speed
+ *  onto every page in one transaction. setNodeMarkup leaves node sizes
+ *  unchanged, so the positions stay valid across the loop. */
+export function setAllPagesTransition(
+  view: EditorView,
+  transition: TransitionType,
+  variant: string,
+  speed: TransitionSpeed,
+): void {
+  const { state } = view;
+  const pages = pageList(state.doc);
+  if (pages.length === 0) return;
+  let tr = state.tr;
+  for (const entry of pages) {
+    tr = tr.setNodeMarkup(entry.pos, undefined, {
+      ...entry.node.attrs,
+      transition,
+      transitionVariant: variant,
+      transitionSpeed: speed,
+    });
+  }
+  view.dispatch(tr);
 }
 
 // ────────────────────────────────────────────────────────────────

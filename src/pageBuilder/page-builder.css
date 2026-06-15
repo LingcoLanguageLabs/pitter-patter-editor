@@ -14,10 +14,37 @@
 
   --pb-bg: #f5f6f8;
   --pb-surface: #ffffff;
+  /* Elevated surface for popovers/menus that float above the panels. */
+  --pb-surface-raised: #ffffff;
   --pb-border: #ececea;
+  --pb-border-strong: rgba(0, 0, 0, 0.12);
   --pb-text: #111114;
   --pb-text-soft: #6b7280;
   --pb-text-very-soft: #9ca3af;
+
+  /* Interactive tints — hover/active washes laid over a surface. In light
+     mode these are black-at-low-alpha; the dark override flips them to white
+     so they read on dark instead of vanishing. */
+  --pb-hover: rgba(0, 0, 0, 0.05);
+  --pb-active: rgba(0, 0, 0, 0.06);
+  --pb-hover-strong: rgba(0, 0, 0, 0.08);
+
+  /* High-contrast "solid" pair — black-on-white buttons/badges (Upgrade CTA,
+     "Made in", chat bubble). Inverts to white-on-black in dark mode. */
+  --pb-solid-bg: #0f1115;
+  --pb-solid-fg: #ffffff;
+
+  --pb-danger: #ef4444;
+
+  /* Elevation shadows. Defined here (not on `.pb-shell`) so the popovers that
+     portal to `document.body` — outside the shell — still inherit them. The
+     `0 0 0 1px` hairline becomes a light ring in dark mode for definition. */
+  --pb-panel-shadow:
+    0 0 0 1px rgba(20, 24, 31, 0.04),
+    0 8px 24px rgba(20, 24, 31, 0.06);
+  --pb-popover-shadow:
+    0 0 0 1px rgba(20, 24, 31, 0.06),
+    0 12px 32px rgba(20, 24, 31, 0.14);
 
   --pb-font: Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     sans-serif;
@@ -28,6 +55,46 @@
      width, squeezing content into a narrow centre band. */
   --shuffle-column-width: 64px;
   --shuffle-gutter-width: 40px;
+}
+
+/* ─────────────────────────────────────── Dark chrome
+   The editor's light/dark toggle (sun/moon in the TopBar) sets
+   `data-pb-theme` on <html> via `Shell`. This only re-points the `--pb-*`
+   chrome tokens — the matte, panels, popovers, toolbars, and text. The site
+   being designed keeps its OWN theme (`--color-*` on `.site`, injected by
+   `ThemeStyle`), so the canvas content renders true to its real appearance
+   regardless of the editor's mode. Set on `:root` (not `.pb-shell`) so the
+   `document.body`-portaled popovers pick it up too.
+
+   Elevation ramp (darkest → lightest): bg (matte) < surface (panels, canvas
+   frame) < surface-raised (popovers/menus). */
+:root[data-pb-theme="dark"] {
+  --pb-bg: #0e1014;
+  --pb-surface: #191b20;
+  --pb-surface-raised: #23262e;
+  --pb-border: rgba(255, 255, 255, 0.1);
+  --pb-border-strong: rgba(255, 255, 255, 0.18);
+  --pb-text: #f3f4f6;
+  --pb-text-soft: #9aa1ad;
+  --pb-text-very-soft: #6b7280;
+
+  --pb-hover: rgba(255, 255, 255, 0.07);
+  --pb-active: rgba(255, 255, 255, 0.1);
+  --pb-hover-strong: rgba(255, 255, 255, 0.13);
+
+  --pb-solid-bg: #f3f4f6;
+  --pb-solid-fg: #0f1115;
+
+  --pb-danger: #f87171;
+
+  --pb-accent-line: hsla(206, 100%, 58%, 0.22);
+
+  --pb-panel-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.5);
+  --pb-popover-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 16px 40px rgba(0, 0, 0, 0.6);
 }
 
 /* ─────────────────────────────────────── Layout (shell + body)
@@ -54,9 +121,8 @@
   --pb-panel-width-medium: 480px;
   --pb-panel-width-large: 600px;
   --pb-frame-radius: 16px;
-  --pb-panel-shadow:
-    0 0 0 1px rgba(20, 24, 31, 0.04),
-    0 8px 24px rgba(20, 24, 31, 0.06);
+  /* `--pb-panel-shadow` / `--pb-popover-shadow` now live on `:root` so the
+     body-portaled popovers inherit them — see the Dark chrome block above. */
   --pb-easing: cubic-bezier(0.4, 0, 0.2, 1);
   --pb-duration: 500ms;
   --pb-duration-short: 200ms;
@@ -123,32 +189,43 @@
   justify-self: end;
 }
 
-.pb-icon-button {
-  width: 32px;
-  height: 32px;
+/* Scoped to `.pb-topbar` so these win over the Pages-panel's bare
+   `.pb-icon-button` chip (a bordered 28px surface button) further down —
+   same class name, different intent. The extra ancestor raises specificity
+   so source order no longer decides which style the header gets. */
+.pb-topbar .pb-icon-button {
+  width: 40px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--pb-text);
   cursor: pointer;
   padding: 0;
   font: inherit;
 }
-.pb-icon-button:hover {
-  background: rgba(0, 0, 0, 0.05);
+.pb-topbar .pb-icon-button:hover {
+  background: var(--pb-hover);
 }
-.pb-icon-button[data-active] {
-  background: rgba(0, 0, 0, 0.06);
+.pb-topbar .pb-icon-button[data-active] {
+  background: var(--pb-active);
+}
+/* Device (desktop/mobile) toggle: a clearer accent fill when active — it
+   reflects a persistent mode, so it should read more prominently than the
+   momentary-action buttons. Matches `.pb-seg button[data-active]`. */
+.pb-topbar .pb-icon-button.-device[data-active] {
+  background: var(--pb-accent-line);
+  color: var(--pb-text);
 }
 
 .pb-published-pill {
-  height: 32px;
-  padding: 0 14px;
+  height: 40px;
+  padding: 0 16px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--pb-hover);
   color: var(--pb-text);
   border: 0;
   font: inherit;
@@ -157,7 +234,7 @@
   margin-left: 4px;
 }
 .pb-published-pill:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--pb-hover-strong);
 }
 
 /* ─────────────────────────────────────── Left panel
@@ -173,7 +250,7 @@
   bottom: var(--pb-panel-inset);
   width: var(--pb-panel-width-small);
   max-width: calc(100% - 24px);
-  background: #ffffff;
+  background: var(--pb-surface);
   border-radius: var(--pb-frame-radius);
   box-shadow: var(--pb-panel-shadow);
   overflow-y: auto;
@@ -222,7 +299,7 @@
   color: var(--pb-text);
 }
 .pb-site-picker:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--pb-hover);
 }
 .pb-site-picker-name {
   font-weight: 600;
@@ -231,7 +308,7 @@
   gap: 6px;
 }
 .pb-site-picker-plan {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--pb-active);
   border-radius: 4px;
   padding: 1px 6px;
   font-size: 11px;
@@ -261,7 +338,7 @@
   cursor: pointer;
 }
 .pb-nav-item:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--pb-hover);
 }
 .pb-nav-item[data-active] {
   font-weight: 600;
@@ -288,8 +365,8 @@
 }
 .pb-progress-card-cta {
   margin-top: 8px;
-  background: #0f1115;
-  color: #ffffff;
+  background: var(--pb-solid-bg);
+  color: var(--pb-solid-fg);
   border: 0;
   border-radius: 8px;
   font: inherit;
@@ -348,7 +425,7 @@
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .pb-card-link:hover {
-  border-color: rgba(0, 0, 0, 0.12);
+  border-color: var(--pb-border-strong);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 .pb-card-link-header {
@@ -372,30 +449,132 @@
   align-items: stretch;
   justify-content: stretch;
 }
+/* Utility: a full-width block (e.g. a themed `.site` field-preview shell). */
+.pb-w-full {
+  display: block;
+  width: 100%;
+}
 
-/* ─────────────────────────────────────── Palettes */
+/* Utility: an inline-flex wrapper (e.g. a themed `.site` preview shell). */
+.pb-inline-flex {
+  display: inline-flex;
+}
+
+/* ─────────────────── Design sub-panel option grids (Buttons: Shape/Style)
+   A 2-up grid of preview cards; the chosen one gets a dark ring. Each card's
+   inner frame carries the `.site` class so it inherits the working theme. */
+.pb-design-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pb-text);
+  margin: 18px 0 8px;
+}
+.pb-design-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pb-design-option {
+  display: flex;
+  padding: 0;
+  background: var(--pb-surface);
+  border: 1.5px solid var(--pb-border);
+  border-radius: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 120ms ease;
+}
+.pb-design-option:hover { border-color: var(--pb-border-strong); }
+.pb-design-option[data-active] { border-color: var(--pb-text); }
+.pb-design-option-frame {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 64px;
+  padding: 16px 8px;
+}
+
+/* ─────────────────── Design → Themes preset grid
+   2-up tiles, each its own `.site` painting the preset's palette: heading
+   "Aa", a button, and an overlapping color cluster. */
+.pb-themes-heading {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pb-text);
+  margin: 24px 0 12px;
+}
+.pb-themes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pb-theme-tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+/* Dark editor only: presets with a dark background paint a near-black tile
+   that would otherwise blend into the near-black panel (separated only by the
+   faint default hairline). Strengthen the border so every tile keeps a clear
+   edge. Light mode is left on pagy's exact `--pb-border` to preserve the match. */
+:root[data-pb-theme="dark"] .pb-theme-tile {
+  border-color: var(--pb-border-strong);
+}
+.pb-theme-tile:hover {
+  border-color: var(--pb-border-strong);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.pb-theme-aa {
+  flex-shrink: 0;
+  font-size: 26px;
+  line-height: 1;
+}
+.pb-theme-btn {
+  transform: scale(0.82);
+  transform-origin: center;
+}
+/* ─────────────────────────────────────── Palettes
+   Framed box that hosts a <PaletteCluster> (Colors tile + Palettes grid). */
 .pb-palette {
   display: flex;
   align-items: center;
-  gap: 0;
-  padding: 8px;
+  padding: 10px;
   border-radius: 8px;
   width: 100%;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  box-shadow: inset 0 0 0 1px var(--pb-border);
   box-sizing: border-box;
 }
 .pb-palette.-large {
-  padding: 12px;
-  gap: 4px;
+  padding: 14px;
 }
-.pb-palette-swatch {
-  display: block;
-  flex: 1;
-  height: 26px;
-  border-radius: 4px;
+
+/* The reusable swatch cluster — overlapping circles, leftmost on top
+   (z-index inline), each ringed in `--cluster-ring`; size + overlap scale off
+   `--swatch-size`. Rendered by <PaletteCluster> (Colors tile, Palettes grid,
+   Themes tiles). The unique parent class avoids the `.pb-theme-swatch`
+   collision the old `.pb-theme-palette` worked around. */
+.pb-palette-cluster {
+  display: inline-flex;
+  flex-shrink: 0;
 }
-.pb-palette.-large .pb-palette-swatch {
-  height: 36px;
+.pb-palette-cluster > span {
+  width: var(--swatch-size, 24px);
+  height: var(--swatch-size, 24px);
+  border-radius: 50%;
+  margin-left: calc(var(--swatch-size, 24px) * -0.42);
+  border: 2px solid var(--cluster-ring, var(--pb-surface));
+}
+.pb-palette-cluster > span:first-child {
+  margin-left: 0;
 }
 
 /* ─────────────────────────────────────── Font-pair preview */
@@ -485,6 +664,8 @@
 }
 .pb-select {
   appearance: none;
+  width: 100%;
+  box-sizing: border-box;
   background: var(--pb-surface);
   border: 1px solid var(--pb-border);
   border-radius: 8px;
@@ -518,11 +699,9 @@
   z-index: 50;
   width: max-content;
   max-height: 480px;
-  background: #ffffff;
+  background: var(--pb-surface-raised);
   border-radius: 12px;
-  box-shadow:
-    0 0 0 1px rgba(20, 24, 31, 0.06),
-    0 12px 32px rgba(20, 24, 31, 0.14);
+  box-shadow: var(--pb-popover-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -593,7 +772,7 @@
   white-space: nowrap;
 }
 .pb-block-picker-item:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--pb-hover);
 }
 /* Draggable items (shuffle inflate) signal grab; click-to-insert still works. */
 .pb-block-picker-item[data-shuffle-inflatable] {
@@ -627,7 +806,7 @@
   text-align: left;
 }
 .pb-custom-select:hover {
-  border-color: rgba(0, 0, 0, 0.16);
+  border-color: var(--pb-border-strong);
 }
 .pb-custom-select[data-state="open"] {
   border-color: var(--pb-accent);
@@ -641,11 +820,9 @@
   z-index: 200;
   min-width: var(--radix-select-trigger-width);
   max-height: var(--radix-select-content-available-height);
-  background: #ffffff;
+  background: var(--pb-surface-raised);
   border-radius: 10px;
-  box-shadow:
-    0 0 0 1px rgba(20, 24, 31, 0.06),
-    0 12px 32px rgba(20, 24, 31, 0.12);
+  box-shadow: var(--pb-popover-shadow);
   padding: 4px;
   overflow: hidden;
   font: inherit;
@@ -666,7 +843,7 @@
   user-select: none;
 }
 .pb-custom-select-option[data-highlighted] {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--pb-hover);
 }
 .pb-custom-select-option[data-state="checked"] {
   font-weight: 600;
@@ -695,7 +872,7 @@
   height: 22px;
   color: var(--pb-text-soft);
   cursor: default;
-  background: #ffffff;
+  background: var(--pb-surface-raised);
 }
 
 /* ─────────────────────────────────────── Options (palettes + pairings) */
@@ -722,7 +899,7 @@
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .pb-options-item:hover {
-  border-color: rgba(0, 0, 0, 0.12);
+  border-color: var(--pb-border-strong);
 }
 .pb-options-item[data-active] {
   border-color: var(--pb-accent);
@@ -781,11 +958,16 @@
 
 /* Panel open: let the canvas grow to fill the row. With the
    shell-body's padding-left pushing the canvas to x = panel-right + 8,
-   uncapping max-width lands it at exactly pagy's geometry — frame
-   stretches from the panel's right edge to the viewport's right
-   padding. */
+   this lands at exactly pagy's geometry — frame stretches from the
+   panel's right edge to the viewport's right padding.
+
+   `100%` (not `none`) so toggling to/from the .-mobile 430px width
+   *animates*: `none` is not interpolable, so it snapped. The flex item
+   (`flex: 1 1 auto; width: 100%`) already fills the row, so 100% is
+   visually identical to none here — but it transitions, like pagy's
+   `--width: 100% → 430px`. */
 .pb-shell[data-panel="open"] .pb-canvas-wrap:not(.-mobile) {
-  max-width: none;
+  max-width: 100%;
 }
 
 /* Mobile preview — shrink the visible card to 430px. Centres
@@ -837,8 +1019,8 @@
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: #0f1115;
-  color: #ffffff;
+  background: var(--pb-solid-bg);
+  color: var(--pb-solid-fg);
   border-radius: 100px;
   font-size: 12px;
   font-weight: 500;
@@ -858,8 +1040,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #0f1115;
-  color: #ffffff;
+  background: var(--pb-solid-bg);
+  color: var(--pb-solid-fg);
   border-radius: 50%;
   border: 0;
   cursor: pointer;
@@ -874,6 +1056,314 @@
 .pb-canvas.site {
   background: var(--color-background, var(--pb-surface));
   color: var(--color-neutral, var(--pb-text));
+  /* Query container for the mobile preview. The @container rules in the
+     "Mobile preview" section collapse the layout once the frame shrinks to
+     phone width (the .-mobile 430px frame, or a genuinely tiny window) —
+     the same mechanism Pagy uses, so this CSS would also drive a real
+     responsive published page. `inline-size` adds `layout` containment,
+     but every editor overlay (toolbars/menus) portals to <body>, so it
+     never re-anchors them; the shuffle handles anchor to the positioned
+     `.shuffle-wrapper` inside, not to this. */
+  container-type: inline-size;
+  container-name: viewport;
+}
+/* Thumbnails always render the desktop layout: opt the off-screen snapshot
+   host out of the viewport container so its width never trips the collapse. */
+.pb-snapshot-stage.pb-canvas.site {
+  container-type: normal;
+}
+
+/* ─────────────────────────────────────── Preview overlay
+   "Experience the site." `<PagePreview>` lays the SAME pure-React render the
+   published site uses (`<SiteRenderer>`) over the canvas while `store.preview`
+   is on (mirrors pagy's `.frame_preview`) — no ProseMirror. Absolute inside
+   `.pb-shell-body` (its containing block) so it covers the canvas + panel but
+   leaves the TopBar — whose Play button toggles back — visible. `.pb-site`
+   fills it full-bleed; this rule only positions + fades it in. */
+.pb-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: var(--pb-bg);
+  animation: pb-preview-in var(--pb-duration-short) var(--pb-easing);
+}
+
+@keyframes pb-preview-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ─────────────────────────── Page transitions (present + published)
+   The deck's entry transition (`transitions.ts`) plays in `<SiteRenderer>`
+   via `<AnimatePresence>`. `.pb-page-anim` wraps each animating page: a
+   subgrid pass-through (so the inner `.pb-page` keeps the shuffle column
+   tracks) pinned to grid row 1, so the entering + leaving pages overlap in
+   one cell while motion animates transform/opacity on this wrapper. */
+.pb-page-anim {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  will-change: transform, opacity;
+}
+
+/* Transition picker popover — reuses `.pb-link-popover` chrome; this is just
+   the "Apply to all pages" action beneath the Type / Speed fields. */
+/* ─────────────────────────── Transitions sub-panel (gallery)
+   PowerPoint-style gallery: grouped Subtle / Exciting / Dynamic, each effect a
+   card with a self-drawn SVG thumbnail (animated preview on hover). */
+.pb-trans-subtitle {
+  margin: -4px 0 12px;
+  font-size: 12px;
+  color: var(--pb-text-soft);
+}
+.pb-trans-apply {
+  width: 100%;
+  margin: 8px 0 14px;
+  padding: 7px 10px;
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  background: var(--pb-surface);
+  color: var(--pb-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.pb-trans-apply:hover { background: var(--pb-bg); }
+.pb-trans-apply:disabled { opacity: 0.5; cursor: default; }
+
+.pb-trans-group { margin-bottom: 16px; }
+.pb-trans-group-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pb-text-soft);
+}
+.pb-trans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.pb-trans-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--pb-text-soft);
+}
+.pb-trans-card-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 80 / 48;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  background: var(--pb-bg);
+  transition: border-color var(--pb-duration-short) var(--pb-easing);
+}
+.pb-trans-card:hover .pb-trans-card-thumb { border-color: var(--pb-border); }
+.pb-trans-card[data-selected] .pb-trans-card-thumb {
+  border-color: var(--pb-accent, #6366f1);
+}
+.pb-trans-card[data-stub] .pb-trans-card-thumb { opacity: 0.7; }
+.pb-trans-card-name {
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--pb-text);
+}
+.pb-trans-card[data-selected] .pb-trans-card-name { font-weight: 600; }
+.pb-trans-card-caret {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 9px;
+  color: #fff;
+  opacity: 0;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+}
+.pb-trans-card:hover .pb-trans-card-caret { opacity: 0.9; }
+
+/* Thumbnail / preview palette — dark-mode aware (the chrome flips
+   `data-pb-theme` on <html>, so these vars re-point and the SVG glyphs +
+   mini-preview pages follow). Its own dark rule, to avoid touching the shared
+   token block. */
+:root {
+  --pb-trans-frame-bg: #eef2fb;
+  --pb-trans-frame-border: #c7d2e8;
+  --pb-trans-fill: #7d9bd1;
+  --pb-trans-line: #ffffff;
+  --pb-trans-preview-bg: #e2e8f4;
+  /* The two preview "slides" are deliberately different hues (indigo vs amber)
+     so the transition between them is unmistakable. */
+  --pb-trans-pa1: #6366f1;
+  --pb-trans-pa2: #4f46e5;
+  --pb-trans-pb1: #fb923c;
+  --pb-trans-pb2: #f59e0b;
+}
+:root[data-pb-theme="dark"] {
+  --pb-trans-frame-bg: #23262e;
+  --pb-trans-frame-border: rgba(255, 255, 255, 0.14);
+  --pb-trans-fill: #7089c2;
+  --pb-trans-line: #e8edf7;
+  --pb-trans-preview-bg: #15171d;
+  --pb-trans-pa1: #6d6ff5;
+  --pb-trans-pa2: #4f46e5;
+  --pb-trans-pb1: #fb923c;
+  --pb-trans-pb2: #ea8204;
+}
+
+/* SVG thumbnail glyph colors — a flat "slide" motif on the chrome surface. */
+.pb-trans-thumb-svg { display: block; width: 100%; height: 100%; }
+.pb-trans-thumb-frame { fill: var(--pb-trans-frame-bg); stroke: var(--pb-trans-frame-border); stroke-width: 1; }
+.pb-trans-thumb-fill { fill: var(--pb-trans-fill); }
+.pb-trans-thumb-stroke { stroke: var(--pb-trans-line); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.pb-trans-thumb-text { fill: var(--pb-trans-fill); font-size: 16px; text-anchor: middle; }
+
+/* Animated hover preview — two mini "pages" running the real transition. */
+.pb-trans-preview {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  background: var(--pb-trans-preview-bg);
+}
+.pb-trans-preview-page {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.pb-trans-preview-page.-a { background: linear-gradient(135deg, var(--pb-trans-pa1), var(--pb-trans-pa2)); }
+.pb-trans-preview-page.-b { background: linear-gradient(135deg, var(--pb-trans-pb1), var(--pb-trans-pb2)); }
+/* Faint "slide content" (a heading bar + a body line) so each page reads as a
+   real slide — directional and clip transitions then visibly move content, not
+   just a flat colour. Clipped along with the page by clip-path effects. */
+.pb-trans-preview-page::before,
+.pb-trans-preview-page::after {
+  content: "";
+  position: absolute;
+  left: 16%;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.92);
+}
+.pb-trans-preview-page::before { top: 26%; width: 44%; height: 12%; }
+.pb-trans-preview-page::after { top: 46%; width: 64%; height: 8%; background: rgba(255, 255, 255, 0.6); }
+
+/* Effect-Options flyout (hover) */
+.pb-trans-flyout {
+  z-index: 60;
+  width: 168px;
+  padding: 6px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 10px;
+  box-shadow: var(--pb-popover-shadow);
+}
+.pb-trans-flyout-title {
+  padding: 2px 6px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pb-text-soft);
+}
+.pb-trans-flyout-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pb-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.pb-trans-flyout-option:hover { background: var(--pb-bg); }
+.pb-trans-flyout-option[data-selected] {
+  background: var(--pb-accent-line, var(--pb-bg));
+  font-weight: 600;
+}
+.pb-trans-flyout-thumb {
+  flex: 0 0 auto;
+  width: 40px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Filmstrip badge — marks pages that carry an entry transition. */
+/* Absolutely positioned below the number, centered in the number column, so a
+   page's transition indicator never pushes its thumbnail out of alignment. */
+.pb-page-trans-badge {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 16px;
+  border-radius: 5px;
+  background: var(--pb-accent-line, var(--pb-bg));
+  color: var(--pb-accent, #6366f1);
+}
+
+/* Standalone published render (`<SiteRenderer>`). Fills its host (the
+   `.pb-preview` overlay, or the viewport when published) and scrolls
+   internally via `.pb-canvas-scroll`; full-bleed (no card frame). */
+.pb-site {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.pb-site .pb-canvas {
+  height: 100%;
+  border-radius: 0;
+}
+
+/* It reuses the `.ProseMirror` class for styling, so it inherits the editor's
+   interactivity suppressions — undo them here, scoped to the `.pb-site` root,
+   same as `.pb-preview`. */
+.pb-site .pb-canvas-scroll .ProseMirror .pb-video video,
+.pb-site .pb-canvas-scroll .ProseMirror .pb-audio audio {
+  pointer-events: auto;
+}
+.pb-site .pp-link,
+.pb-site .pb-canvas-scroll .ProseMirror a.pp-button {
+  cursor: pointer;
+}
+
+/* Grid knobs routed through variables so the Mobile preview query can flip
+   them in one place (Pagy's pattern). Desktop values live in the var
+   fallbacks — when the vars are unset the layout is byte-identical to
+   shuffle's own. Scoped under `.pb-canvas-scroll` so these win over
+   shuffle.css's bare `.shuffle-wrapper` / `.row` on specificity, not order. */
+.pb-canvas-scroll .shuffle-wrapper {
+  grid-template-columns: var(
+    --pb-grid-tracks,
+    minmax(0, 1fr) repeat(12, minmax(0, var(--shuffle-column-width, 64px)))
+      minmax(0, 1fr)
+  );
+}
+.pb-canvas-scroll .row {
+  /* Desktop: grid (side-by-side columns). Mobile flips the var to `flex`,
+     and the column-direction below stacks the cells. */
+  display: var(--pb-row-display, grid);
+  flex-direction: column;
+  row-gap: var(--shuffle-row-gap, 1rem);
 }
 .pb-canvas-scroll .ProseMirror {
   outline: 0;
@@ -937,6 +1427,39 @@
 .pb-icon-button:hover { background: var(--pb-bg); }
 .pb-icon-button:disabled { opacity: 0.5; cursor: default; }
 
+/* Titlebar trailing controls: the thumbnails/list switch + the add button. */
+.pb-pages-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* Segmented thumbnails ⇄ list view switch. */
+.pb-seg {
+  display: inline-flex;
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--pb-surface);
+}
+.pb-seg button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pb-text-soft);
+  cursor: pointer;
+}
+.pb-seg button + button { border-left: 1px solid var(--pb-border); }
+.pb-seg button:hover { background: var(--pb-bg); }
+.pb-seg button[data-active] {
+  background: var(--pb-accent-line);
+  color: var(--pb-text);
+}
+
 .pb-pages {
   display: flex;
   flex-direction: column;
@@ -944,11 +1467,43 @@
   margin-top: 12px;
   overflow-y: auto;
 }
+/* List mode: no thumbnails, tighter rows so more slides fit at once. The
+   inter-card gap (8px ⇄ 2px) is animated inline by motion on the container —
+   see PagesPanel's `.pb-pages` motion.div — so this is just the resting value. */
+.pb-pages[data-mode="list"] {
+  gap: 2px;
+}
+/* List rows are short, so the affordances tuned for the tall thumbnail rows
+   need to re-center. The transition badge normally tucks *below* the number
+   (`top: 100%`), which spills into the row below here; the hover action buttons
+   are pinned near the top, which rides high. Center both vertically. For the
+   badge, drop `.pb-page-num`'s relative anchoring so it can sit at the row's
+   right edge (against the card), and hide it on hover so it never collides
+   with the action buttons that occupy the same slot. */
+.pb-pages[data-mode="list"] .pb-page-num {
+  position: static;
+}
+.pb-pages[data-mode="list"] .pb-page-trans-badge {
+  top: 50%;
+  left: auto;
+  right: 10px;
+  transform: translateY(-50%);
+}
+.pb-pages[data-mode="list"] .pb-page-card:hover .pb-page-trans-badge {
+  opacity: 0;
+}
+.pb-pages[data-mode="list"] .pb-page-actions {
+  top: 50%;
+  transform: translateY(-50%);
+}
+/* Internal spacing is margins, not flex `gap`: the thumbnail animates its own
+   width AND leading margin to 0 when switching to list, so it reclaims every
+   pixel and the name lands flush against the number with no snap. Flex `gap`
+   would leave a phantom slot until the thumb unmounted. */
 .pb-page-card {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
   padding: 6px;
   border-radius: 10px;
   cursor: grab;
@@ -980,6 +1535,7 @@
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
 }
 .pb-page-num {
+  position: relative;
   width: 18px;
   flex-shrink: 0;
   text-align: center;
@@ -989,7 +1545,13 @@
   color: var(--pb-text-soft);
 }
 .pb-page-thumb {
-  flex: 1;
+  flex: 0 0 auto;
+  width: 176px;
+  /* Leading gap from the slide number. motion animates this (and width) to 0
+     on the way to list mode; this resting value is what the DragOverlay clone
+     and the settled thumbnail use. Keep `width` in sync with THUMB_W and this
+     with THUMB_GAP in PagesPanel.tsx. */
+  margin-left: 10px;
   display: flex;
   align-items: center;
   aspect-ratio: 16 / 9;
@@ -1005,17 +1567,56 @@
   object-fit: cover;
   display: block;
 }
+/* Fallback shown inside an empty thumb until a snapshot generates. The slide
+   name now lives beside the thumb (`.pb-page-name`), so this is secondary —
+   dimmed and small so it reads in the compact 176px frame. */
 .pb-page-title {
-  padding: 8px;
+  padding: 4px 6px;
   font-family: var(--pb-font);
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 600;
-  color: var(--pb-text);
-  line-height: 1.3;
+  color: var(--pb-text-soft);
+  line-height: 1.25;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+
+/* Slide name beside the thumbnail (thumbnails mode) or alone (list mode).
+   Single-click still bubbles to the card (select slide); double-click edits. */
+.pb-page-name {
+  flex: 1;
+  min-width: 0;
+  /* Constant spacing from whatever precedes it — the number (list) or the
+     thumbnail (thumbnails). As the thumb collapses, the name slides left to
+     this single gap with no jump. */
+  margin-left: 10px;
+  font-family: var(--pb-font);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pb-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Reserve room on hover so the truncated name doesn't slide under the
+   duplicate/delete buttons (left-aligned, so the visible text never shifts —
+   it just clips earlier). */
+.pb-page-card:hover .pb-page-name { padding-right: 50px; }
+.pb-page-name-input {
+  flex: 1;
+  min-width: 0;
+  margin-left: 10px;
+  font-family: var(--pb-font);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pb-text);
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-accent);
+  border-radius: 6px;
+  padding: 2px 6px;
+  outline: none;
 }
 .pb-page-actions {
   position: absolute;
@@ -1038,7 +1639,7 @@
   cursor: pointer;
 }
 .pb-page-action:hover { color: var(--pb-text); background: var(--pb-bg); }
-.pb-page-action.-danger:hover { color: #ef4444; }
+.pb-page-action.-danger:hover { color: var(--pb-danger); }
 .pb-page-action:disabled { opacity: 0.4; cursor: default; }
 
 /* Off-screen page renderer (PageSnapshotFactory). Parked far off-screen at
@@ -1076,16 +1677,16 @@
   /* Vertical padding is real; horizontal padding lives inside the
      grid columns (the wrapper's 1fr gutters), so we use 0 here so
      children at start-left/end-12 truly reach the edges. */
-  padding: 80px 0;
+  padding: var(--pb-pad-md, 80px) 0;
   /* Same var the canvas paints with, so a default section is invisible
      against the page — until a `theme -X` class rescopes the var
      (pagy's section always paints --color-background the same way). */
   background-color: var(--color-background, transparent);
   box-sizing: border-box;
 }
-.pp-section[data-padding="small"]  { padding: 40px 0; }
-.pp-section[data-padding="medium"] { padding: 80px 0; }
-.pp-section[data-padding="large"]  { padding: 120px 0; }
+.pp-section[data-padding="small"]  { padding: var(--pb-pad-sm, 40px) 0; }
+.pp-section[data-padding="medium"] { padding: var(--pb-pad-md, 80px) 0; }
+.pp-section[data-padding="large"]  { padding: var(--pb-pad-lg, 120px) 0; }
 
 /* Themed sections (`theme -inverted` etc. — scopes from themeToCss)
    recolor their text along with the background. */
@@ -1093,7 +1694,12 @@
 
 /* Minimum height + vertical content alignment (pagy's `.section.-medium`
    / `.-large` and `-align-center` / `-align-bottom`). The section is a
-   grid, so align-content distributes the spare min-height room. */
+   grid, so align-content distributes the spare min-height room. Default
+   `start` is essential: grid's initial `align-content: normal` behaves
+   like `stretch`, which would balloon the auto-sized rows (and the blocks
+   in them) to fill any min-height room. `start` packs rows at natural
+   size up top; the center/bottom variants override it. */
+.pp-section { align-content: start; }
 .pp-section[data-min-height="medium"] { min-height: 66dvh; }
 .pp-section[data-min-height="large"]  { min-height: 100dvh; }
 .pp-section[data-content-align="center"] { align-content: center; }
@@ -1161,8 +1767,8 @@
 /* Per-level default sizes — the fallback when a heading has no `size`
    attr (attr is null → no `pp-size-*` class). Values mirror
    `defaultHeadingSize` in schema.ts (xl / l / s / xs): keep in sync. */
-.pp-section h1 { font-size: 64px; }
-.pp-section h2 { font-size: 48px; }
+.pp-section h1 { font-size: var(--pb-fs-h1, 64px); }
+.pp-section h2 { font-size: var(--pb-fs-h2, 48px); }
 .pp-section h3 { font-size: 28px; }
 .pp-section h4 { font-size: 22px; }
 
@@ -1198,23 +1804,26 @@
 .pp-section p.pp-size-xs { font-size: 12px; }
 .pp-section p.pp-size-s  { font-size: 14px; }
 .pp-section p.pp-size-m  { font-size: 18px; }
-.pp-section p.pp-size-l  { font-size: 22px; }
-.pp-section p.pp-size-xl { font-size: 28px; }
+.pp-section p.pp-size-l  { font-size: var(--pb-fs-text-l, 22px); }
+.pp-section p.pp-size-xl { font-size: var(--pb-fs-text-xl, 28px); }
 
 /* T-shirt sizes for headings (font-size). The level attr still
    determines the tag, so we override per-tag at each size. */
 .pp-section :is(h1, h2, h3, h4).pp-size-xs { font-size: 22px; }
 .pp-section :is(h1, h2, h3, h4).pp-size-s  { font-size: 28px; }
-.pp-section :is(h1, h2, h3, h4).pp-size-m  { font-size: 36px; }
-.pp-section :is(h1, h2, h3, h4).pp-size-l  { font-size: 48px; }
-.pp-section :is(h1, h2, h3, h4).pp-size-xl { font-size: 64px; }
+.pp-section :is(h1, h2, h3, h4).pp-size-m  { font-size: var(--pb-fs-heading-m, 36px); }
+.pp-section :is(h1, h2, h3, h4).pp-size-l  { font-size: var(--pb-fs-heading-l, 48px); }
+.pp-section :is(h1, h2, h3, h4).pp-size-xl { font-size: var(--pb-fs-heading-xl, 64px); }
 
 /* Button — color (theme palette), size, width, align. The base
    styles live below in `.pp-button`; these add the variant modifiers. */
-.pp-button.pp-color-neutral   { background: var(--color-neutral); color: var(--color-background); }
-.pp-button.pp-color-primary   { background: var(--color-primary); color: var(--color-primary-foreground, #fff); }
-.pp-button.pp-color-secondary { background: var(--color-secondary); color: var(--color-secondary-foreground, var(--color-neutral)); }
-.pp-button.pp-color-tertiary  { background: var(--color-tertiary); color: var(--color-tertiary-foreground, var(--color-neutral)); }
+/* The color picker drives `--pp-btn-color` (the chosen hue) + `--pp-btn-on`
+   (its contrast pair for filled text); the variant rules below decide which
+   property each lands on. */
+.pp-button.pp-color-neutral   { --pp-btn-color: var(--color-neutral);   --pp-btn-on: var(--color-background); }
+.pp-button.pp-color-primary   { --pp-btn-color: var(--color-primary);   --pp-btn-on: var(--color-primary-foreground, #fff); }
+.pp-button.pp-color-secondary { --pp-btn-color: var(--color-secondary); --pp-btn-on: var(--color-secondary-foreground, var(--color-neutral)); }
+.pp-button.pp-color-tertiary  { --pp-btn-color: var(--color-tertiary);  --pp-btn-on: var(--color-tertiary-foreground, var(--color-neutral)); }
 
 .pp-button.pp-size-xs { padding: 6px 12px; font-size: 12px; }
 .pp-button.pp-size-s  { padding: 8px 14px; font-size: 13px; }
@@ -1272,10 +1881,13 @@
 .pp-card.pp-radius-none   { border-radius: 0; }
 .pp-card.pp-radius-medium { border-radius: 12px; }
 .pp-card.pp-radius-large  { border-radius: 28px; }
-.pp-card.pp-color-neutral   { background-color: var(--color-neutral); color: var(--color-background); }
-.pp-card.pp-color-primary   { background-color: var(--color-primary); color: var(--color-primary-foreground, #fff); }
-.pp-card.pp-color-secondary { background-color: var(--color-secondary); }
-.pp-card.pp-color-tertiary  { background-color: var(--color-tertiary); }
+/* Color = a self-rescoping theme variant, exactly like `.pp-section`. The card
+   carries `theme -X` (default included), so `themeToCss`'s `.theme.-X` scope
+   redefines `--color-background` / `--color-neutral` ON the card; the base
+   `.pp-card` above already paints `--color-background`, and text follows the
+   variant's neutral. The card's palette therefore comes only from its own
+   variant — never from the section it's nested in. */
+.pp-card.theme { color: var(--color-neutral); }
 /* Image overlay scrim (only shown when an overlay level is set). */
 .pp-card.pp-overlay-light::before,
 .pp-card.pp-overlay-medium::before,
@@ -1291,6 +1903,17 @@
 .pp-card.pp-overlay-medium::before { background: rgba(0, 0, 0, 0.45); }
 .pp-card.pp-overlay-strong::before { background: rgba(0, 0, 0, 0.65); }
 
+/* The button's color flows through these two vars so each variant uses it
+   correctly — fill paints the background, outline/ghost paint the text. The
+   color class (`.pp-color-*`) overrides them from the theme; these defaults
+   are the neutral the Type-picker previews render with (no color class, and
+   portaled outside the themed `.site`). Kept on a low-specificity `.pp-button`
+   selector so `.pp-color-*` (0,2,0) wins — the grouped layout rule below
+   includes a (0,3,1) arm that would otherwise pin the default. */
+.pp-button {
+  --pp-btn-color: #1f2937;
+  --pp-btn-on: #ffffff;
+}
 .pp-button,
 .pb-canvas-scroll .ProseMirror a.pp-button {
   /* `justify-self` (start/center/end vs stretch) and `width` are set by
@@ -1301,12 +1924,15 @@
   align-items: center;
   justify-content: center;
   padding: 10px 18px;
-  border-radius: 100px;
+  /* Corner radius is a theme token (Design → Buttons "Shape"); default pill. */
+  border-radius: var(--pp-btn-radius, 100px);
   font-weight: 500;
   font-size: 14px;
   cursor: pointer;
   text-decoration: none;
   user-select: none;
+  /* So the "Style" treatments (shadow / sharp / brutal) animate on press. */
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
   /* During a shuffle drag the button gets pulled out of the grid
      and re-pinned with explicit `width: Xpx`. There's a frame
      between "no width constraint" and "explicit width" where the
@@ -1315,18 +1941,123 @@
      a split second. Forcing nowrap eliminates that. */
   white-space: nowrap;
 }
+/* `color` is `!important` to beat the canvas's generic `a` link color (a
+   higher-specificity rule); the original variants did the same. */
+/* Filled: color fills the button, text is its contrast pair. */
 .pp-button--primary {
-  background: #1f2937;
-  color: #ffffff !important;
+  background: var(--pp-btn-color);
+  color: var(--pp-btn-on) !important;
 }
+/* Outline: sits on the page background with a subtle border; the color is
+   the *text* (pagy renders e.g. purple text, not a filled pill). */
 .pp-button--secondary {
-  background: #ffffff;
-  color: #111114 !important;
-  border: 1px solid #ececea;
+  background: var(--color-background, #ffffff);
+  color: var(--pp-btn-color) !important;
+  border: 1px solid var(--pb-border, #ececea);
 }
+/* Ghost: no fill, no border — the color is the text. */
 .pp-button--ghost {
   background: transparent;
-  color: #111114 !important;
+  color: var(--pp-btn-color) !important;
+}
+
+/* ─────────────────────────── Theme button tokens (Design → Buttons)
+   The `button-radius-*` / `button-style-*` classes (from `themeClassName`)
+   sit on `.site` and tune every `.pp-button` inside — adapted from pagy onto
+   our filled/outline/ghost system. Default (no class) = pill + flat.
+   `--pp-btn-shadow` is the hue shadows + brutal frames draw with. */
+.site {
+  --pp-btn-shadow: var(--color-neutral, #1f2937);
+}
+
+/* Shape — corner radius (consumed by `.pp-button` border-radius above). */
+.button-radius-none   { --pp-btn-radius: 0; }
+.button-radius-small  { --pp-btn-radius: 8px; }
+.button-radius-medium { --pp-btn-radius: 12px; }
+
+/* Style: thick — a heavier, colored outline. */
+.button-style-thick .pp-button--secondary {
+  border-width: 2px;
+  border-color: var(--pp-btn-color);
+}
+/* soft — a quiet neutral hairline on the outline (not the color). */
+.button-style-soft .pp-button--secondary {
+  border-color: color-mix(in srgb, var(--pp-btn-shadow) 14%, transparent);
+}
+/* shadow — lifted on a soft drop shadow + hairline. */
+.button-style-shadow .pp-button {
+  box-shadow:
+    0 2px 6px -1px color-mix(in srgb, var(--pp-btn-shadow) 18%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--pp-btn-shadow) 6%, transparent);
+}
+.button-style-shadow .pp-button:active {
+  box-shadow: 0 0 2px -1px color-mix(in srgb, var(--pp-btn-shadow) 12%, transparent);
+  transform: translateY(1px);
+}
+/* sharp — a solid bottom "lip" that compresses on press. */
+.button-style-sharp .pp-button {
+  box-shadow: inset 0 -5px 0 color-mix(in srgb, var(--pp-btn-shadow) 12%, transparent);
+}
+.button-style-sharp .pp-button:active {
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--pp-btn-shadow) 12%, transparent);
+  transform: translateY(1px);
+}
+/* brutal — a 2px frame + hard offset shadow that slams down on press. */
+.button-style-brutal .pp-button {
+  box-shadow: inset 0 0 0 2px var(--pp-btn-shadow), 2px 2px 0 var(--pp-btn-shadow);
+}
+.button-style-brutal .pp-button--secondary {
+  background: var(--color-background, #ffffff);
+}
+.button-style-brutal .pp-button:active {
+  box-shadow: inset 0 0 0 2px var(--pp-btn-shadow), 0 0 0 var(--pp-btn-shadow);
+  transform: translate(2px, 2px);
+}
+
+/* ─────────────────────────── Theme input tokens (Design → Inputs)
+   A form-field preview primitive + the `input-shape-*` / `input-style-*`
+   classes (from `themeClassName`) that tune it, mirroring the button tokens.
+   No field block lives in the canvas yet, so today this drives the design
+   panel's previews; it'll style real fields the moment one exists. */
+.pp-field {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  font-family: var(--font-family-base, var(--pb-font));
+  font-size: 14px;
+  color: var(--color-neutral, var(--pb-text));
+  border-radius: var(--pp-field-radius, 8px);
+  /* default (solid): filled with a faint neutral wash, no border. */
+  background: var(--pp-field-bg, color-mix(in srgb, var(--color-neutral, #1f2937) 6%, transparent));
+  border: 1px solid var(--pp-field-border, transparent);
+}
+.pp-field-text {
+  opacity: 0.5;
+}
+
+/* Shape — corner radius. */
+.input-shape-radius-none   { --pp-field-radius: 0; }
+.input-shape-radius-small  { --pp-field-radius: 6px; }
+.input-shape-radius-medium { --pp-field-radius: 12px; }
+.input-shape-radius-large  { --pp-field-radius: 100px; }
+
+/* Style — fill treatment (solid is the `.pp-field` default above). */
+.input-style-outline .pp-field {
+  --pp-field-bg: transparent;
+  --pp-field-border: color-mix(in srgb, var(--color-neutral, #1f2937) 22%, transparent);
+}
+.input-style-soft .pp-field {
+  --pp-field-bg: color-mix(in srgb, var(--color-neutral, #1f2937) 4%, transparent);
+}
+.input-style-line .pp-field {
+  --pp-field-bg: transparent;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-neutral, #1f2937) 25%, transparent);
+  border-radius: 0;
+  padding-left: 2px;
+  padding-right: 2px;
 }
 
 /* Image presentation mirrors pagy's `.media`: a `--radius` + an
@@ -1717,8 +2448,11 @@
 
 /* Active + hover section ring — the section-level twin of the block ring
    above (`.pb-block-active`). Set by `sectionHighlightPlugin` (active) or
-   plain CSS `:hover`. Drawn on an overlay pseudo-element so it never
-   reflows the subgrid.
+   plain CSS `:hover`. The hover ring is an EDITING affordance, so it's
+   scoped to the editor canvas (`.pb-canvas-wrap`) — the `<SiteRenderer>`
+   preview/published render (`.pb-site`) reuses `.pp-section` but is NOT under
+   `.pb-canvas-wrap`, so a visitor never gets it. Drawn on an overlay
+   pseudo-element so it never reflows the subgrid.
 
    Tight to the edge, like pagy — `inset: 0`, so the 2px accent ring hugs
    the section box. A section is full-bleed: it fills `.pb-canvas`, which
@@ -1729,7 +2463,7 @@
    already `position: relative`; z-index 2 keeps it below the section
    chrome (z-index 5), so the toolbar/pills stay above it. */
 .pb-section-active::after,
-.pp-section:hover::after {
+.pb-canvas-wrap .pp-section:hover::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -1743,7 +2477,7 @@
    hover ring on all of them — matching how the block hover ring and the
    chrome itself fade out during a drag. (The active ring is already
    cleared by the plugin on drag start.) */
-.pp-section:has(.pb-section-chrome[data-dragging]):hover::after {
+.pb-canvas-wrap .pp-section:has(.pb-section-chrome[data-dragging]):hover::after {
   display: none;
 }
 
@@ -1798,7 +2532,7 @@
 }
 .pb-add-block:hover,
 .pb-add-section:hover {
-  background: #fbfbfb;
+  background: var(--pb-bg);
 }
 
 /* Pin Add-block to the top-left and the Add-section pills to the
@@ -1918,13 +2652,13 @@
   font: inherit;
 }
 .pb-section-tool:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--pb-hover);
   color: var(--pb-text);
 }
 /* Destructive action — red icon on hover. */
 .pb-section-tool.-destructive:hover {
   background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  color: var(--pb-danger);
 }
 
 /* ─────────────────────────────────────── Text-selection toolbar
@@ -1979,7 +2713,7 @@
 }
 .pb-text-tool:hover,
 .pb-text-tool[data-state="open"] {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--pb-hover);
 }
 .pb-text-tool[data-active] {
   color: var(--pb-accent);
@@ -2001,7 +2735,7 @@
   height: 14px;
   border-radius: 50%;
   flex: none;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 0 0 1px var(--pb-border-strong);
 }
 /* Swatch + label cluster inside a type-menu item (the item itself is
    space-between so the checkmark stays right-aligned). */
@@ -2085,11 +2819,9 @@
   z-index: 60;
   width: 280px;
   max-height: calc(100vh - 32px);
-  background: #ffffff;
+  background: var(--pb-surface-raised);
   border-radius: 12px;
-  box-shadow:
-    0 0 0 1px rgba(20, 24, 31, 0.06),
-    0 12px 32px rgba(20, 24, 31, 0.14);
+  box-shadow: var(--pb-popover-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2209,7 +2941,7 @@
 }
 .pb-context-menu-item.-destructive[data-highlighted] {
   background: rgba(239, 68, 68, 0.08);
-  color: #ef4444;
+  color: var(--pb-danger);
 }
 .pb-context-menu-label {
   flex: 1;
@@ -2250,7 +2982,7 @@
   cursor: pointer;
 }
 .pb-block-settings-icon:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--pb-hover);
   color: var(--pb-text);
 }
 .pb-block-settings-body {
@@ -2270,7 +3002,7 @@
 .pb-segmented {
   display: inline-flex;
   width: 100%;
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--pb-hover);
   border-radius: 8px;
   padding: 2px;
   gap: 2px;
@@ -2287,10 +3019,44 @@
   cursor: pointer;
 }
 .pb-segmented-option[data-active] {
-  background: #ffffff;
+  background: var(--pb-surface-raised);
   color: var(--pb-text);
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Button "Type" control — pagy renders three separate cards (not a
+   segmented track), each previewing the style live. The chosen card gets a
+   dark ring on white; the rest sit on a faint fill. */
+.pb-type-picker {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+}
+.pb-type-picker-option {
+  /* `1 1 0` + `min-width: 0` → three exactly-equal thirds regardless of each
+     preview's intrinsic width (filled pill is wider than the ghost label). */
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 8px;
+  background: var(--pb-hover);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  cursor: pointer;
+  outline: none; /* the dark active border below is the indicator, not the UA ring */
+}
+.pb-type-picker-option[data-active] {
+  background: var(--pb-surface-raised);
+  border-color: var(--pb-text);
+}
+.pb-button-type-preview {
+  pointer-events: none; /* the surrounding card owns the click */
+  padding: 7px 14px;
+  font-size: 12px;
+  line-height: 1;
 }
 .pb-text-input {
   width: 100%;
@@ -2298,7 +3064,7 @@
      without this, 100% + padding + border overflows the popover. */
   box-sizing: border-box;
   padding: 8px 10px;
-  background: #ffffff;
+  background: var(--pb-surface-raised);
   border: 1px solid var(--pb-border);
   border-radius: 8px;
   font: inherit;
@@ -2312,26 +3078,36 @@
 /* Soft validation (section ID field): flag, don't block. */
 .pb-text-input[data-invalid],
 .pb-text-input[data-invalid]:focus {
-  border-color: #ef4444;
+  border-color: var(--pb-danger);
 }
 .pb-field-hint[data-invalid] {
-  color: #ef4444;
+  color: var(--pb-danger);
 }
 .pb-color-swatches {
   display: inline-flex;
   gap: 8px;
 }
 .pb-color-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--pb-border);
   cursor: pointer;
   padding: 0;
 }
 .pb-color-swatch[data-active] {
   outline: 2px solid var(--pb-text);
   outline-offset: 2px;
+}
+/* Ineligible for the current style (outline/ghost can't use a near-background
+   hue): muted, non-interactive, with a small X — pagy's thoughtful cue. */
+.pb-color-swatch[data-ineligible] {
+  cursor: default;
+  opacity: 0.55;
+  color: var(--pb-text-soft);
 }
 
 /* Section "Colors" — pagy's theme-variant "A" tiles. Each swatch
@@ -2354,7 +3130,7 @@
   font-weight: 600;
   background: var(--color-background, #fff);
   color: var(--color-neutral, var(--pb-text));
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--pb-border);
   cursor: pointer;
 }
 .pb-theme-swatch[data-active] {
@@ -2367,4 +3143,57 @@
   font-size: 11px;
   color: var(--pb-text-very-soft, var(--pb-text-soft));
   margin-top: 2px;
+}
+
+/* ─────────────────────────────────────── Mobile preview
+   The device toggle (TopBar) shrinks the frame to 430px (`.pb-canvas-wrap
+   .-mobile`). That makes `.pb-canvas.site` — the `viewport` query container —
+   phone-width, firing the rules below. They don't restate element styles;
+   they only reassign the responsive CSS variables defined via fallbacks
+   above (Pagy's pattern), so there's one source of truth per value.
+
+   Breakpoint 600px: the 430px frame is well inside it, while a normal
+   desktop canvas (≥ ~660px even with the panel open) stays above it, so the
+   collapse tracks the toggle rather than the window. A genuinely tiny editor
+   window collapsing too is correct responsive behavior.
+
+   The variables are set on `.pb-canvas-scroll`, not `.pb-canvas` — an element
+   is never matched by a container query whose container is itself, so the
+   knobs must live on a descendant (they then inherit down the subtree). */
+@container viewport (max-width: 600px) {
+  .pb-canvas-scroll {
+    /* One content column: 12 equal tracks between two fixed gutters. Keeping
+       all 14 grid lines means shuffle's start-N/end-N still resolve; the
+       fixed edge tracks give phone margins while section backgrounds (which
+       span 1/15) still bleed to the frame edge. */
+    --pb-grid-tracks:
+      var(--pb-mobile-gutter, 20px) repeat(12, minmax(0, 1fr))
+      var(--pb-mobile-gutter, 20px);
+    /* The 40px column-gaps (×13 ≈ 520px) alone overflow a 430px frame. */
+    --shuffle-gutter-width: 0px;
+    /* Rows stack instead of sitting side by side. */
+    --pb-row-display: flex;
+
+    /* Tighter vertical rhythm + a downscaled type ramp for ~430px. */
+    --pb-pad-sm: 28px;
+    --pb-pad-md: 48px;
+    --pb-pad-lg: 72px;
+    --pb-fs-h1: 40px;
+    --pb-fs-h2: 32px;
+    --pb-fs-heading-xl: 40px;
+    --pb-fs-heading-l: 32px;
+    --pb-fs-heading-m: 28px;
+    --pb-fs-text-xl: 22px;
+    --pb-fs-text-l: 20px;
+  }
+
+  /* The one structural (not value) change: every block fills the content
+     column instead of its desktop start-N/end-N span. Beats shuffle's
+     `.start-N` (no !important) on specificity + importance. For row cells —
+     now flex items — grid-column is inert; `.shuffle-block { width:100% }`
+     fills them. Sections themselves keep 1/15 (they aren't descendants of a
+     section), so their backgrounds stay full-bleed. */
+  .pp-section .shuffle-block {
+    grid-column: 2 / 14 !important;
+  }
 }

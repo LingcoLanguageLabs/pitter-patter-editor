@@ -8,6 +8,11 @@
  * we let PM render the button from its `toDOM` spec, those decoration
  * props don't make it to the DOM and the button escapes the column
  * grid. Custom NodeViews MUST spread `{...props}` for shuffle to work.
+ *
+ * This is the EDITOR render: clicks are swallowed (`preventDefault`) so
+ * they select the block instead of navigating. The visitor-facing render
+ * (links/buttons actually navigate) is the runtime walker's `SiteButton`
+ * in `runtime/renderNode.tsx`, used by preview + published site.
  */
 
 import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";

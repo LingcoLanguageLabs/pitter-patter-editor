@@ -11,6 +11,7 @@
  * saving.
  */
 
+import { PaletteCluster } from "../PaletteCluster";
 import { navigateTo, usePageBuilderStore } from "../store";
 import { PALETTES, type ColorPalette } from "../theme/palettes";
 import type { Theme } from "../theme/css";
@@ -92,26 +93,15 @@ export function ColorsPanel() {
                 className="pb-palette"
                 style={{ background: palette.background }}
               >
-                <span
-                  className="pb-palette-swatch"
-                  style={{ background: palette.neutral }}
+                <PaletteCluster
+                  colors={[
+                    palette.neutral,
+                    palette.primary,
+                    palette.secondary,
+                    palette.tertiary,
+                  ]}
+                  ring={palette.background}
                 />
-                <span
-                  className="pb-palette-swatch"
-                  style={{ background: palette.primary }}
-                />
-                {palette.secondary && (
-                  <span
-                    className="pb-palette-swatch"
-                    style={{ background: palette.secondary }}
-                  />
-                )}
-                {palette.tertiary && (
-                  <span
-                    className="pb-palette-swatch"
-                    style={{ background: palette.tertiary }}
-                  />
-                )}
               </div>
             </button>
           );

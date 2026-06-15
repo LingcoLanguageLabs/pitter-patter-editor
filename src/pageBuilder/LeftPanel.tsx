@@ -21,10 +21,13 @@ import { AnimatePresence, motion } from "motion/react";
 import type { ComponentType, ReactElement } from "react";
 
 import { PanelAnimator } from "./PanelAnimator";
+import { ButtonsPanel } from "./panels/ButtonsPanel";
 import { ColorsPanel } from "./panels/ColorsPanel";
 import { DesignPanel } from "./panels/DesignPanel";
 import { FontsPanel } from "./panels/FontsPanel";
+import { InputsPanel } from "./panels/InputsPanel";
 import { PagesPanel } from "./panels/PagesPanel";
+import { TransitionsPanel } from "./panels/TransitionsPanel";
 import {
   navigateTo,
   usePageBuilderStore,
@@ -52,17 +55,18 @@ const SHEETS: Record<Sheet, SheetDef> = {
   colors: { width: "-medium", Component: ColorsPanel },
   fonts: { width: "-medium", Component: FontsPanel },
   pages: { width: "-medium", Component: PagesPanel },
+  transitions: { width: "-medium", Component: TransitionsPanel },
   forms: { width: "-medium", Component: () => <Placeholder title="Forms" /> },
   settings: {
     width: "-medium",
     Component: () => <Placeholder title="Settings" />,
   },
   code: { width: "-large", Component: () => <Placeholder title="Code" /> },
+  buttons: { width: "-medium", Component: ButtonsPanel },
+  inputs: { width: "-medium", Component: InputsPanel },
   // Currently-unbuilt routes — present so the typed `Sheet` union
   // stays exhaustive and PanelAnimator can pick correct slide
   // directions when navigating into/out of them.
-  buttons: { width: "-medium", Component: () => <Placeholder title="Buttons" /> },
-  inputs: { width: "-medium", Component: () => <Placeholder title="Inputs" /> },
   cards: { width: "-medium", Component: () => <Placeholder title="Cards" /> },
   form: { width: "-medium", Component: () => <Placeholder title="Form" /> },
 };

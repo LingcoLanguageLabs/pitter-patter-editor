@@ -24,6 +24,7 @@ import {
   TextAlignLeft,
   TextAlignRight,
   Trash,
+  X,
 } from "@phosphor-icons/react";
 import type { Node as PmNode } from "prosemirror-model";
 import { type ComponentType, useRef } from "react";
@@ -210,17 +211,55 @@ const HeadingForm: BlockForm = ({ active, setAttr }) => {
 type ButtonVariant = "primary" | "secondary" | "ghost";
 type ButtonColor = "neutral" | "primary" | "secondary" | "tertiary";
 
-/** Color swatches sourced from the active theme. Mirrors pagy's
- *  contrast-aware color picker (we ship the picker; full contrast
- *  warnings can come later if needed). */
+// ── Contrast helpers — drive pagy's "ineligible color" X. Filled works with
+// any hue (it's the fill), but Outline/Ghost paint the hue as *text*, so one
+// too close to the page background reads as near-invisible.
+function srgbChannel(c: number): number {
+  const s = c / 255;
+  return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+}
+function relLuminance(hex: string): number {
+  let h = hex.trim().replace("#", "");
+  if (h.length === 3) h = h.replace(/(.)/g, "$1$1");
+  if (h.length !== 6) return 0;
+  const n = Number.parseInt(h, 16);
+  if (Number.isNaN(n)) return 0;
+  return (
+    0.2126 * srgbChannel((n >> 16) & 255) +
+    0.7152 * srgbChannel((n >> 8) & 255) +
+    0.0722 * srgbChannel(n & 255)
+  );
+}
+function contrastRatio(a: string, b: string): number {
+  const la = relLuminance(a);
+  const lb = relLuminance(b);
+  return la >= lb ? (la + 0.05) / (lb + 0.05) : (lb + 0.05) / (la + 0.05);
+}
+/** Whether `color` can be used for `variant` against the page `bg`. Filled:
+ *  always. Outline/ghost: only if the hue stands out enough to read as text
+ *  (so cream/white on a white page are excluded, like pagy). */
+function isColorEligible(
+  color: string | undefined,
+  bg: string,
+  variant: ButtonVariant,
+): boolean {
+  if (variant === "primary" || !color) return true;
+  return contrastRatio(color, bg) >= 1.7;
+}
+
+/** Color swatches sourced from the active theme. Contrast-aware like pagy:
+ *  hues that can't carry an outline/ghost button get a disabled X. */
 function ButtonColorPicker({
   value,
+  variant,
   onChange,
 }: {
   value: ButtonColor;
+  variant: ButtonVariant;
   onChange: (next: ButtonColor) => void;
 }) {
   const theme = usePageBuilderStore((s) => s.theme);
+  const bg = theme.colors.background;
   const slots: { key: ButtonColor; color: string | undefined }[] = [
     { key: "neutral", color: theme.colors.neutral },
     { key: "primary", color: theme.colors.primary },
@@ -229,16 +268,77 @@ function ButtonColorPicker({
   ];
   return (
     <div className="pb-color-swatches" role="group" aria-label="Color">
-      {slots.map((slot) => (
+      {slots.map((slot) => {
+        const eligible = isColorEligible(slot.color, bg, variant);
+        return (
+          <button
+            key={slot.key}
+            type="button"
+            className="pb-color-swatch"
+            data-active={slot.key === value || undefined}
+            data-ineligible={!eligible || undefined}
+            disabled={!eligible}
+            style={{ background: slot.color ?? "#ccc" }}
+            onClick={() => eligible && onChange(slot.key)}
+            aria-label={
+              eligible ? slot.key : `${slot.key} — too low contrast for this style`
+            }
+            title={eligible ? undefined : "Too low contrast for an outline/ghost button"}
+          >
+            {!eligible && <X size={13} weight="bold" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Live style preview shown inside the Type control — pagy renders the
+ *  three button styles rather than text labels. The `pp-button--*` variant
+ *  classes carry fixed neutral colors (dark fill / outline / ghost), so the
+ *  preview reads consistently regardless of the chosen theme color and needs
+ *  no theme vars (handy: this popover is portaled outside the themed canvas). */
+function ButtonTypePreview({ variant }: { variant: ButtonVariant }) {
+  return (
+    <span
+      className={`pp-button pp-button--${variant} pb-button-type-preview`}
+      aria-hidden
+    >
+      Button
+    </span>
+  );
+}
+
+/** Pagy's Type control: three separate cards (not a segmented track), each
+ *  showing the style live. The chosen card gets a dark ring; the rest sit on
+ *  a faint fill. */
+function ButtonTypePicker({
+  value,
+  onChange,
+}: {
+  value: ButtonVariant;
+  onChange: (next: ButtonVariant) => void;
+}) {
+  const options: readonly { value: ButtonVariant; title: string }[] = [
+    { value: "primary", title: "Filled" },
+    { value: "secondary", title: "Outline" },
+    { value: "ghost", title: "Ghost" },
+  ];
+  return (
+    <div className="pb-type-picker" role="group" aria-label="Type">
+      {options.map((opt) => (
         <button
-          key={slot.key}
+          key={opt.value}
           type="button"
-          className="pb-color-swatch"
-          data-active={slot.key === value || undefined}
-          style={{ background: slot.color ?? "#ccc" }}
-          onClick={() => onChange(slot.key)}
-          aria-label={slot.key}
-        />
+          className="pb-type-picker-option"
+          data-active={opt.value === value || undefined}
+          title={opt.title}
+          aria-label={opt.title}
+          aria-pressed={opt.value === value}
+          onClick={() => onChange(opt.value)}
+        >
+          <ButtonTypePreview variant={opt.value} />
+        </button>
       ))}
     </div>
   );
@@ -252,8 +352,12 @@ const ButtonForm: BlockForm = ({ active, setAttr }) => {
   const size = (active.node.attrs["size"] as Size) ?? "s";
   const width = (active.node.attrs["width"] as "fit" | "fill") ?? "fit";
   const align = (active.node.attrs["align"] as Align) ?? "left";
+  const linkType = (active.node.attrs["linkType"] as "page" | "url") ?? "url";
+  const pageId = (active.node.attrs["pageId"] as string) ?? "";
   const href = (active.node.attrs["href"] as string) ?? "#";
   const openInNewTab = !!active.node.attrs["openInNewTab"];
+  const pages = usePageBuilderStore((s) => s.pages);
+  const theme = usePageBuilderStore((s) => s.theme);
   return (
     <>
       <Field label="Label">
@@ -265,20 +369,23 @@ const ButtonForm: BlockForm = ({ active, setAttr }) => {
         />
       </Field>
       <Field label="Type">
-        <Segmented
-          ariaLabel="Type"
+        <ButtonTypePicker
           value={variant}
-          options={[
-            { value: "primary", label: "Filled" },
-            { value: "secondary", label: "Outline" },
-            { value: "ghost", label: "Ghost" },
-          ]}
-          onChange={(v) => setAttr("variant", v)}
+          onChange={(v) => {
+            setAttr("variant", v);
+            // If switching to a style the current color can't carry (an
+            // outline/ghost in a near-background hue), fall back to neutral
+            // so the button never renders invisible.
+            if (!isColorEligible(theme.colors[color], theme.colors.background, v)) {
+              setAttr("color", "neutral");
+            }
+          }}
         />
       </Field>
       <Field label="Color">
         <ButtonColorPicker
           value={color}
+          variant={variant}
           onChange={(v) => setAttr("color", v)}
         />
       </Field>
@@ -315,13 +422,44 @@ const ButtonForm: BlockForm = ({ active, setAttr }) => {
         </Field>
       )}
       <Field label="Link">
+        <Segmented
+          ariaLabel="Link type"
+          value={linkType}
+          options={[
+            { value: "page", label: "Page" },
+            { value: "url", label: "URL" },
+          ]}
+          onChange={(v) => {
+            setAttr("linkType", v);
+            // Default the page link to the first slide so the dropdown
+            // isn't blank on first switch (pagy shows "Home").
+            if (v === "page" && !pageId && pages[0]) setAttr("pageId", pages[0].id);
+          }}
+        />
+      </Field>
+      {linkType === "page" ? (
+        <select
+          className="pb-select"
+          aria-label="Linked page"
+          value={pageId}
+          onChange={(e) => setAttr("pageId", e.target.value)}
+        >
+          {pages.length === 0 && <option value="">No pages</option>}
+          {pages.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.title}
+            </option>
+          ))}
+        </select>
+      ) : (
         <input
           type="text"
           className="pb-text-input"
+          aria-label="Link URL"
           value={href}
           onChange={(e) => setAttr("href", e.target.value)}
         />
-      </Field>
+      )}
       <Field label="Open in new tab">
         <Segmented
           ariaLabel="Open in new tab"
@@ -704,40 +842,53 @@ const ContainerForm: BlockForm = () => null;
 // Card form
 // ────────────────────────────────────────────────────────────────
 
-type CardColor = "" | "neutral" | "primary" | "secondary" | "tertiary";
+type CardTheme = "" | "inverted" | "primary" | "secondary" | "tertiary";
 
-/** Card background swatches: a "default" (page background) plus the
- *  theme slots. Like `ButtonColorPicker` but with the default option,
- *  matching pagy's card Colors. */
-function CardColorPicker({
+/**
+ * Theme-variant swatches ("A" specimens) — the shared "Colors" picker for BOTH
+ * the Section settings popover and the Card form, so they speak the same
+ * vocabulary (Default / Inverted / Primary / Secondary / Tertiary) and the same
+ * self-rescoping `theme -X` mechanism (themeToCss's `.theme.-X` scopes). Picking
+ * a variant rescopes the element's whole palette *on itself*, so a card's look
+ * depends only on its own choice — never on the section it sits in. That's what
+ * keeps a section recolor from bleeding into its cards, and what makes each
+ * swatch a faithful preview of the result. Each swatch carries `site theme -X`,
+ * so it renders live against the current theme; secondary/tertiary show only
+ * when the theme defines them, exactly like pagy.
+ */
+export function ThemeVariantPicker({
   value,
   onChange,
 }: {
-  value: CardColor;
-  onChange: (next: CardColor) => void;
+  value: string;
+  onChange: (next: string) => void;
 }) {
   const theme = usePageBuilderStore((s) => s.theme);
-  const slots: { key: CardColor; color: string | undefined; label: string }[] =
-    [
-      { key: "", color: theme.colors.background, label: "Default" },
-      { key: "neutral", color: theme.colors.neutral, label: "Neutral" },
-      { key: "primary", color: theme.colors.primary, label: "Primary" },
-      { key: "secondary", color: theme.colors.secondary, label: "Secondary" },
-      { key: "tertiary", color: theme.colors.tertiary, label: "Tertiary" },
-    ];
+  const variants: { key: string; className: string; label: string }[] = [
+    { key: "", className: "-default", label: "Default" },
+    { key: "inverted", className: "-inverted", label: "Inverted" },
+    { key: "primary", className: "-primary", label: "Primary" },
+    ...(theme.colors.secondary
+      ? [{ key: "secondary", className: "-secondary", label: "Secondary" }]
+      : []),
+    ...(theme.colors.tertiary
+      ? [{ key: "tertiary", className: "-tertiary", label: "Tertiary" }]
+      : []),
+  ];
   return (
-    <div className="pb-color-swatches" role="group" aria-label="Colors">
-      {slots.map((slot) => (
+    <div className="pb-theme-swatches" role="group" aria-label="Colors">
+      {variants.map((v) => (
         <button
-          key={slot.key || "default"}
+          key={v.key || "default"}
           type="button"
-          className="pb-color-swatch"
-          data-active={slot.key === value || undefined}
-          style={{ background: slot.color ?? "#ccc" }}
-          onClick={() => onChange(slot.key)}
-          aria-label={slot.label}
-          title={slot.label}
-        />
+          className={`pb-theme-swatch site theme ${v.className}`}
+          data-active={v.key === value || undefined}
+          onClick={() => onChange(v.key)}
+          aria-label={v.label}
+          title={v.label}
+        >
+          A
+        </button>
       ))}
     </div>
   );
@@ -750,7 +901,7 @@ const CardForm: BlockForm = ({ active, setAttr }) => {
   const attrs = active.node.attrs;
   const padding = (attrs["padding"] as Size) ?? "m";
   const radius = (attrs["radius"] as string) ?? "large";
-  const color = (attrs["color"] as CardColor) ?? "";
+  const cardTheme = (attrs["theme"] as CardTheme) ?? "";
   const image = (attrs["image"] as string) ?? "";
   const overlay = (attrs["overlay"] as string) ?? "";
   return (
@@ -794,9 +945,9 @@ const CardForm: BlockForm = ({ active, setAttr }) => {
         </Field>
       )}
       <Field label="Colors">
-        <CardColorPicker
-          value={color}
-          onChange={(v) => setAttr("color", v)}
+        <ThemeVariantPicker
+          value={cardTheme}
+          onChange={(v) => setAttr("theme", v)}
         />
       </Field>
     </>
