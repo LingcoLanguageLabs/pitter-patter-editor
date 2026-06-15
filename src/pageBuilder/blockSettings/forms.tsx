@@ -31,6 +31,7 @@ import { type ComponentType, useRef } from "react";
 
 import { usePageBuilderStore } from "../store";
 import { defaultHeadingSize, type Align, type AlignContent, type Size } from "../schema";
+import { TooltipButton, TooltipProvider } from "../../editor/menu";
 
 export interface ActiveBlock {
   /** Doc position of the node. */
@@ -67,21 +68,36 @@ export function Segmented<T extends string>({
   ariaLabel: string;
 }) {
   return (
-    <div className="pb-segmented" role="group" aria-label={ariaLabel}>
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          className="pb-segmented-option"
-          data-active={opt.value === value || undefined}
-          title={opt.title}
-          aria-label={opt.title}
-          onClick={() => onChange(opt.value)}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
+    <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+      <div className="pb-segmented" role="group" aria-label={ariaLabel}>
+        {options.map((opt) =>
+          // Options with a `title` are icon-only (align, align-content) — give
+          // them a Radix tooltip. Text-label options (XS/S/M…) are already
+          // self-describing, so they stay as plain buttons.
+          opt.title ? (
+            <TooltipButton
+              key={opt.value}
+              label={opt.title}
+              className="pb-segmented-option"
+              data-active={opt.value === value || undefined}
+              onClick={() => onChange(opt.value)}
+            >
+              {opt.label}
+            </TooltipButton>
+          ) : (
+            <button
+              key={opt.value}
+              type="button"
+              className="pb-segmented-option"
+              data-active={opt.value === value || undefined}
+              onClick={() => onChange(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ),
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -100,10 +116,14 @@ export function Field({
   );
 }
 
-const ALIGN_OPTIONS: readonly { value: Align; label: React.ReactNode }[] = [
-  { value: "left", label: <TextAlignLeft size={16} /> },
-  { value: "center", label: <TextAlignCenter size={16} /> },
-  { value: "right", label: <TextAlignRight size={16} /> },
+const ALIGN_OPTIONS: readonly {
+  value: Align;
+  label: React.ReactNode;
+  title: string;
+}[] = [
+  { value: "left", label: <TextAlignLeft size={16} />, title: "Left" },
+  { value: "center", label: <TextAlignCenter size={16} />, title: "Center" },
+  { value: "right", label: <TextAlignRight size={16} />, title: "Right" },
 ];
 
 const SIZE_OPTIONS: readonly { value: Size; label: string }[] = [
@@ -294,10 +314,10 @@ function ButtonColorPicker({
 }
 
 /** Live style preview shown inside the Type control — pagy renders the
- *  three button styles rather than text labels. The `pp-button--*` variant
- *  classes carry fixed neutral colors (dark fill / outline / ghost), so the
- *  preview reads consistently regardless of the chosen theme color and needs
- *  no theme vars (handy: this popover is portaled outside the themed canvas). */
+ *  three button styles rather than text labels. The popover is portaled outside
+ *  the themed canvas, so it has no `--color-*` palette; `.pb-button-type-preview`
+ *  (page-builder.css) re-points the button vars at the editor-chrome `--pb-*`
+ *  tokens so every style stays legible in both light and dark chrome. */
 function ButtonTypePreview({ variant }: { variant: ButtonVariant }) {
   return (
     <span
@@ -325,22 +345,22 @@ function ButtonTypePicker({
     { value: "ghost", title: "Ghost" },
   ];
   return (
-    <div className="pb-type-picker" role="group" aria-label="Type">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          className="pb-type-picker-option"
-          data-active={opt.value === value || undefined}
-          title={opt.title}
-          aria-label={opt.title}
-          aria-pressed={opt.value === value}
-          onClick={() => onChange(opt.value)}
-        >
-          <ButtonTypePreview variant={opt.value} />
-        </button>
-      ))}
-    </div>
+    <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+      <div className="pb-type-picker" role="group" aria-label="Type">
+        {options.map((opt) => (
+          <TooltipButton
+            key={opt.value}
+            label={opt.title}
+            className="pb-type-picker-option"
+            data-active={opt.value === value || undefined}
+            aria-pressed={opt.value === value}
+            onClick={() => onChange(opt.value)}
+          >
+            <ButtonTypePreview variant={opt.value} />
+          </TooltipButton>
+        ))}
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -876,21 +896,21 @@ export function ThemeVariantPicker({
       : []),
   ];
   return (
-    <div className="pb-theme-swatches" role="group" aria-label="Colors">
-      {variants.map((v) => (
-        <button
-          key={v.key || "default"}
-          type="button"
-          className={`pb-theme-swatch site theme ${v.className}`}
-          data-active={v.key === value || undefined}
-          onClick={() => onChange(v.key)}
-          aria-label={v.label}
-          title={v.label}
-        >
-          A
-        </button>
-      ))}
-    </div>
+    <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+      <div className="pb-theme-swatches" role="group" aria-label="Colors">
+        {variants.map((v) => (
+          <TooltipButton
+            key={v.key || "default"}
+            label={v.label}
+            className={`pb-theme-swatch site theme ${v.className}`}
+            data-active={v.key === value || undefined}
+            onClick={() => onChange(v.key)}
+          >
+            A
+          </TooltipButton>
+        ))}
+      </div>
+    </TooltipProvider>
   );
 }
 

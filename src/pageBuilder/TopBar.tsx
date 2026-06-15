@@ -20,6 +20,8 @@ import {
   DeviceMobile,
 } from "@phosphor-icons/react";
 
+import { Tooltip, TooltipProvider } from "../editor/menu";
+
 import { usePageBuilderStore } from "./store";
 
 export function TopBar() {
@@ -36,7 +38,8 @@ export function TopBar() {
   const dark = chromeTheme === "dark";
 
   return (
-    <header className="pb-topbar">
+    <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+      <header className="pb-topbar">
       {/* Left group: panel toggle + undo/redo are editing-only, so they're
           hidden while previewing ("experiencing the site"). The empty group
           element stays mounted so the 1fr grid cell — and thus the centering
@@ -108,7 +111,8 @@ export function TopBar() {
           Published
         </button>
       </div>
-    </header>
+      </header>
+    </TooltipProvider>
   );
 }
 
@@ -117,23 +121,27 @@ function IconButton({
   active,
   onClick,
   className,
+  title,
   ...rest
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   active?: boolean;
 }) {
-  return (
+  const button = (
     <button
       type="button"
       className={`pb-icon-button${className ? ` ${className}` : ""}`}
       data-active={active || undefined}
-      // Default the hover tooltip to the accessible label so every header
-      // button gets one (matching the Pages panel's `title`s); an explicit
-      // `title` in `rest` still wins via the spread below.
-      title={rest.title ?? (rest["aria-label"] as string | undefined)}
       onClick={onClick}
       {...rest}
     >
       {children}
     </button>
   );
+
+  // Default the hover tooltip to the accessible label so every header
+  // button gets a Radix tooltip (replacing the native `title` bubble);
+  // an explicit `title` still wins as the label. `title` is kept out of
+  // the spread so the browser's native tooltip never doubles up.
+  const label = (title ?? rest["aria-label"]) as string | undefined;
+  return label ? <Tooltip label={label}>{button}</Tooltip> : button;
 }

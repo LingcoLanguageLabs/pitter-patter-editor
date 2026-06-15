@@ -15,6 +15,7 @@
 
 import { useEffect } from "react";
 
+import { AddSectionModal } from "./AddSectionModal";
 import { Canvas } from "./Canvas";
 import { PageBuilderEditor, type PageBuilderEditorProps } from "./Editor";
 import { LeftPanel } from "./LeftPanel";
@@ -62,6 +63,10 @@ export function Shell(props: ShellProps) {
             previewing so it re-snapshots the doc each time it opens. */}
         {preview && <PagePreview />}
       </div>
+      {/* "Add a section" template picker. Self-gates on `sectionModalOpen`
+          and portals to `document.body`; the per-section "+ Add section"
+          chrome opens it with the target insert position. */}
+      <AddSectionModal />
       {/* Hidden off-screen renderer that keeps every slide's thumbnail fresh.
           Sits outside the canvas (and the main ProseMirror) since it mounts
           its own editor instances. */}

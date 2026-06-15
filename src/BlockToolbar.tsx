@@ -53,6 +53,7 @@ import {
   type BlockAlign,
   type BlockSize,
 } from "./FormBuilderEditor";
+import { TooltipButton, TooltipProvider } from "./editor/menu";
 
 const WRAPPER_NODES = new Set(["container", "row"]);
 
@@ -323,28 +324,27 @@ export function BlockToolbar() {
       style={floatingStyles}
       onMouseDown={(e) => e.preventDefault()}
     >
+      <TooltipProvider delayDuration={200} skipDelayDuration={300}>
       <div className="pp-block-toolbar">
         <div className="pp-block-toolbar-header">
           <TypeSwitcher block={liveSelected} onSetType={onSetType} />
           <div className="pp-block-toolbar-actions">
-            <button
-              type="button"
-              className="pp-block-toolbar-icon"
-              title="Duplicate"
+            <TooltipButton
+              label="Duplicate"
               aria-label="Duplicate block"
+              className="pp-block-toolbar-icon"
               onClick={() => onDuplicate()}
             >
               <Copy size={16} weight="regular" />
-            </button>
-            <button
-              type="button"
-              className="pp-block-toolbar-icon"
-              title="Delete"
+            </TooltipButton>
+            <TooltipButton
+              label="Delete"
               aria-label="Delete block"
+              className="pp-block-toolbar-icon"
               onClick={() => onDelete()}
             >
               <Trash size={16} weight="regular" />
-            </button>
+            </TooltipButton>
           </div>
         </div>
 
@@ -420,6 +420,7 @@ export function BlockToolbar() {
           </div>
         )}
       </div>
+      </TooltipProvider>
     </div>,
     document.body,
   );
@@ -457,20 +458,35 @@ function Segmented({
 }) {
   return (
     <div className="pp-block-toolbar-segmented" role="radiogroup">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          role="radio"
-          aria-checked={opt.value === value}
-          data-active={opt.value === value || undefined}
-          className="pp-block-toolbar-segment"
-          onClick={() => onChange(opt.value)}
-          title={opt.label}
-        >
-          {opt.icon ?? <span>{opt.label}</span>}
-        </button>
-      ))}
+      {options.map((opt) =>
+        // Icon options (align) are unclear without a label — give them a
+        // tooltip. Text options (S/M/L…) already read as their label.
+        opt.icon ? (
+          <TooltipButton
+            key={opt.value}
+            label={opt.label}
+            role="radio"
+            aria-checked={opt.value === value}
+            data-active={opt.value === value || undefined}
+            className="pp-block-toolbar-segment"
+            onClick={() => onChange(opt.value)}
+          >
+            {opt.icon}
+          </TooltipButton>
+        ) : (
+          <button
+            key={opt.value}
+            type="button"
+            role="radio"
+            aria-checked={opt.value === value}
+            data-active={opt.value === value || undefined}
+            className="pp-block-toolbar-segment"
+            onClick={() => onChange(opt.value)}
+          >
+            <span>{opt.label}</span>
+          </button>
+        ),
+      )}
     </div>
   );
 }

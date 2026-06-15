@@ -36,6 +36,7 @@ import { BlockPicker } from "./blocks/BlockPicker";
 import type { BlockCatalogEntry } from "./blocks/catalog";
 import { createBlockNode } from "./blocks/createBlock";
 import { SectionSettings } from "./SectionSettings";
+import { SectionSpacingBands } from "./SectionSpacingBands";
 import { findEnclosingSection } from "./sectionUtils";
 import { usePageBuilderStore } from "./store";
 
@@ -143,21 +144,17 @@ export const SectionChromeWidget = forwardRef<
     view.dispatch(view.state.tr.delete(info.pos, info.pos + info.nodeSize));
   });
 
-  /** Insert a new section either before or after this one. */
+  /** Open the "Add a section" modal targeting the gap before/after this
+   *  section. The modal (mounted in `Shell`) inserts the picked template —
+   *  or a blank section — at this position. Mirrors pagy, where every
+   *  "+ Add section" affordance opens the template picker rather than
+   *  dropping a bare section. */
   const addSection = useEditorEventCallback(
     (view, where: "before" | "after") => {
       const info = findEnclosingSection(view.state, getPos());
       if (!info) return;
-      const sectionType = view.state.schema.nodes["section"];
-      const paragraph = view.state.schema.nodes["paragraph"];
-      if (!sectionType || !paragraph) return;
       const insertAt = where === "before" ? info.pos : info.pos + info.nodeSize;
-      const newSection = sectionType.create(
-        null,
-        paragraph.create(null, view.state.schema.text("New section")),
-      );
-      view.dispatch(view.state.tr.insert(insertAt, newSection));
-      view.focus();
+      usePageBuilderStore.getState().openSectionModal(insertAt);
     },
   );
 
@@ -169,6 +166,10 @@ export const SectionChromeWidget = forwardRef<
       contentEditable={false}
       data-dragging={isDragging || undefined}
     >
+      {/* Vertical-padding drag bands (top + bottom) over the section's padding
+          region. First in the chrome so they sit beneath the toolbar/pills. */}
+      <SectionSpacingBands getPos={getPos} />
+
       {/* Sticky top bar: "+ Add block" (left) and the section toolbar (right)
           ride the top of the section and stick to the scroll viewport while you
           scroll through a tall one — CSS `position: sticky`, bounded by the

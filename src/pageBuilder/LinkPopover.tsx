@@ -36,6 +36,8 @@ import { TextSelection } from "prosemirror-state";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 
+import { TooltipButton, TooltipProvider } from "../editor/menu";
+
 import { Field, Segmented } from "./blockSettings/forms";
 import type { LinkVariant } from "./schema";
 
@@ -152,15 +154,15 @@ export function LinkPopover({
         >
           <header className="pb-link-popover-header">
             <span className="pb-link-popover-title">Link</span>
-            <button
-              type="button"
-              className="pb-section-tool -destructive"
-              aria-label="Remove link"
-              title="Remove link"
-              onClick={() => close(true)}
-            >
-              <Trash size={15} weight="regular" />
-            </button>
+            <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+              <TooltipButton
+                label="Remove link"
+                className="pb-section-tool -destructive"
+                onClick={() => close(true)}
+              >
+                <Trash size={15} weight="regular" />
+              </TooltipButton>
+            </TooltipProvider>
           </header>
 
           <Field label="URL">

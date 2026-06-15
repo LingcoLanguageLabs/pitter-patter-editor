@@ -90,6 +90,8 @@ import {
   type PagesViewMode,
 } from "../store";
 
+import { TooltipButton, TooltipProvider } from "../../editor/menu";
+
 /** Thumbnail width, in px. MUST match `.pb-page-thumb { width }` in
  *  page-builder.css — it's the target the thumb animates to when the rail
  *  switches into thumbnails mode (and the gap from the slide number). */
@@ -194,50 +196,45 @@ export function PagesPanel() {
   const dragged = pages.find((p) => p.id === dragId) ?? null;
 
   return (
-    <>
-      <button
-        type="button"
+    <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+      <TooltipButton
+        label="Back"
         className="pb-panel-back"
         onClick={() => navigateTo("menu")}
-        aria-label="Back"
       >
         ←
-      </button>
+      </TooltipButton>
       <div className="pb-panel-titlebar">
         <h1 className="pb-panel-title">Pages</h1>
         <div className="pb-pages-tools">
           <div className="pb-seg" role="group" aria-label="Filmstrip view">
-            <button
-              type="button"
+            <TooltipButton
+              label="Thumbnails"
               aria-label="Thumbnail view"
-              title="Thumbnails"
               aria-pressed={viewMode === "thumbnails"}
               data-active={viewMode === "thumbnails" || undefined}
               onClick={() => setViewMode("thumbnails")}
             >
               <Cards size={16} weight="regular" />
-            </button>
-            <button
-              type="button"
+            </TooltipButton>
+            <TooltipButton
+              label="List"
               aria-label="List view"
-              title="List"
               aria-pressed={viewMode === "list"}
               data-active={viewMode === "list" || undefined}
               onClick={() => setViewMode("list")}
             >
               <ListBullets size={16} weight="regular" />
-            </button>
+            </TooltipButton>
           </div>
-          <button
-            type="button"
+          <TooltipButton
+            label="Add page"
             className="pb-icon-button"
-            aria-label="Add page"
-            title="Add page"
             disabled={!view}
             onClick={() => view && selectResult([addPage(view)])}
           >
             <Plus size={16} weight="bold" />
-          </button>
+          </TooltipButton>
         </div>
       </div>
 
@@ -323,7 +320,7 @@ export function PagesPanel() {
           onClose={() => setMenu(null)}
         />
       )}
-    </>
+    </TooltipProvider>
   );
 }
 
@@ -671,11 +668,10 @@ function SortablePageCard({
         </span>
       )}
       <div className="pb-page-actions">
-        <button
-          type="button"
-          className="pb-page-action"
+        <TooltipButton
+          label="Duplicate"
           aria-label="Duplicate slide"
-          title="Duplicate"
+          className="pb-page-action"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
@@ -683,12 +679,11 @@ function SortablePageCard({
           }}
         >
           <Copy size={13} weight="regular" />
-        </button>
-        <button
-          type="button"
-          className="pb-page-action -danger"
+        </TooltipButton>
+        <TooltipButton
+          label="Delete"
           aria-label="Delete slide"
-          title="Delete"
+          className="pb-page-action -danger"
           disabled={!canDelete}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -699,7 +694,7 @@ function SortablePageCard({
           }}
         >
           <Trash size={13} weight="regular" />
-        </button>
+        </TooltipButton>
       </div>
     </div>
   );

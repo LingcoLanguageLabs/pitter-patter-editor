@@ -22,6 +22,8 @@ import {
   Toolbar as ToolbarPrimitive,
   ToolbarGroup,
   ToolbarSeparator,
+  Tooltip,
+  TooltipButton,
   TooltipProvider,
 } from "./editor/menu";
 import { aiOpenDock, aiPluginKey } from "./editor/extensions/Ai";
@@ -112,49 +114,52 @@ function LinkPanel({ onClose }: { onClose: () => void }) {
         }
       }}
     >
-      <input
-        ref={inputRef}
-        type="url"
-        className="pp-link-panel-input"
-        placeholder="Paste a link..."
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        autoFocus
-      />
-      <button
-        type="submit"
-        className="pp-link-panel-btn"
-        title="Apply"
-        disabled={!trimmed}
-      >
-        <ArrowBendDownLeft size={14} weight="bold" />
-      </button>
-      <span className="pp-link-panel-divider" aria-hidden />
-      <a
-        className="pp-link-panel-btn"
-        href={canOpen ? trimmed : undefined}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-disabled={!canOpen}
-        title="Open in new window"
-        onClick={(e) => {
-          if (!canOpen) e.preventDefault();
-        }}
-      >
-        <ArrowSquareOut size={14} weight="bold" />
-      </a>
-      <button
-        type="button"
-        className="pp-link-panel-btn pp-link-panel-remove"
-        onClick={() => {
-          remove();
-          onClose();
-        }}
-        title="Remove link"
-        disabled={!active}
-      >
-        <Trash size={14} weight="bold" />
-      </button>
+      <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+        <input
+          ref={inputRef}
+          type="url"
+          className="pp-link-panel-input"
+          placeholder="Paste a link..."
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          autoFocus
+        />
+        <TooltipButton
+          type="submit"
+          label="Apply"
+          className="pp-link-panel-btn"
+          disabled={!trimmed}
+        >
+          <ArrowBendDownLeft size={14} weight="bold" />
+        </TooltipButton>
+        <span className="pp-link-panel-divider" aria-hidden />
+        <Tooltip label="Open in new window">
+          <a
+            className="pp-link-panel-btn"
+            href={canOpen ? trimmed : undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-disabled={!canOpen}
+            aria-label="Open in new window"
+            onClick={(e) => {
+              if (!canOpen) e.preventDefault();
+            }}
+          >
+            <ArrowSquareOut size={14} weight="bold" />
+          </a>
+        </Tooltip>
+        <TooltipButton
+          label="Remove link"
+          className="pp-link-panel-btn pp-link-panel-remove"
+          onClick={() => {
+            remove();
+            onClose();
+          }}
+          disabled={!active}
+        >
+          <Trash size={14} weight="bold" />
+        </TooltipButton>
+      </TooltipProvider>
     </form>
   );
 }

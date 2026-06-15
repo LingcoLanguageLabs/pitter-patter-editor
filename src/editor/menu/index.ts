@@ -3,6 +3,7 @@ export { CommandItem } from "./CommandItem";
 export { ToggleMarkItem } from "./ToggleMarkItem";
 export { Dropdown, DropdownItem } from "./Dropdown";
 export { Tooltip, TooltipProvider } from "./Tooltip";
+export { TooltipButton } from "./TooltipButton";
 export { FloatingMenu } from "./FloatingMenu";
 export { Toolbar, ToolbarGroup, ToolbarSeparator } from "./Toolbar";
 export { SuggestionPopover, createSuggestionPlugin } from "./Suggestion";

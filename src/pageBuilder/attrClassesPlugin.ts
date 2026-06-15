@@ -21,6 +21,8 @@ import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorState } from "prosemirror-state";
 import type { Node as PmNode } from "prosemirror-model";
 
+import { blockMarginClass, blockMarginValue } from "./spacing";
+
 /** Schema attr name → utility-class prefix. The class becomes
  *  `${prefix}-${attrValue}`, e.g. attrs.align="center" → "pp-align-center". */
 const ATTR_TO_CLASS_PREFIX: Record<string, string> = {
@@ -47,19 +49,25 @@ export function attrClasses(attrs: Record<string, unknown>): string[] {
   for (const attr of Object.keys(ATTR_TO_CLASS_PREFIX)) {
     const value = attrs[attr];
     if (value == null || value === "") continue;
+    // Numeric spacing (the section's px `padding`) serializes as its own
+    // Tailwind-style class (`py-{unit}`), not `pp-padding-{px}` — skip it
+    // here so a number never leaks into the token-based pp-* vocabulary.
+    if (typeof value === "number") continue;
     out.push(`${ATTR_TO_CLASS_PREFIX[attr]}-${value}`);
   }
   return out;
 }
 
-function classesFor(node: PmNode): string[] {
-  return attrClasses(node.attrs);
-}
-
 function buildDecorations(state: EditorState) {
   const decos: Decoration[] = [];
   state.doc.descendants((node, pos) => {
-    const classes = classesFor(node);
+    const classes = attrClasses(node.attrs);
+    // Top-margin rides along as a Tailwind-style `mt-{unit}` class (PM merges a
+    // node decoration's `class` with the node's own toDOM class list). Only an
+    // EXPLICIT value (incl 0) emits a class; Auto (null) emits none, so it falls
+    // back to the per-context default — that's how Auto stays distinct from 0.
+    const margin = blockMarginValue(node.attrs);
+    if (margin != null) classes.push(blockMarginClass(margin));
     if (classes.length === 0) return true;
     decos.push(
       Decoration.node(pos, pos + node.nodeSize, { class: classes.join(" ") }),

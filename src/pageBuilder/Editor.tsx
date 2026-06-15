@@ -58,6 +58,7 @@ import {
   getActiveBlockPos,
 } from "./blockHighlightPlugin";
 import { BlockContextMenu } from "./BlockContextMenu";
+import { BlockMarginHandle } from "./BlockMarginHandle";
 import { BlockSettings } from "./blockSettings/BlockSettings";
 import { editorStoreSyncPlugin } from "./editorStoreSync";
 import { nodeViewComponents } from "./nodeViews";
@@ -210,6 +211,7 @@ export function PageBuilderEditor({
         <DragHandles handleComponent={SelectableDragHandle} />
       </ShuffleSkeleton>
       <BlockSettings />
+      <BlockMarginHandle />
       <BlockContextMenu />
       <TextSelectionToolbar />
       {overlays}

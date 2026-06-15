@@ -154,7 +154,7 @@ export function setSelectedBlocks(
  *  live outside the editor DOM, so a plain outside-click check would
  *  otherwise treat interacting with them as a dismissal. */
 const KEEP_ALIVE_SELECTOR =
-  ".pb-block-settings, .pb-type-menu, .pb-context-menu, .pb-text-toolbar, .pb-link-popover, .shuffle-drag-handle, .shuffle-left-resize-handle, .shuffle-right-resize-handle";
+  ".pb-block-settings, .pb-type-menu, .pb-context-menu, .pb-text-toolbar, .pb-link-popover, .pb-scrub-menu, .pb-space, .shuffle-drag-handle, .shuffle-left-resize-handle, .shuffle-right-resize-handle";
 
 /**
  * True when a pointer event lands inside the current (non-collapsed)

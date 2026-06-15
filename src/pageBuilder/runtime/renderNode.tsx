@@ -23,6 +23,12 @@ import {
 } from "react";
 
 import { attrClasses } from "../attrClassesPlugin";
+import {
+  blockMarginClass,
+  blockMarginValue,
+  sectionPaddingClass,
+  sectionPaddingPx,
+} from "../spacing";
 import { renderText } from "./renderMarks";
 import { shuffleLayout, type JsonNode } from "./shuffleLayout";
 
@@ -58,10 +64,15 @@ function layoutProps(
   base: (string | false | undefined)[] = [],
 ): { className: string; style: CSSProperties } {
   const layout = shuffleLayout(node, index);
+  // Top-margin rides along as a Tailwind-style `mt-{unit}` class, exactly as
+  // `attrClassesPlugin` decorates it in the editor. Only an explicit value
+  // (incl 0) emits a class; Auto (null) emits none (per-context CSS default).
+  const margin = blockMarginValue(node.attrs);
   return {
     className: cx(
       base.filter(Boolean) as string[],
       attrClasses(node.attrs ?? {}),
+      margin != null ? blockMarginClass(margin) : "",
       layout.className,
     ),
     style: layout.style,
@@ -228,8 +239,10 @@ export function RenderNode({
 
     case "section": {
       const theme = a["theme"] as string | null;
+      // Padding is the `py-{unit}` class, identical to the editor's NodeView.
       const { className, style } = layoutProps(node, index, [
         "pp-section",
+        sectionPaddingClass(sectionPaddingPx(a)),
         theme ? `theme -${theme}` : "",
       ]);
       const minHeight = str(a["minHeight"], "none");
@@ -240,7 +253,6 @@ export function RenderNode({
           className={className}
           style={style}
           data-node-type="section"
-          data-padding={str(a["padding"], "medium")}
           {...(theme ? { "data-theme": theme } : {})}
           {...(minHeight !== "none" ? { "data-min-height": minHeight } : {})}
           {...(contentAlign !== "top" ? { "data-content-align": contentAlign } : {})}

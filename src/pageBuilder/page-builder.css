@@ -1395,7 +1395,13 @@
   grid-template-columns: subgrid;
   grid-column-start: 1;
   grid-column-end: 15;
-  row-gap: var(--shuffle-row-gap, 1rem);
+  /* Sections butt directly together — pagy stacks them edge-to-edge with no
+     gap (each section's own `py-*` padding is the only breathing room). The
+     gap that DID separate them was this row-gap; zero it. Blocks WITHIN a
+     section keep their spacing from `.pp-section`'s own `row-gap: 24px`, and
+     row-cell wrapping still uses `--shuffle-row-gap` on `.row` — neither is
+     touched here. */
+  row-gap: 0;
 }
 .pb-page:not([data-active]) {
   display: none;
@@ -1674,19 +1680,75 @@
   grid-column-end: 15;
   row-gap: 24px;
   margin: 0;
-  /* Vertical padding is real; horizontal padding lives inside the
-     grid columns (the wrapper's 1fr gutters), so we use 0 here so
-     children at start-left/end-12 truly reach the edges. */
-  padding: var(--pb-pad-md, 80px) 0;
+  /* Horizontal padding lives inside the grid columns (the wrapper's 1fr
+     gutters), so it's 0 here — children at start-left/end-12 truly reach the
+     edges. Vertical padding comes from the section's `py-{unit}` class (the
+     drag bands write px → `py-N`), defined in the spacing utilities below. */
+  padding: 0;
   /* Same var the canvas paints with, so a default section is invisible
      against the page — until a `theme -X` class rescopes the var
      (pagy's section always paints --color-background the same way). */
   background-color: var(--color-background, transparent);
   box-sizing: border-box;
 }
-.pp-section[data-padding="small"]  { padding: var(--pb-pad-sm, 40px) 0; }
-.pp-section[data-padding="medium"] { padding: var(--pb-pad-md, 80px) 0; }
-.pp-section[data-padding="large"]  { padding: var(--pb-pad-lg, 120px) 0; }
+
+/* ── Spacing utilities (Tailwind-style, 4px/unit) ───────────────────────────
+   Section vertical padding (`py-N`) and block top-margin (`mt-N`) serialize
+   as these classes instead of data attributes / inline styles — `py-20` = 80px,
+   `mt-32` = 128px, etc. Only the values on the drag snap scales are defined.
+   `py-*` flexes with `--pp-pad-scale` (default 1) so the mobile container query
+   can shrink every section's padding with one knob — pagy's mobile coefficient.
+   `mt-*` is a fixed px margin (it doesn't auto-scale on mobile, like pagy). The
+   `px` / `0.5` steps are the two sub-4px margin stops off the 4px grid. The
+   margin utilities are scoped to `.shuffle-block` (every margin-bearing block
+   carries it, in editor + published render) so they out-specify the paragraph /
+   heading `margin: 0` resets (`.container > p`, `.pp-section p`, etc.). */
+.py-0  { padding-block: 0; }
+.py-4  { padding-block: calc(var(--pp-pad-scale, 1) * 1rem); }      /* 16px */
+.py-8  { padding-block: calc(var(--pp-pad-scale, 1) * 2rem); }      /* 32px */
+.py-12 { padding-block: calc(var(--pp-pad-scale, 1) * 3rem); }      /* 48px */
+.py-16 { padding-block: calc(var(--pp-pad-scale, 1) * 4rem); }      /* 64px */
+.py-20 { padding-block: calc(var(--pp-pad-scale, 1) * 5rem); }      /* 80px */
+.py-24 { padding-block: calc(var(--pp-pad-scale, 1) * 6rem); }      /* 96px */
+.py-30 { padding-block: calc(var(--pp-pad-scale, 1) * 7.5rem); }    /* 120px */
+.py-40 { padding-block: calc(var(--pp-pad-scale, 1) * 10rem); }     /* 160px */
+.py-50 { padding-block: calc(var(--pp-pad-scale, 1) * 12.5rem); }   /* 200px */
+.py-60 { padding-block: calc(var(--pp-pad-scale, 1) * 15rem); }     /* 240px */
+
+/* Block top-margin = pagy's `--default-margin` model. Every stacked block's
+   spacing is its top margin, defaulting to a per-context Auto value; an explicit
+   `mt-*` class sets `--pp-mt` to override it. Using a variable (not a direct
+   `margin-top`) means explicit beats Auto with zero specificity fights, AND
+   Auto stays distinct from an explicit 0 (collapse). The per-context rules
+   below (specificity 0,2,0) read it and out-specify the `.pp-section p` /
+   `.container > p` margin resets. */
+.shuffle-block.mt-0    { --pp-mt: 0px; }
+.shuffle-block.mt-px   { --pp-mt: 1px; }
+.shuffle-block.mt-0\.5 { --pp-mt: 2px; }
+.shuffle-block.mt-1    { --pp-mt: 4px; }
+.shuffle-block.mt-2    { --pp-mt: 8px; }
+.shuffle-block.mt-3    { --pp-mt: 12px; }
+.shuffle-block.mt-4    { --pp-mt: 16px; }
+.shuffle-block.mt-6    { --pp-mt: 24px; }
+.shuffle-block.mt-8    { --pp-mt: 32px; }
+.shuffle-block.mt-10   { --pp-mt: 40px; }
+.shuffle-block.mt-12   { --pp-mt: 48px; }
+.shuffle-block.mt-16   { --pp-mt: 64px; }
+.shuffle-block.mt-20   { --pp-mt: 80px; }
+.shuffle-block.mt-24   { --pp-mt: 96px; }
+.shuffle-block.mt-30   { --pp-mt: 120px; }
+.shuffle-block.mt-40   { --pp-mt: 160px; }
+.shuffle-block.mt-50   { --pp-mt: 200px; }
+.shuffle-block.mt-60   { --pp-mt: 240px; }
+
+/* Per-context resolution of the top margin. A container has NO flex gap — its
+   children's spacing IS this margin (Auto = 16px, the default rhythm pagy fills
+   the gap with). Sections/cards keep their own gap, so their Auto is 0 and an
+   explicit margin is additive. First child never gets a top margin. */
+.pp-section > .shuffle-block { margin-top: var(--pp-mt, 0px); }
+.pp-card > .shuffle-block { margin-top: var(--pp-mt, 0px); }
+.container > .shuffle-block { margin-top: var(--pp-mt, 16px); }
+.container > .shuffle-block:first-child { margin-top: 0; }
 
 /* Themed sections (`theme -inverted` etc. — scopes from themeToCss)
    recolor their text along with the background. */
@@ -1738,11 +1800,13 @@
    layer (paint order: positioned elements in DOM order). */
 .pp-section > .shuffle-block { position: relative; }
 
-/* Shuffle's container — give it the same column-stack rhythm as a section. */
+/* Shuffle's container — a flex column. NO flex `gap`: the rhythm between
+   stacked children is each child's top margin (the `.container > .shuffle-block`
+   rule above), pagy-style — so the margin handle's Auto fills the gap and is
+   adjustable down to 0 (collapse) or up. */
 .container {
   display: flex;
   flex-direction: column;
-  gap: 18px;
 }
 .container > p { margin: 0; }
 
@@ -2456,21 +2520,34 @@
 
    Tight to the edge, like pagy — `inset: 0`, so the 2px accent ring hugs
    the section box. A section is full-bleed: it fills `.pb-canvas`, which
-   clips to `--pb-frame-radius` (`overflow: hidden`). So the ring matches
-   that SAME radius — its rounded corners land exactly on the canvas's
-   rounded clip instead of poking past it as square corners and getting
-   shaved (which is what read as the corner "cutoff"). `.pp-section` is
-   already `position: relative`; z-index 2 keeps it below the section
-   chrome (z-index 5), so the toolbar/pills stay above it. */
+   clips to `--pb-frame-radius` (`overflow: hidden`). Since sections now butt
+   together with no gap, the ring's corners should round ONLY where they meet
+   that rounded clip — the FIRST section's top corners and the LAST section's
+   bottom corners. Middle sections stay square (their corners are interior
+   seams between neighbours); an only-child section is both first AND last, so
+   it matches both rules and rounds all four (pagy's behaviour exactly). The
+   first/last keying is structural (`:first-child` / `:last-child` within the
+   `.pb-page`). `.pp-section` is already `position: relative`; z-index 2 keeps
+   it below the section chrome (z-index 5), so the toolbar/pills stay above. */
 .pb-section-active::after,
 .pb-canvas-wrap .pp-section:hover::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: var(--pb-frame-radius);
+  border-radius: 0;
   box-shadow: inset 0 0 0 2px var(--pb-accent);
   pointer-events: none;
   z-index: 2;
+}
+.pp-section:first-of-type.pb-section-active::after,
+.pb-canvas-wrap .pp-section:first-of-type:hover::after {
+  border-top-left-radius: var(--pb-frame-radius);
+  border-top-right-radius: var(--pb-frame-radius);
+}
+.pp-section:last-of-type.pb-section-active::after,
+.pb-canvas-wrap .pp-section:last-of-type:hover::after {
+  border-bottom-left-radius: var(--pb-frame-radius);
+  border-bottom-right-radius: var(--pb-frame-radius);
 }
 /* Drop the hover ring mid-drag: every section's chrome carries
    `data-dragging` while a shuffle drag is in flight, so this hides the
@@ -2516,6 +2593,8 @@
 .pb-add-block,
 .pb-add-section {
   position: absolute;
+  /* Above the padding hash (`.pb-space` z 1) so the button sits ON TOP of it. */
+  z-index: 6;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2596,6 +2675,18 @@
   pointer-events: auto;
   transition-duration: 200ms;
 }
+/* …but while a spacing handle is hovered or dragged, the chrome clears so the
+   hatch + pill own the section, like pagy. `.pb-space:hover` is true only when
+   the (sole interactive) dash handle is hovered, since the band itself is
+   click-through. Higher specificity than the reveal above, so it wins. */
+.pp-section:has(.pb-space:hover) .pb-add-block,
+.pp-section:has(.pb-space:hover) .pb-add-section,
+.pp-section:has(.pb-space.-dragging) .pb-add-block,
+.pp-section:has(.pb-space.-dragging) .pb-add-section {
+  opacity: 0;
+  pointer-events: none;
+  transition-duration: 150ms;
+}
 
 /* Sticky top bar — "+ Add block" (left) and the section toolbar (right) in one
    row. It's a flow child of the (absolute, full-height) chrome with
@@ -2659,6 +2750,170 @@
 .pb-section-tool.-destructive:hover {
   background: rgba(239, 68, 68, 0.1);
   color: var(--pb-danger);
+}
+
+/* ─────────────────────────────── Spacing drag handles (pagy's `editor_space`)
+   Section vertical-padding bands (`SectionSpacingBands`, in the section chrome)
+   and the block top-margin band (`BlockMarginHandle`, body-portaled, fixed).
+
+   Three modes, like pagy:
+     • neither hovered          → nothing (handle invisible)
+     • section/block hovered    → a faint dash hint at the content edge
+     • the dash itself hovered  → hatch fills + the px pill appears
+
+   The band is CLICK-THROUGH (`pointer-events: none`) so it never steals hover
+   from the section's Add-block / Add-section / toolbar chrome or the content
+   beneath it. Only the small dash handle (and its pill) is interactive — so the
+   hatch lights only when you're actually on the handle, never from hovering the
+   empty padding. The drag lives in JS; this is purely the look (measured off
+   pagy.co). */
+.pb-space {
+  --pb-space-handle: var(--pb-accent);
+  --pb-space-line: var(--pb-accent-line);
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Flex-centered: the handle (the only in-flow child) lands dead-center of the
+     band; the pill is absolutely positioned beside it. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  /* Below the Add-section button (z 6) so the button sits ON TOP of the hash. */
+  z-index: 1;
+}
+.pb-space--top {
+  top: 0;
+}
+.pb-space--bottom {
+  bottom: 0;
+}
+/* Body-portaled margin band positions itself via fixed left/top/width/height. */
+.pb-space--margin {
+  position: fixed;
+}
+/* Diagonal hatch — pagy's exact gradient + 7.07px tile. `background-clip:
+   content-box` so the margin band's 1px bottom padding keeps the hatch off the
+   block edge. Lights only when the dash (the band's only hot child, so `:hover`
+   here means the handle is hovered) is hovered, or while dragging. */
+.pb-space::before {
+  content: "";
+  display: block;
+  position: absolute;
+  inset: 0;
+  background-clip: content-box;
+  background-image: linear-gradient(
+    -45deg,
+    var(--pb-space-line) 10%,
+    transparent 10%,
+    transparent 50%,
+    var(--pb-space-line) 50%,
+    var(--pb-space-line) 60%,
+    transparent 60%,
+    transparent 100%
+  );
+  background-size: 7.07px 7.07px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.pb-space:hover::before,
+.pb-space.-dragging::before {
+  opacity: 1;
+}
+/* The dash handle — pagy's 12×1px accent bar with a white outline; ns-resize,
+   with a generous invisible hit area (taller for the `-section` variant) so a
+   0px band stays grabbable. ALWAYS visible (a persistent hash, per the design),
+   brightening to full on hover/drag. */
+.pb-space-handle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 12px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background-color: var(--pb-space-handle);
+  outline: 1px solid #fff;
+  cursor: ns-resize;
+  touch-action: none;
+  pointer-events: auto;
+  opacity: 0.6;
+  transition: opacity 150ms ease;
+  z-index: 1;
+}
+.pb-space-handle::before {
+  content: "";
+  display: block;
+  position: absolute;
+  inset: -8px -16px;
+}
+.pb-space-handle.-section::before {
+  inset: -24px -16px;
+}
+.pb-space:hover .pb-space-handle,
+.pb-space.-dragging .pb-space-handle {
+  opacity: 1;
+}
+/* The px pill — accent fill, white text, fully rounded; absolutely placed just
+   right of the band center (left:50% + margin-left), vertically centered by the
+   flex `align-items`. Hidden until the dash (its previous sibling) or the pill
+   itself is hovered, or while dragging. */
+.pb-space-value {
+  position: absolute;
+  left: 50%;
+  margin-left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background-color: var(--pb-space-handle);
+  color: #fff;
+  border-radius: 99px;
+  font-family: var(--pb-font);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  z-index: 9;
+}
+.pb-space-handle:hover + .pb-space-value,
+.pb-space.-dragging .pb-space-value {
+  opacity: 1;
+}
+.pb-space-value:hover {
+  opacity: 1;
+}
+/* Reset — tucked just past the pill's right edge, interactive only on pill
+   hover (pagy shows the px alone until you reach for the reset). */
+.pb-space-reset {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  translate: -2px -50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: var(--pb-space-handle);
+  color: #fff;
+  cursor: pointer;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.pb-space-value:hover .pb-space-reset {
+  pointer-events: all;
+  opacity: 1;
 }
 
 /* ─────────────────────────────────────── Text-selection toolbar
@@ -3025,6 +3280,135 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
+/* ─────────────────────────── Spacing group + scrub field (block popover)
+   A hidden-until-added "Spacing" section (Figma's add-a-property pattern):
+   the header carries a "+" until a row exists. Each row is a scrubby input —
+   drag the grip to scrub, type a value, or pick a preset — wired to the same
+   snap scale as the canvas handle. The grip cursor follows the value's axis:
+   ns-resize (up/down) for vertical spacing, ew-resize (left/right) via `.-x`
+   for x-axis values — matching the canvas bands. */
+.pb-spacing {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pb-spacing-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pb-spacing-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--pb-hover);
+  color: var(--pb-text-soft);
+  cursor: pointer;
+}
+.pb-spacing-add:hover {
+  background: var(--pb-surface-raised);
+  color: var(--pb-text);
+}
+/* The scrub row — an input-like track holding grip · value · unit · presets · ✕. */
+.pb-scrub {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--pb-hover);
+  border-radius: 8px;
+  padding: 2px 4px;
+}
+.pb-scrub-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pb-text-soft);
+  /* Default vertical (top/bottom spacing); `.-x` flips it for x-axis values. */
+  cursor: ns-resize;
+  touch-action: none;
+}
+.pb-scrub-grip.-x {
+  cursor: ew-resize;
+}
+.pb-scrub-grip:hover {
+  background: var(--pb-surface-raised);
+  color: var(--pb-text);
+}
+.pb-scrub-value {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--pb-text);
+  padding: 4px 2px;
+}
+.pb-scrub-unit {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--pb-text-soft);
+}
+.pb-scrub-caret,
+.pb-scrub-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pb-text-soft);
+  cursor: pointer;
+}
+.pb-scrub-caret:hover,
+.pb-scrub-remove:hover {
+  background: var(--pb-surface-raised);
+  color: var(--pb-text);
+}
+.pb-scrub-menu {
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+  min-width: 96px;
+  z-index: 1000;
+}
+.pb-scrub-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--pb-text);
+  cursor: pointer;
+  outline: 0;
+}
+.pb-scrub-menu-item[data-highlighted] {
+  background: var(--pb-hover);
+}
+.pb-scrub-menu-item[data-active] {
+  color: var(--pb-accent);
+  font-weight: 600;
+}
+
 /* Button "Type" control — pagy renders three separate cards (not a
    segmented track), each previewing the style live. The chosen card gets a
    dark ring on white; the rest sit on a faint fill. */
@@ -3057,6 +3441,20 @@
   padding: 7px 14px;
   font-size: 12px;
   line-height: 1;
+  /* This popover is portaled OUTSIDE the themed `.site`, so the preview has no
+     `--color-*` palette and `.pp-button` falls back to a fixed dark slate. That
+     left Ghost (transparent + dark text) invisible on the dark settings panel,
+     and the filled pill dark-on-dark. Re-point the button vars at the editor-
+     chrome tokens (`--pb-*`), which flip with the light/dark toggle, so all
+     three styles stay legible against the panel in either chrome. */
+  --pp-btn-color: var(--pb-text);
+  --pp-btn-on: var(--pb-surface-raised);
+}
+/* Outline's base rule fills with `--color-background` (white outside `.site`);
+   on the dark panel that's a white pill with light chrome-text — drop the fill
+   so it reads as pagy's outline: just the chrome hairline + label. */
+.pb-button-type-preview.pp-button--secondary {
+  background: transparent;
 }
 .pb-text-input {
   width: 100%;
@@ -3174,10 +3572,10 @@
     /* Rows stack instead of sitting side by side. */
     --pb-row-display: flex;
 
-    /* Tighter vertical rhythm + a downscaled type ramp for ~430px. */
-    --pb-pad-sm: 28px;
-    --pb-pad-md: 48px;
-    --pb-pad-lg: 72px;
+    /* Tighter vertical rhythm + a downscaled type ramp for ~430px. One
+       coefficient scales every section's `py-*` padding (0.6 keeps the old
+       80→48 / 120→72 ratio). */
+    --pp-pad-scale: 0.6;
     --pb-fs-h1: 40px;
     --pb-fs-h2: 32px;
     --pb-fs-heading-xl: 40px;
@@ -3196,4 +3594,199 @@
   .pp-section .shuffle-block {
     grid-column: 2 / 14 !important;
   }
+}
+
+/* ───────────────────────────────────────── Add-a-section modal
+   pagy's `AddSectionModal` / `.block-picker`: a large centred dialog with
+   a category sidebar beside a scrollable grid of live, scaled section
+   previews. Portaled to `document.body`, so it reads the `--pb-*` chrome
+   tokens off `:root` (dark mode included). */
+.pb-section-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(20, 24, 31, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  animation: pb-fade-in var(--pb-duration-short, 120ms) var(--pb-easing, ease);
+}
+@keyframes pb-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.pb-section-modal {
+  position: relative;
+  margin-top: 48px;
+  width: min(1140px, calc(100vw - 48px));
+  height: calc(100vh - 80px);
+  background: var(--pb-surface, #fff);
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--pb-popover-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Portaled to `document.body` (outside `.pb-shell`), so it doesn't inherit
+     the editor UI font and would fall back to the browser default serif —
+     set the same `--pb-font` `.pb-shell` uses. Card previews override this
+     with their own `.site` theme font. */
+  font-family: var(--pb-font);
+  color: var(--pb-text);
+  animation: pb-modal-rise var(--pb-duration, 180ms) var(--pb-easing, ease);
+}
+@keyframes pb-modal-rise {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.pb-section-modal-title {
+  margin: 0;
+  padding: 32px 40px 24px;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--pb-text);
+}
+
+.pb-section-modal-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* Sidebar */
+.pb-section-modal-sidebar {
+  flex: 0 0 200px;
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 28px 40px;
+  min-height: 0;
+}
+.pb-section-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.pb-section-nav-item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  font: inherit;
+  font-size: 16px;
+  color: var(--pb-text-soft);
+  cursor: pointer;
+  transition: color var(--pb-duration-short, 120ms) ease;
+  text-align: left;
+}
+.pb-section-nav-item:hover { color: var(--pb-text); }
+.pb-section-nav-item.-active {
+  color: var(--pb-text);
+  font-weight: 600;
+}
+.pb-section-nav-label {
+  margin: 16px 0 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pb-text-soft);
+  opacity: 0.7;
+}
+.pb-section-blank-btn {
+  margin-top: auto;
+  appearance: none;
+  align-self: flex-start;
+  padding: 8px 16px;
+  border: 1px solid var(--pb-border);
+  border-radius: 10px;
+  background: var(--pb-surface);
+  color: var(--pb-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--pb-duration-short, 120ms) ease;
+}
+.pb-section-blank-btn:hover { background: var(--pb-bg); }
+
+/* Preview grid */
+.pb-section-modal-content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+/* Scroll-shadow at the top edge of the list (pagy's `.block-picker_shadow`). */
+.pb-section-modal-shadow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(var(--pb-surface), transparent);
+  opacity: 0;
+  transition: opacity var(--pb-duration-short, 120ms) ease;
+}
+.pb-section-modal-shadow.-active { opacity: 1; }
+
+.pb-section-modal-list {
+  height: 100%;
+  overflow-y: auto;
+  padding: 4px 40px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.pb-section-modal-empty {
+  margin: 0;
+  padding: 96px 0;
+  text-align: center;
+  color: var(--pb-text-soft);
+}
+
+/* A single preview card. */
+.pb-section-card {
+  appearance: none;
+  display: block;
+  width: 100%;
+  /* The list is a flex column; without this the cards (flex items) shrink to
+     fit the viewport instead of keeping their measured height + scrolling. */
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--pb-border);
+  border-radius: 14px;
+  background: var(--color-background, #fff);
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  transition:
+    box-shadow var(--pb-duration-short, 120ms) ease,
+    border-color var(--pb-duration-short, 120ms) ease,
+    transform var(--pb-duration-short, 120ms) ease;
+}
+.pb-section-card:hover {
+  border-color: var(--pb-accent, #62bfad);
+  box-shadow: 0 0 0 2px var(--pb-accent, #62bfad);
+}
+.pb-section-card:active { transform: translateY(1px); }
+
+/* The composed-at-DESIGN_WIDTH, scaled-down render. Non-interactive: the
+   whole card is the click target. */
+.pb-section-card-stage {
+  pointer-events: none;
+  user-select: none;
+}
+/* Undo the editor canvas's fill-height + internal scroll so the chain sizes
+   to the section's natural height (what we measure to set the card height). */
+.pb-section-card-stage .pb-site,
+.pb-section-card-stage .pb-canvas,
+.pb-section-card-stage .pb-canvas-scroll {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  scrollbar-gutter: auto;
 }

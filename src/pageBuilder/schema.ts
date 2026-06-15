@@ -33,6 +33,12 @@ import {
 } from "prosemirror-model";
 import { addShuffleNodes } from "@pitter-patter/shuffle";
 
+import {
+  SECTION_PADDING_DEFAULT,
+  sectionPaddingClass,
+  sectionPaddingFromClassName,
+  sectionPaddingPx,
+} from "./spacing";
 import type { TransitionSpeed, TransitionType } from "./transitions";
 
 // ────────────────────────────────────────────────────────────────
@@ -108,7 +114,10 @@ const sectionSpec: NodeSpec = {
   defining: true,
   isolating: true,
   attrs: {
-    padding: { default: "medium" },
+    /** Symmetric vertical padding (top = bottom), in PX. Dragged via the
+     *  hatched bands (`SectionSpacingBands`); serialized as a Tailwind-style
+     *  `py-{unit}` class (4px/unit — 80px ↔ `py-20`), NOT a data attribute. */
+    padding: { default: SECTION_PADDING_DEFAULT as number },
     /** Theme variant (pagy's section "Colors"): "" / null = page
      *  default, else inverted | primary | secondary | tertiary. Maps
      *  to the `.theme.-X` variable scopes `themeToCss` emits. */
@@ -136,7 +145,8 @@ const sectionSpec: NodeSpec = {
       getAttrs(node) {
         const el = node as HTMLElement;
         return {
-          padding: el.getAttribute("data-padding") || "medium",
+          // Padding lives in the `py-{unit}` class.
+          padding: sectionPaddingFromClassName(el.className) ?? SECTION_PADDING_DEFAULT,
           theme: el.getAttribute("data-theme"),
           minHeight: el.getAttribute("data-min-height") || "none",
           contentAlign: el.getAttribute("data-content-align") || "top",
@@ -154,10 +164,10 @@ const sectionSpec: NodeSpec = {
     const theme = a["theme"] as string | null;
     const attrs: Record<string, string> = {
       "data-node-type": "section",
-      "data-padding": (a["padding"] as string) || "medium",
-      // `theme -X` puts the section under the `.theme.-X` variable
-      // scope from `themeToCss`, exactly like pagy's section renderer.
-      class: `pp-section${theme ? ` theme -${theme}` : ""}`,
+      // Padding is the `py-{unit}` class (4px/unit) — the source of truth,
+      // no data-padding. `theme -X` puts the section under the `.theme.-X`
+      // variable scope from `themeToCss`, exactly like pagy's section renderer.
+      class: `pp-section ${sectionPaddingClass(sectionPaddingPx(a))}${theme ? ` theme -${theme}` : ""}`,
     };
     if (theme) attrs["data-theme"] = theme;
     if (a["minHeight"] && a["minHeight"] !== "none")
@@ -652,6 +662,27 @@ function constrainBlocksToSection(schema: Schema): Schema {
   return new Schema({ nodes, marks: schema.spec.marks });
 }
 
+/** Step 5 — adds a `margin` attr (top-margin px, 0 = none) to every
+ *  "block"-group node, so any block can carry the drag-set top margin
+ *  (`BlockMarginHandle` / pagy's `margin-handle`). Run AFTER shuffle so
+ *  `container`/`row` get it too. The value is applied purely as a
+ *  `margin-top` style — by `attrClassesPlugin` in the editor and by
+ *  `renderNode` on the site — so node `toDOM`/`parseDOM` need no changes;
+ *  it's vertical spacing, orthogonal to shuffle's grid attrs. */
+function addBlockMarginAttr(schema: Schema): Schema {
+  let nodes = schema.spec.nodes;
+  schema.spec.nodes.forEach((name, spec) => {
+    const groups = (spec.group ?? "").split(/\s+/);
+    if (!groups.includes("block")) return;
+    // null = Auto (no explicit margin); a number (incl 0) is explicit.
+    nodes = nodes.update(name, {
+      ...spec,
+      attrs: { ...spec.attrs, margin: { default: null } },
+    });
+  });
+  return new Schema({ nodes, marks: schema.spec.marks });
+}
+
 /** Text color mark — pagy's `color` leaf (`<span class="text -muted">`),
  *  pp-prefixed. The slot → color mapping lives in page-builder.css. */
 const textColorSpec: MarkSpec = {
@@ -760,7 +791,8 @@ export function buildPageBuilderSchema(base: Schema): Schema {
   // earlier `alignContent` attr/class duplicated it but was inert — no class
   // can beat the inline style — so it's gone.
   const withShuffle = addShuffleNodes(withPageRoot, "block+", "block");
-  return constrainBlocksToSection(withShuffle);
+  const withMargin = addBlockMarginAttr(withShuffle);
+  return constrainBlocksToSection(withMargin);
 }
 
 /** Signature for the function that builds the initial doc from the

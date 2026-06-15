@@ -18,6 +18,8 @@
 
 import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
 
+import { sectionPaddingClass, sectionPaddingPx } from "../spacing";
+
 export function SectionNodeView({
   ref,
   nodeProps,
@@ -25,7 +27,9 @@ export function SectionNodeView({
   ...props
 }: NodeViewComponentProps) {
   const attrs = nodeProps.node.attrs;
-  const padding = (attrs["padding"] as string) || "medium";
+  // Padding paints through the `py-{unit}` class (the NodeView, not toDOM, is
+  // what renders in the editor), so the drag bands' px flows through here.
+  const paddingClass = sectionPaddingClass(sectionPaddingPx(attrs));
   const theme = attrs["theme"] as string | undefined;
   const minHeight = (attrs["minHeight"] as string) || "none";
   const contentAlign = (attrs["contentAlign"] as string) || "top";
@@ -40,9 +44,8 @@ export function SectionNodeView({
     <section
       ref={ref}
       {...props}
-      className={`${injectedClass} pp-section${theme ? ` theme -${theme}` : ""}`.trim()}
+      className={`${injectedClass} pp-section ${paddingClass}${theme ? ` theme -${theme}` : ""}`.trim()}
       data-node-type="section"
-      data-padding={padding}
       {...(theme ? { "data-theme": theme } : {})}
       {...(minHeight !== "none" ? { "data-min-height": minHeight } : {})}
       {...(contentAlign !== "top" ? { "data-content-align": contentAlign } : {})}
