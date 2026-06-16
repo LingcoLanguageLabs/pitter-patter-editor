@@ -1,44 +1,35 @@
 /**
- * Section settings popover — pagy's `panels/section-settings.tsx`
- * rebuilt on PM attrs. Opened from the gear in the section toolbar
- * (`SectionChromeWidget`), anchored to it with @floating-ui.
+ * Section settings popover — pagy's `panels/section-settings.tsx` rebuilt on PM
+ * attrs. Opened from the gear in the section toolbar (`SectionChromeWidget`).
  *
  * Field-for-field port of pagy's panel (minus "Make global"):
  *   • Minimum height  — none / medium (66dvh) / large (100dvh)
- *   • Align content   — top / center / bottom; only when min height
- *                        leaves spare room (pagy gates it the same way)
+ *   • Align content   — top / center / bottom; only when min height leaves
+ *                        spare room (pagy gates it the same way)
  *   • Background      — solid / image / video mode switch
  *   • Image / Video   — file picker for the active media mode
  *   • Overlay         — none / light / medium / strong; only with media
- *   • Colors          — theme-variant "A" swatches (default / inverted /
- *                        primary / secondary / tertiary), mapping to the
- *                        `.theme.-X` variable scopes from `themeToCss`
+ *   • Colors          — theme-variant "A" swatches (shared `ThemeVariantPicker`)
  *   • ID              — unique HTML id rendered onto the <section>
+ *   • Spacing         — Vertical padding (symmetric `py-{unit}`), last like the
+ *                        block popover's Spacing group
  *
- * Writes go straight to the section's attrs via `setNodeAttribute`,
- * no save button — same live-update model as BlockSettings.
+ * The popover shell (anchoring, light-dismiss, portal) is shared with the
+ * Header/Footer panels via `SettingsPopover`; this file is the section's
+ * field list. Writes go straight to the section's attrs — no save button.
  */
 
 "use client";
 
 import {
-  autoUpdate,
-  flip,
-  offset,
-  shift,
-  useFloating,
-} from "@floating-ui/react";
-import {
-  useEditorEventCallback,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import {
   AlignBottom,
   AlignCenterVertical,
   AlignTop,
+  ArrowsVertical,
 } from "@phosphor-icons/react";
-import { useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 
 import {
   Field,
@@ -46,7 +37,15 @@ import {
   Segmented,
   ThemeVariantPicker,
 } from "./blockSettings/forms";
-import { findEnclosingSection, isHtmlIdTaken } from "./sectionUtils";
+import { ScrubField } from "./blockSettings/SpacingSection";
+import { isHtmlIdTaken } from "./sectionUtils";
+import { SettingsPopover } from "./SettingsPopover";
+import {
+  SECTION_PADDING_DEFAULT,
+  SECTION_PADDING_MAX,
+  SECTION_PADDING_SNAP,
+  sectionPaddingPx,
+} from "./spacing";
 
 const MIN_HEIGHT_OPTIONS = [
   { value: "none", label: "None" },
@@ -73,10 +72,6 @@ const OVERLAY_OPTIONS = [
   { value: "strong", label: "Strong" },
 ] as const;
 
-// The section's "Colors" swatches are the shared `ThemeVariantPicker` (in
-// blockSettings/forms) — the same control the Card form uses, so sections and
-// cards stay aligned on one vocabulary + mechanism.
-
 export function SectionSettings({
   anchor,
   getPos,
@@ -89,155 +84,131 @@ export function SectionSettings({
   onClose: () => void;
 }) {
   const editorState = useEditorState();
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-
-  const { x, y, strategy, refs } = useFloating({
-    placement: "bottom-end",
-    middleware: [offset(8), flip(), shift({ padding: 16 })],
-    whileElementsMounted: autoUpdate,
-  });
-  useEffect(() => {
-    refs.setReference(anchor);
-  }, [anchor, refs]);
-
-  // Light-dismiss: pointerdown outside the popover + gear, or Escape.
-  useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (popoverRef.current?.contains(target)) return;
-      if (anchor?.contains(target)) return; // gear toggles itself
-      onClose();
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [anchor, onClose]);
-
-  const setAttr = useEditorEventCallback(
-    (view, name: string, value: unknown) => {
-      const info = findEnclosingSection(view.state, getPos());
-      if (!info) return;
-      view.dispatch(view.state.tr.setNodeAttribute(info.pos, name, value));
-    },
-  );
-
-  const info = findEnclosingSection(editorState, getPos());
-  if (!info) return null;
-  const attrs = info.node.attrs;
-  const minHeight = (attrs["minHeight"] as string) || "none";
-  const contentAlign = (attrs["contentAlign"] as string) || "top";
-  const background = (attrs["background"] as string) || "solid";
-  const image = (attrs["image"] as string) || "";
-  const video = (attrs["video"] as string) || "";
-  const overlay = (attrs["overlay"] as string) || "";
-  const theme = (attrs["theme"] as string | null) || "";
-  const htmlId = (attrs["htmlId"] as string) || "";
-  const hasMedia =
-    (background === "image" && !!image) || (background === "video" && !!video);
-
-  // Soft ID validation: warn, never block — blocking exact matches
-  // would fight typing toward a free name ("hero" → "hero-2"). The
-  // two things that actually break an anchor: a duplicate id, and
-  // whitespace (invalid in an HTML id).
-  const idWarning = /\s/.test(htmlId)
-    ? "IDs can't contain spaces"
-    : isHtmlIdTaken(editorState, info.pos, htmlId)
-      ? "Already used by another section"
-      : null;
-
-  return createPortal(
-    <div
-      ref={(el) => {
-        popoverRef.current = el;
-        refs.setFloating(el);
-      }}
-      className="pb-block-settings"
-      style={{ position: strategy, top: y ?? 0, left: x ?? 0 }}
+  return (
+    <SettingsPopover
+      anchor={anchor}
+      getPos={getPos}
+      onClose={onClose}
+      typeNames={["section"]}
+      title="Section"
     >
-      <header className="pb-block-settings-header">
-        <span className="pb-block-settings-title">Section</span>
-      </header>
-      <div className="pb-block-settings-body">
-        <Field label="Minimum height">
-          <Segmented
-            ariaLabel="Minimum height"
-            value={minHeight}
-            options={MIN_HEIGHT_OPTIONS}
-            onChange={(v) => setAttr("minHeight", v)}
-          />
-        </Field>
-        {minHeight !== "none" && (
-          <Field label="Align content">
-            <Segmented
-              ariaLabel="Align content"
-              value={contentAlign}
-              options={CONTENT_ALIGN_OPTIONS}
-              onChange={(v) => setAttr("contentAlign", v)}
-            />
-          </Field>
-        )}
-        <Field label="Background">
-          <Segmented
-            ariaLabel="Background"
-            value={background}
-            options={BACKGROUND_OPTIONS}
-            onChange={(v) => setAttr("background", v)}
-          />
-        </Field>
-        {background === "image" && (
-          <Field label="Image">
-            <ImagePicker src={image} onChange={(url) => setAttr("image", url)} />
-          </Field>
-        )}
-        {background === "video" && (
-          <Field label="Video">
-            <ImagePicker
-              kind="video"
-              src={video}
-              onChange={(url) => setAttr("video", url)}
-            />
-          </Field>
-        )}
-        {hasMedia && (
-          <Field label="Overlay">
-            <Segmented
-              ariaLabel="Overlay"
-              value={overlay}
-              options={OVERLAY_OPTIONS}
-              onChange={(v) => setAttr("overlay", v)}
-            />
-          </Field>
-        )}
-        <Field label="Colors">
-          <ThemeVariantPicker
-            value={theme}
-            onChange={(v) => setAttr("theme", v || null)}
-          />
-        </Field>
-        <Field label="ID">
-          <input
-            type="text"
-            className="pb-text-input"
-            value={htmlId}
-            placeholder="section-name"
-            autoComplete="off"
-            spellCheck={false}
-            data-invalid={!!idWarning || undefined}
-            onChange={(e) => setAttr("htmlId", e.target.value)}
-          />
-          <span className="pb-field-hint" data-invalid={!!idWarning || undefined}>
-            {idWarning ?? "Unique HTML ID"}
-          </span>
-        </Field>
-      </div>
-    </div>,
-    document.body,
+      {(node, setAttr, pos) => {
+        const attrs = node.attrs;
+        const padding = sectionPaddingPx(attrs);
+        const minHeight = (attrs["minHeight"] as string) || "none";
+        const contentAlign = (attrs["contentAlign"] as string) || "top";
+        const background = (attrs["background"] as string) || "solid";
+        const image = (attrs["image"] as string) || "";
+        const video = (attrs["video"] as string) || "";
+        const overlay = (attrs["overlay"] as string) || "";
+        const theme = (attrs["theme"] as string | null) || "";
+        const htmlId = (attrs["htmlId"] as string) || "";
+        const hasMedia =
+          (background === "image" && !!image) ||
+          (background === "video" && !!video);
+
+        // Soft ID validation: warn, never block — blocking exact matches would
+        // fight typing toward a free name ("hero" → "hero-2"). The two things
+        // that actually break an anchor: a duplicate id, and whitespace.
+        const idWarning = /\s/.test(htmlId)
+          ? "IDs can't contain spaces"
+          : isHtmlIdTaken(editorState, pos, htmlId)
+            ? "Already used by another section"
+            : null;
+
+        return (
+          <>
+            <Field label="Minimum height">
+              <Segmented
+                ariaLabel="Minimum height"
+                value={minHeight}
+                options={MIN_HEIGHT_OPTIONS}
+                onChange={(v) => setAttr("minHeight", v)}
+              />
+            </Field>
+            {minHeight !== "none" && (
+              <Field label="Align content">
+                <Segmented
+                  ariaLabel="Align content"
+                  value={contentAlign}
+                  options={CONTENT_ALIGN_OPTIONS}
+                  onChange={(v) => setAttr("contentAlign", v)}
+                />
+              </Field>
+            )}
+            <Field label="Background">
+              <Segmented
+                ariaLabel="Background"
+                value={background}
+                options={BACKGROUND_OPTIONS}
+                onChange={(v) => setAttr("background", v)}
+              />
+            </Field>
+            {background === "image" && (
+              <Field label="Image">
+                <ImagePicker src={image} onChange={(url) => setAttr("image", url)} />
+              </Field>
+            )}
+            {background === "video" && (
+              <Field label="Video">
+                <ImagePicker
+                  kind="video"
+                  src={video}
+                  onChange={(url) => setAttr("video", url)}
+                />
+              </Field>
+            )}
+            {hasMedia && (
+              <Field label="Overlay">
+                <Segmented
+                  ariaLabel="Overlay"
+                  value={overlay}
+                  options={OVERLAY_OPTIONS}
+                  onChange={(v) => setAttr("overlay", v)}
+                />
+              </Field>
+            )}
+            <Field label="Colors">
+              <ThemeVariantPicker
+                value={theme}
+                onChange={(v) => setAttr("theme", v || null)}
+              />
+            </Field>
+            <Field label="ID">
+              <input
+                type="text"
+                className="pb-text-input"
+                value={htmlId}
+                placeholder="section-name"
+                autoComplete="off"
+                spellCheck={false}
+                data-invalid={!!idWarning || undefined}
+                onChange={(e) => setAttr("htmlId", e.target.value)}
+              />
+              <span className="pb-field-hint" data-invalid={!!idWarning || undefined}>
+                {idWarning ?? "Unique HTML ID"}
+              </span>
+            </Field>
+            {/* Spacing comes last, mirroring the block settings popover. */}
+            <div className="pb-spacing">
+              <div className="pb-spacing-head">
+                <span className="pb-field-label">Spacing</span>
+              </div>
+              <ScrubField
+                label="Vertical padding"
+                icon={<ArrowsVertical size={14} />}
+                value={padding}
+                autoPx={SECTION_PADDING_DEFAULT}
+                scale={SECTION_PADDING_SNAP}
+                max={SECTION_PADDING_MAX}
+                presets={SECTION_PADDING_SNAP}
+                allowAuto={false}
+                onChange={(v) => setAttr("padding", v ?? SECTION_PADDING_DEFAULT)}
+              />
+            </div>
+          </>
+        );
+      }}
+    </SettingsPopover>
   );
 }

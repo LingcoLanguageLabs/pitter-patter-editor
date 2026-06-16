@@ -24,8 +24,12 @@
 
 import { shufflePluginKey } from "@pitter-patter/shuffle";
 import { Plugin } from "prosemirror-state";
+import type { Node as PmNode } from "prosemirror-model";
 
 import { getActivePageId, pageList } from "./activePagePlugin";
+import { getSelectedBlockPositions } from "./blockHighlightPlugin";
+import { buildLayerTree } from "./layerTree";
+import { getActiveSectionPos } from "./sectionHighlightPlugin";
 import { usePageBuilderStore } from "./store";
 import type { TransitionSpeed, TransitionType } from "./transitions";
 
@@ -35,11 +39,33 @@ export function editorStoreSyncPlugin() {
       const store = usePageBuilderStore;
       let lastDeckSignature = "";
       let lastDragging: boolean | null = null;
+      let lastDoc: PmNode | null = null;
+      let lastSelSignature = "";
 
       /** editor → store, diffed so we only write when something changed. */
       const pushOut = () => {
         const { state } = view;
         const s = store.getState();
+
+        // Layer tree: rebuilt only when the doc actually changed (PM docs are
+        // immutable, so a reference check is exact). Positions shift on any
+        // edit, so a changed doc always means a fresh tree.
+        if (state.doc !== lastDoc) {
+          lastDoc = state.doc;
+          s.setLayerTree(buildLayerTree(state.doc));
+        }
+
+        // Selection mirror so the tree can highlight the active row(s): the
+        // selected block positions plus the active section (if any).
+        const sectionPos = getActiveSectionPos(state);
+        const selected = getSelectedBlockPositions(state);
+        const selPositions =
+          sectionPos != null ? [...selected, sectionPos] : selected;
+        const selSignature = selPositions.join(",");
+        if (selSignature !== lastSelSignature) {
+          lastSelSignature = selSignature;
+          s.setSelectedLayerPositions(selPositions);
+        }
 
         const pages = pageList(state.doc).map(({ id, title, node }) => ({
           id,

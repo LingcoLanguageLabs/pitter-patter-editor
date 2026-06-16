@@ -66,13 +66,38 @@ export const LAYOUT_TYPE_OPTIONS: readonly TypeOption[] = [
   { label: "Row", typeName: "row" },
 ];
 
+/** The Paragraph target (reused for the button → text path). */
+const PARAGRAPH_TYPE_OPTION = TEXT_TYPE_OPTIONS[0]!;
+
+/** The Button target. Placement attrs (align / columns / margin) carry over in
+ *  `convertBlockTypes`; everything else takes the button defaults (primary),
+ *  with size reset to the button scale's small — pagy likewise resets size on a
+ *  type switch. */
+const BUTTON_TYPE_OPTION: TypeOption = {
+  label: "Button",
+  typeName: "button",
+  defaults: { size: "s" },
+};
+
+/** Word count of a text block — gates paragraph → button. */
+function wordCount(node: PmNode): number {
+  return node.textContent.trim().split(/\s+/).filter(Boolean).length;
+}
+
 /** Options available for a given block, or null if it can't convert.
  *  Container / Card / Row all hold `block+`, so they interconvert
  *  (setNodeMarkup keeps the children; non-shared attrs like the row's
  *  lack of columns just fall back to the target's defaults). */
 export function typeOptionsFor(node: PmNode): readonly TypeOption[] | null {
   const name = node.type.name;
-  if (name === "paragraph" || name === "heading") return TEXT_TYPE_OPTIONS;
+  // Paragraph ↔ Button, but ONLY offer Button for a short label (≤3 words) so a
+  // real paragraph of prose is never turned into a button by accident.
+  if (name === "paragraph") {
+    return wordCount(node) <= 3 ? [...TEXT_TYPE_OPTIONS, BUTTON_TYPE_OPTION] : TEXT_TYPE_OPTIONS;
+  }
+  if (name === "heading") return TEXT_TYPE_OPTIONS;
+  // A button's label is inherently short, so it can always turn back into text.
+  if (name === "button") return [BUTTON_TYPE_OPTION, PARAGRAPH_TYPE_OPTION];
   if (name === "container" || name === "card" || name === "row")
     return LAYOUT_TYPE_OPTIONS;
   return null;
@@ -117,13 +142,17 @@ export function convertBlockTypes(
   opt: TypeOption,
   { quiet = false }: { quiet?: boolean } = {},
 ): void {
-  const type = view.state.schema.nodes[opt.typeName];
+  const { schema } = view.state;
+  const type = schema.nodes[opt.typeName];
   if (!type) return;
   const allowed = type.spec.attrs ?? {};
   const tr = view.state.tr;
-  const converted: number[] = [];
+  // Positions are mapped through the running transaction: a text ↔ button swap
+  // (below) is a full replace that changes node size, so later positions shift.
+  const origins: number[] = [];
   for (const pos of positions) {
-    const node = view.state.doc.nodeAt(pos);
+    const at = tr.mapping.map(pos);
+    const node = tr.doc.nodeAt(at);
     if (!node) continue;
     const merged: Record<string, unknown> = {
       ...node.attrs,
@@ -133,9 +162,28 @@ export function convertBlockTypes(
     const attrs = Object.fromEntries(
       Object.entries(merged).filter(([k]) => k in allowed),
     );
-    tr.setNodeMarkup(pos, type, attrs);
-    converted.push(pos);
+    if (node.isTextblock && type.isAtom) {
+      // Text → atom (paragraph/heading → button): a button has no content, so
+      // its text lives in the `label` attr. Carry the block's text across and
+      // replace the node wholesale (setNodeMarkup would keep now-invalid inline
+      // content). Marks are dropped — a button label is plain text.
+      if ("label" in allowed) {
+        attrs["label"] = node.textContent || String(attrs["label"] ?? "Button");
+      }
+      tr.replaceWith(at, at + node.nodeSize, type.create(attrs));
+    } else if (node.type.isAtom && type.isTextblock) {
+      // Atom → text (button → paragraph): the `label` attr becomes the text.
+      const label = String(node.attrs["label"] ?? "");
+      tr.replaceWith(at, at + node.nodeSize, type.create(attrs, label ? schema.text(label) : null));
+    } else {
+      // Same content model (text ↔ text, layout ↔ layout): in-place markup swap
+      // keeps the children and the node size.
+      tr.setNodeMarkup(at, type, attrs);
+    }
+    origins.push(pos);
   }
-  if (!converted.length) return;
+  if (!origins.length) return;
+  // Map each source position to where its (possibly resized) block now starts.
+  const converted = origins.map((p) => tr.mapping.map(p));
   view.dispatch(setSelectedBlocks(tr, converted, quiet));
 }

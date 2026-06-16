@@ -3,10 +3,10 @@
  * type-precise twin of the canvas handles. Groups the spacing controls that
  * apply to the selected block under one header:
  *
- *   • Container gap — the rhythm between a container's stacked children.
- *     Always shown (it's inherent), starting at Auto.
- *   • Top margin — per-block space above. Hidden until "+" (mirrors the canvas
- *     handle's Auto state); the ✕ removes it again.
+ *   • Leading margin — per-block space before the block, on its stack's MAIN
+ *     axis: a top margin in a vertical stack, a left margin in a horizontal one
+ *     (`axis` orients label + scrub to match the canvas handle). Hidden until
+ *     "+" (mirrors the canvas handle's Auto state); the ✕ removes it again.
  *
  * Each row is a `ScrubField`: an icon you drag to scrub (same snap scale + px
  * as the canvas, ⇧ = coarse), a number you can type, and a caret with the
@@ -24,7 +24,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ArrowLineUp, CaretDown, Plus, X } from "@phosphor-icons/react";
+import { ArrowLineLeft, ArrowLineUp, CaretDown, Plus, X } from "@phosphor-icons/react";
 import { type PointerEvent as ReactPointerEvent, useEffect, useState } from "react";
 
 import { BLOCK_MARGIN_MAX, BLOCK_MARGIN_SNAP, snapToScale } from "../spacing";
@@ -34,14 +34,23 @@ const MARGIN_PRESETS = [0, 4, 8, 12, 16, 24, 32, 48, 64, 80, 96, 120, 160, 240] 
 export function SpacingSection({
   margin,
 }: {
-  /** Block top-margin. Hidden behind "+" until added; `autoPx` is what Auto
+  /** Block leading margin. Hidden behind "+" until added; `autoPx` is what Auto
    *  resolves to in this block's context (e.g. a container child's default
-   *  rhythm), so a scrub starts from the right place. */
-  margin: { value: number | null; autoPx: number; onChange: (next: number | null) => void };
+   *  rhythm), so a scrub starts from the right place. `axis` orients the control
+   *  to the stack — `"horizontal"` makes it a left margin (label, icon, scrub
+   *  direction) to match a horizontal stack's canvas handle. */
+  margin: {
+    value: number | null;
+    autoPx: number;
+    axis?: "vertical" | "horizontal";
+    onChange: (next: number | null) => void;
+  };
 }) {
   // Opt-in: shown once it's explicit OR the user clicked "+".
   const [added, setAdded] = useState(margin.value != null);
   const showMargin = margin.value != null || added;
+  const horizontal = margin.axis === "horizontal";
+  const label = horizontal ? "Left margin" : "Top margin";
 
   return (
     <div className="pb-spacing">
@@ -51,7 +60,7 @@ export function SpacingSection({
           <button
             type="button"
             className="pb-spacing-add"
-            aria-label="Add top margin"
+            aria-label={`Add ${label.toLowerCase()}`}
             // Reveal at Auto — the user adjusts from there (not a magic default).
             onClick={() => setAdded(true)}
           >
@@ -62,10 +71,11 @@ export function SpacingSection({
 
       {showMargin && (
         <ScrubField
-          label="Top margin"
-          icon={<ArrowLineUp size={14} />}
+          label={label}
+          icon={horizontal ? <ArrowLineLeft size={14} /> : <ArrowLineUp size={14} />}
           value={margin.value}
           autoPx={margin.autoPx}
+          axis={horizontal ? "horizontal" : "vertical"}
           scale={BLOCK_MARGIN_SNAP}
           max={BLOCK_MARGIN_MAX}
           presets={MARGIN_PRESETS}
@@ -80,7 +90,17 @@ export function SpacingSection({
   );
 }
 
-function ScrubField({
+/**
+ * One spacing row — a grip you drag to scrub, a number you can type, a caret
+ * with presets, and (for removable rows) a ✕. Shared by the block popover's
+ * top-margin and the section popover's vertical padding.
+ *
+ * `allowAuto` toggles the Auto (null) distinction: blocks use it (Auto = the
+ * per-context default rhythm, an explicit number — incl. 0 — overrides), but a
+ * section's padding is always an explicit number, so it passes `false` to drop
+ * the Auto preset and the clear-to-Auto behaviour.
+ */
+export function ScrubField({
   label,
   icon,
   value,
@@ -91,10 +111,11 @@ function ScrubField({
   onChange,
   onRemove,
   axis = "vertical",
+  allowAuto = true,
 }: {
   label: string;
   icon: React.ReactNode;
-  /** null = Auto. */
+  /** null = Auto (only reachable when `allowAuto`). */
   value: number | null;
   /** What Auto resolves to — the scrub start when unset. */
   autoPx: number;
@@ -109,6 +130,10 @@ function ScrubField({
    *  drag down to grow) by default; horizontal (left/right: ew-resize, drag
    *  right to grow) for future x-axis padding/margin controls. */
   axis?: "vertical" | "horizontal";
+  /** Whether the value can be Auto (null). Blocks: yes. Section padding: no —
+   *  it's always an explicit number, so clearing reverts and there's no Auto
+   *  preset. Defaults to true. */
+  allowAuto?: boolean;
 }) {
   // Empty text = Auto; a number = explicit. Resync when value changes (scrub /
   // preset).
@@ -150,7 +175,10 @@ function ScrubField({
   const commit = () => {
     const trimmed = text.trim();
     if (trimmed === "") {
-      onChange(null); // cleared → Auto
+      // Cleared → Auto, but only where Auto exists. With no Auto (section
+      // padding) an empty field is meaningless, so snap the text back.
+      if (allowAuto) onChange(null);
+      else setText(value == null ? "" : String(value));
       return;
     }
     const n = parseInt(trimmed, 10);
@@ -193,13 +221,15 @@ function ScrubField({
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content className="pb-scrub-menu" align="end" sideOffset={6}>
-              <DropdownMenu.Item
-                className="pb-scrub-menu-item"
-                data-active={value == null || undefined}
-                onSelect={() => onChange(null)}
-              >
-                Auto
-              </DropdownMenu.Item>
+              {allowAuto && (
+                <DropdownMenu.Item
+                  className="pb-scrub-menu-item"
+                  data-active={value == null || undefined}
+                  onSelect={() => onChange(null)}
+                >
+                  Auto
+                </DropdownMenu.Item>
+              )}
               {presets.map((px) => (
                 <DropdownMenu.Item
                   key={px}

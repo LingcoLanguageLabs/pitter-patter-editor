@@ -39,11 +39,22 @@ interface BlockPickerProps {
    *  draggable into the canvas via shuffle's `data-shuffle-inflatable`
    *  (drag-to-create), in addition to click-to-insert. */
   inflatableJSON?: (entry: BlockCatalogEntry) => string | undefined;
+  /** Catalog to offer — defaults to the full `BLOCK_CATALOG`. The header/footer
+   *  chrome passes a trimmed list (e.g. without "Section") since not every
+   *  block makes sense inside a bar. */
+  catalog?: BlockCatalogEntry[];
 }
 
 export const BlockPicker = forwardRef<HTMLButtonElement, BlockPickerProps>(
   function BlockPicker(
-    { trigger, onPick, initialQuery = "", side = "right", inflatableJSON },
+    {
+      trigger,
+      onPick,
+      initialQuery = "",
+      side = "right",
+      inflatableJSON,
+      catalog = BLOCK_CATALOG,
+    },
     _ref,
   ) {
     const [open, setOpen] = useState(false);
@@ -51,13 +62,13 @@ export const BlockPicker = forwardRef<HTMLButtonElement, BlockPickerProps>(
 
     const filtered = useMemo(() => {
       const norm = q.trim().toLowerCase();
-      return BLOCK_CATALOG.filter((entry) => {
+      return catalog.filter((entry) => {
         if (norm) {
           return entry.name.toLowerCase().includes(norm);
         }
         return !entry.searchOnly;
       });
-    }, [q]);
+    }, [q, catalog]);
 
     const groups = useMemo(() => {
       return BLOCK_GROUPS.map((g) => ({

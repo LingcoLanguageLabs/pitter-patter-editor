@@ -35,7 +35,12 @@ import {
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { shufflePluginKey } from "@pitter-patter/shuffle";
 
-import { findEnclosingSection } from "./sectionUtils";
+import { findEnclosingOfType } from "./sectionUtils";
+
+/** The structural, full-width nodes that get the section-style accent ring:
+ *  the section body plus the optional header / footer bars. */
+const STRUCTURAL = ["section", "header", "footer"] as const;
+const STRUCTURAL_SELECTOR = ".pp-section, .pp-header, .pp-footer";
 
 interface SectionHighlightState {
   /** Doc position (before-node) of the active section, or null. */
@@ -98,11 +103,15 @@ export function sectionHighlightPlugin() {
           const result = tr.mapping.mapResult(activePos);
           activePos = result.deleted ? null : result.pos;
         }
-        // Drop the ring if the mapped position no longer starts a section
-        // (merged / replaced / deleted out from under us).
+        // Drop the ring if the mapped position no longer starts a structural
+        // node (merged / replaced / deleted out from under us).
         if (activePos != null) {
           const node = newState.doc.nodeAt(activePos);
-          if (!node || node.type.name !== "section") activePos = null;
+          if (
+            !node ||
+            !(STRUCTURAL as readonly string[]).includes(node.type.name)
+          )
+            activePos = null;
         }
         // A shuffle drag clears the ring and keeps it cleared past the
         // drop (until the next click) — mirrors the block ring + pagy.
@@ -142,26 +151,26 @@ export function sectionHighlightPlugin() {
       // behavior.
       const onMouseDown = (event: MouseEvent) => {
         const target = event.target as HTMLElement | null;
-        const sectionEl = target?.closest(".pp-section") as
+        const sectionEl = target?.closest(STRUCTURAL_SELECTOR) as
           | (HTMLElement & { pmViewDesc?: { posBefore: number } })
           | null;
         if (!sectionEl) {
-          // Clicked inside the editor but outside any section (the page
+          // Clicked inside the editor but outside any structural node (the page
           // gutter) — clear on a plain click; leave right-clicks alone so
           // a native menu can open without dropping the ring.
           if (event.button === 0) setActive(null);
           return;
         }
-        // `posBefore` off the section's NodeView DOM is the section's
-        // own position. Fall back to resolving the enclosing section
-        // from a DOM-derived position if the desc isn't attached.
+        // `posBefore` off the structural node's NodeView DOM is its own
+        // position. Fall back to resolving the enclosing one from a
+        // DOM-derived position if the desc isn't attached.
         const desc = sectionEl.pmViewDesc;
         if (desc) {
           setActive(desc.posBefore);
           return;
         }
         const inside = editorView.posAtDOM(sectionEl, 0);
-        const info = findEnclosingSection(editorView.state, inside);
+        const info = findEnclosingOfType(editorView.state, inside, STRUCTURAL);
         setActive(info ? info.pos : null);
       };
 

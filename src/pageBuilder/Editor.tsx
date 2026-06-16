@@ -22,14 +22,11 @@ import {
   ProseMirror,
   ProseMirrorDoc,
   reactKeys,
-  useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import {
   DragHandles,
-  ResizeHandles,
   ShuffleSkeleton,
   shuffle,
-  shufflePluginKey,
 } from "@pitter-patter/shuffle";
 import { baseKeymap } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
@@ -53,15 +50,16 @@ import type { Extension } from "../editor/types";
 
 import { activePagePlugin } from "./activePagePlugin";
 import { attrClassesPlugin } from "./attrClassesPlugin";
-import {
-  blockHighlightPlugin,
-  getActiveBlockPos,
-} from "./blockHighlightPlugin";
+import { blockHighlightPlugin } from "./blockHighlightPlugin";
 import { BlockContextMenu } from "./BlockContextMenu";
 import { BlockMarginHandle } from "./BlockMarginHandle";
+import { BlockResizeHandles } from "./BlockResizeHandles";
 import { BlockSettings } from "./blockSettings/BlockSettings";
 import { editorStoreSyncPlugin } from "./editorStoreSync";
+import { globalBarPlugin } from "./globalBarPlugin";
+import { layerHoverPlugin } from "./layerHoverPlugin";
 import { nodeViewComponents } from "./nodeViews";
+import { ensurePageSectionsPlugin } from "./pageInvariants";
 import { orderCommand } from "./orderCommands";
 import { SelectableDragHandle } from "./SelectableDragHandle";
 import { splitRowCellIntoContainer } from "./rowEnterCommand";
@@ -112,22 +110,6 @@ export interface PageBuilderEditorProps {
   overlays?: React.ReactNode;
 }
 
-/**
- * Renders shuffle's resize handles only while a block is explicitly
- * selected (`blockHighlightPlugin`) and not mid-drag. Shuffle keys the
- * handles off the raw PM selection, which never clears — so without
- * this gate they'd linger after a gutter/outside click, out of sync
- * with the toolbar and ring. The selection still drives *which* block
- * the handles attach to; we only gate *whether* they show.
- */
-function ActiveResizeHandles() {
-  const state = useEditorState();
-  const active =
-    getActiveBlockPos(state) != null &&
-    shufflePluginKey.getState(state)?.activeNodePos == null;
-  return active ? <ResizeHandles /> : null;
-}
-
 export function PageBuilderEditor({
   initialDoc,
   overlays,
@@ -151,6 +133,11 @@ export function PageBuilderEditor({
         shuffle({
           hoverDecorations: (from, to) =>
             Decoration.node(from, to, { class: "pb-block-hovered" }),
+          // The image's internal resize handles live INSIDE the (draggable)
+          // figure; without this, a pointerdown on a handle would grab the
+          // block instead of resizing. The selector tells shuffle to ignore
+          // pointerdowns there so the handle's own drag runs. See ImageNodeView.
+          ignoreSelector: ".pb-image-resize-handle",
         }),
         sectionChromePlugin(),
         blockHighlightPlugin(),
@@ -159,7 +146,20 @@ export function PageBuilderEditor({
         // clicking a block shows both (the section outline + the inner
         // block outline), like pagy.
         sectionHighlightPlugin(),
+        // Rings the layer hovered in the Layers panel, reusing the same accent
+        // ring as shuffle's hover (`pb-block-hovered`). See `layerHoverPlugin`.
+        layerHoverPlugin(),
         activePagePlugin(),
+        // Heals the `page: header? section+ footer?` invariant PM declares but
+        // doesn't auto-enforce: any page left with zero sections (by a delete /
+        // move that didn't guard) gets a fresh empty section back. See
+        // `pageInvariants`.
+        ensurePageSectionsPlugin(),
+        // Reconciles the site-wide header/footer masters with the active page:
+        // hides a master when the page detaches/hides it, and mounts a restore
+        // ghost for a hidden bar. After activePagePlugin so it reads the new
+        // active id. See `globalBarPlugin` / `headerFooter`.
+        globalBarPlugin(),
         attrClassesPlugin(),
         // The one bridge to the zustand UI store: mirrors deck + drag state
         // out (for the Pages panel / chrome) and pushes the mobile flag in
@@ -207,7 +207,7 @@ export function PageBuilderEditor({
     >
       <ShuffleSkeleton>
         <ProseMirrorDoc />
-        <ActiveResizeHandles />
+        <BlockResizeHandles />
         <DragHandles handleComponent={SelectableDragHandle} />
       </ShuffleSkeleton>
       <BlockSettings />

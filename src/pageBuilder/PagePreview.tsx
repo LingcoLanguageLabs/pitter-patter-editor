@@ -33,6 +33,12 @@ export function PagePreview() {
   const pagesView = usePageBuilderStore((s) => s.pagesView);
   const theme = usePageBuilderStore((s) => s.theme);
   const setPreview = usePageBuilderStore((s) => s.setPreview);
+  // Follow the editor's device toggle: in mobile view the preview renders inside
+  // the same 430px phone frame the canvas uses, so its `.pb-canvas.site`
+  // container narrows and the mobile `@container` rules (hamburger, stacks,
+  // type ramp) fire — otherwise Play always showed the full-width desktop
+  // layout regardless of the toggle.
+  const mobile = usePageBuilderStore((s) => s.mobile);
 
   // Snapshot the live doc + active page once per open. `pagesView` is stable
   // for the editor's lifetime, and this component is mounted only while
@@ -58,7 +64,11 @@ export function PagePreview() {
   if (!snapshot) return null;
 
   return (
-    <div className="pb-preview" role="region" aria-label="Site preview">
+    <div
+      className={`pb-preview${mobile ? " -mobile" : ""}`}
+      role="region"
+      aria-label="Site preview"
+    >
       <SiteRenderer
         doc={snapshot.doc}
         theme={theme}

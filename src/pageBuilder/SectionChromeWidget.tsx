@@ -28,6 +28,7 @@ import {
   useEditorState,
   type WidgetViewComponentProps,
 } from "@handlewithcare/react-prosemirror";
+import type { ResolvedPos } from "prosemirror-model";
 import { forwardRef, useState } from "react";
 
 import { Tooltip, TooltipProvider } from "../editor/menu";
@@ -67,18 +68,17 @@ export const SectionChromeWidget = forwardRef<
     },
   );
 
-  // This section's position among its PAGE's sections, for gating the
-  // toolbar: hide Move-up on the first, Move-down on the last, Delete when
-  // it's the only one (a page is `section+`, so its last section can't be
-  // removed). Sections live inside a page now, so we count within the page
-  // (`$section.parent`), not at the doc root (whose children are pages).
+  // This section's position among its PAGE's SECTIONS, for gating the toolbar:
+  // hide Move-up on the first, Move-down on the last, Delete when it's the only
+  // one (a page is `header? section+ footer?`, so its last section can't be
+  // removed). We count only `section` children — the optional header/footer
+  // bars are siblings too and would otherwise skew the index/count.
   const editorState = useEditorState();
   const sectionInfo = findEnclosingSection(editorState, getPos());
   const $section = sectionInfo
     ? editorState.doc.resolve(sectionInfo.pos)
     : null;
-  const sectionIndex = $section ? $section.index() : 0;
-  const sectionCount = $section ? $section.parent.childCount : 1;
+  const { sectionIndex, sectionCount } = sectionStats($section);
   const isFirst = sectionIndex === 0;
   const isLast = sectionIndex === sectionCount - 1;
   const canDelete = sectionCount > 1;
@@ -94,7 +94,8 @@ export const SectionChromeWidget = forwardRef<
     }
   };
 
-  /** Move this section one slot up or down among its siblings. */
+  /** Move this section one slot up or down among its sibling SECTIONS, skipping
+   *  the header/footer bars (which are pinned to the page's top/bottom). */
   const moveSection = useEditorEventCallback((view, dir: "up" | "down") => {
     const info = findEnclosingSection(view.state, getPos());
     if (!info) return;
@@ -102,17 +103,26 @@ export const SectionChromeWidget = forwardRef<
     const node = state.doc.nodeAt(info.pos);
     if (!node) return;
     const $pos = state.doc.resolve(info.pos);
-    // Index/count are within the section's parent PAGE (its siblings), not
-    // the doc root.
-    const index = $pos.index();
-    if (dir === "up" && index === 0) return;
-    if (dir === "down" && index === $pos.parent.childCount - 1) return;
-    // Delete this section, then re-insert it on the far side of its neighbour.
+    const parent = $pos.parent;
+    const rawIndex = $pos.index();
+    // The adjacent SECTION sibling (skip header/footer).
+    let swapIndex = -1;
+    if (dir === "up") {
+      for (let i = rawIndex - 1; i >= 0; i--) {
+        if (parent.child(i).type.name === "section") { swapIndex = i; break; }
+      }
+    } else {
+      for (let i = rawIndex + 1; i < parent.childCount; i++) {
+        if (parent.child(i).type.name === "section") { swapIndex = i; break; }
+      }
+    }
+    if (swapIndex === -1) return;
+    // Delete this section, then re-insert it on the far side of the swap target.
     // The insert position is mapped through the delete so it stays valid.
     const target =
       dir === "up"
-        ? $pos.posAtIndex(index - 1) // before the previous section (in-page)
-        : info.pos + info.nodeSize + (state.doc.nodeAt(info.pos + info.nodeSize)?.nodeSize ?? 0); // after the next
+        ? $pos.posAtIndex(swapIndex) // before the previous section
+        : $pos.posAtIndex(swapIndex) + parent.child(swapIndex).nodeSize; // after the next
     const tr = state.tr.delete(info.pos, info.pos + info.nodeSize);
     tr.insert(tr.mapping.map(target), node);
     view.dispatch(tr.scrollIntoView());
@@ -139,8 +149,14 @@ export const SectionChromeWidget = forwardRef<
   const deleteSection = useEditorEventCallback((view) => {
     const info = findEnclosingSection(view.state, getPos());
     if (!info) return;
-    // A page is `section+`, so don't remove its last section.
-    if (view.state.doc.resolve(info.pos).parent.childCount <= 1) return;
+    // A page is `header? section+ footer?`, so don't remove its last SECTION
+    // (count sections only — header/footer don't satisfy `section+`).
+    const parent = view.state.doc.resolve(info.pos).parent;
+    let sections = 0;
+    parent.forEach((child) => {
+      if (child.type.name === "section") sections++;
+    });
+    if (sections <= 1) return;
     view.dispatch(view.state.tr.delete(info.pos, info.pos + info.nodeSize));
   });
 
@@ -287,3 +303,23 @@ export const SectionChromeWidget = forwardRef<
     </div>
   );
 });
+
+/** This section's index + total among its page's SECTION children only — the
+ *  optional header/footer bars are siblings (page is `header? section+
+ *  footer?`) and must be excluded from the move/delete gating. */
+function sectionStats($section: ResolvedPos | null): {
+  sectionIndex: number;
+  sectionCount: number;
+} {
+  if (!$section) return { sectionIndex: 0, sectionCount: 1 };
+  const parent = $section.parent;
+  const rawIndex = $section.index();
+  let sectionCount = 0;
+  let sectionIndex = 0;
+  parent.forEach((child, _offset, i) => {
+    if (child.type.name !== "section") return;
+    if (i === rawIndex) sectionIndex = sectionCount;
+    sectionCount++;
+  });
+  return { sectionIndex, sectionCount: sectionCount || 1 };
+}

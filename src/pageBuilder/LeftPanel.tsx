@@ -26,6 +26,7 @@ import { ColorsPanel } from "./panels/ColorsPanel";
 import { DesignPanel } from "./panels/DesignPanel";
 import { FontsPanel } from "./panels/FontsPanel";
 import { InputsPanel } from "./panels/InputsPanel";
+import { LayersPanel } from "./panels/LayersPanel";
 import { PagesPanel } from "./panels/PagesPanel";
 import { TransitionsPanel } from "./panels/TransitionsPanel";
 import {
@@ -55,8 +56,8 @@ const SHEETS: Record<Sheet, SheetDef> = {
   colors: { width: "-medium", Component: ColorsPanel },
   fonts: { width: "-medium", Component: FontsPanel },
   pages: { width: "-medium", Component: PagesPanel },
+  layers: { width: "-medium", Component: LayersPanel },
   transitions: { width: "-medium", Component: TransitionsPanel },
-  forms: { width: "-medium", Component: () => <Placeholder title="Forms" /> },
   settings: {
     width: "-medium",
     Component: () => <Placeholder title="Settings" />,
@@ -77,9 +78,9 @@ const SHEETS: Record<Sheet, SheetDef> = {
 
 const NAV_ITEMS: { label: string; sheet: Sheet }[] = [
   { label: "Pages", sheet: "pages" },
+  { label: "Layers", sheet: "layers" },
   { label: "Design", sheet: "design" },
   { label: "Code", sheet: "code" },
-  { label: "Forms", sheet: "forms" },
   { label: "Settings", sheet: "settings" },
 ];
 

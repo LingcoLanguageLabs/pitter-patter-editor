@@ -18,36 +18,53 @@ import { Plugin, type EditorState } from "prosemirror-state";
 import { DecorationSet } from "prosemirror-view";
 import { widget } from "@handlewithcare/react-prosemirror";
 
+import { HeaderFooterChromeWidget } from "./HeaderFooterChromeWidget";
 import { SectionBackgroundWidget } from "./SectionBackgroundWidget";
 import { SectionChromeWidget } from "./SectionChromeWidget";
 
 function buildDecorations(state: EditorState) {
   const decos: ReturnType<typeof widget>[] = [];
   state.doc.descendants((node, pos) => {
-    if (node.type.name !== "section") return true;
-    // Background media layer at start-of-content (before the first
-    // block), so it paints under everything. Same PM-opaque widget
-    // trick as the chrome — a raw DOM child would confuse shuffle.
-    decos.push(
-      widget(pos + 1, SectionBackgroundWidget, {
-        side: -1,
-        key: `section-bg-${pos}`,
-        ignoreSelection: true,
-      }),
-    );
-    // Place the widget at the section's end-of-content position
-    // (just inside the closing tag).
-    const endOfContent = pos + node.nodeSize - 1;
-    decos.push(
-      widget(endOfContent, SectionChromeWidget, {
-        side: 1,
-        key: `section-chrome-${pos}`,
-        // Make sure clicks / hovers on the chrome don't bubble into
-        // PM as "user is interacting with content".
-        ignoreSelection: true,
-      }),
-    );
-    return false;
+    const name = node.type.name;
+    if (name === "section") {
+      // Background media layer at start-of-content (before the first
+      // block), so it paints under everything. Same PM-opaque widget
+      // trick as the chrome — a raw DOM child would confuse shuffle.
+      decos.push(
+        widget(pos + 1, SectionBackgroundWidget, {
+          side: -1,
+          key: `section-bg-${pos}`,
+          ignoreSelection: true,
+        }),
+      );
+      // Place the widget at the section's end-of-content position
+      // (just inside the closing tag).
+      const endOfContent = pos + node.nodeSize - 1;
+      decos.push(
+        widget(endOfContent, SectionChromeWidget, {
+          side: 1,
+          key: `section-chrome-${pos}`,
+          // Make sure clicks / hovers on the chrome don't bubble into
+          // PM as "user is interacting with content".
+          ignoreSelection: true,
+        }),
+      );
+      return false;
+    }
+    // Header + footer get the leaner bar chrome (Add block · settings · delete)
+    // via the same end-of-content widget-decoration trick.
+    if (name === "header" || name === "footer") {
+      const endOfContent = pos + node.nodeSize - 1;
+      decos.push(
+        widget(endOfContent, HeaderFooterChromeWidget, {
+          side: 1,
+          key: `hf-chrome-${pos}`,
+          ignoreSelection: true,
+        }),
+      );
+      return false;
+    }
+    return true;
   });
   return DecorationSet.create(state.doc, decos);
 }

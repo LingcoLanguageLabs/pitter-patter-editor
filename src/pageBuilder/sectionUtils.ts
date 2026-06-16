@@ -21,20 +21,31 @@ export interface SectionInfo {
   nodeSize: number;
 }
 
+/** Walks back from `widgetPos` to the nearest enclosing node whose type name
+ *  is in `typeNames`. Generalises `findEnclosingSection` for the header/footer
+ *  chrome, whose widgets need their own structural node (header or footer). */
+export function findEnclosingOfType(
+  state: EditorState,
+  widgetPos: number,
+  typeNames: readonly string[],
+): SectionInfo | null {
+  const $pos = state.doc.resolve(widgetPos);
+  for (let depth = $pos.depth; depth >= 0; depth--) {
+    const node = $pos.node(depth);
+    if (!typeNames.includes(node.type.name)) continue;
+    const pos = depth === 0 ? 0 : $pos.before(depth);
+    return { pos, node, nodeSize: node.nodeSize };
+  }
+  return null;
+}
+
 /** Walks back from `widgetPos` (a position inside a section) to the
  *  enclosing section node. */
 export function findEnclosingSection(
   state: EditorState,
   widgetPos: number,
 ): SectionInfo | null {
-  const $pos = state.doc.resolve(widgetPos);
-  for (let depth = $pos.depth; depth >= 0; depth--) {
-    const node = $pos.node(depth);
-    if (node.type.name !== "section") continue;
-    const pos = depth === 0 ? 0 : $pos.before(depth);
-    return { pos, node, nodeSize: node.nodeSize };
-  }
-  return null;
+  return findEnclosingOfType(state, widgetPos, ["section"]);
 }
 
 /** True when another section (not the one at `sectionPos`) already uses

@@ -1097,6 +1097,29 @@
   }
 }
 
+/* Mobile preview — when the device toggle is on, Play renders inside a centred
+   430px phone frame (mirrors the editor's `.pb-canvas-wrap.-mobile`) instead of
+   filling the overlay. Narrowing the `.pb-canvas.site` container is what makes
+   the mobile `@container` rules fire, so preview matches the phone layout. The
+   page still scrolls internally via `.pb-canvas-scroll`. */
+.pb-preview.-mobile {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  padding: 16px 0;
+}
+.pb-preview.-mobile .pb-site {
+  width: 430px;
+  max-width: 430px;
+  flex: 0 0 430px;
+  border-radius: var(--pb-frame-radius);
+  box-shadow: var(--pb-panel-shadow);
+  overflow: hidden;
+}
+.pb-preview.-mobile .pb-canvas {
+  border-radius: var(--pb-frame-radius);
+}
+
 /* ─────────────────────────── Page transitions (present + published)
    The deck's entry transition (`transitions.ts`) plays in `<SiteRenderer>`
    via `<AnimatePresence>`. `.pb-page-anim` wraps each animating page: a
@@ -1373,6 +1396,13 @@
   font-size: 18px;
   line-height: 1.6;
   color: inherit;
+  /* The deck's direct children are the global header, the pages, and the global
+     footer. They must butt together exactly like sections within a page (which
+     `.pb-page` already zeroes), so a GLOBAL bar hugs the page identically to a
+     DETACHED one — the only difference between them is the accent color, not the
+     layout. shuffle's `.ProseMirror` defaults this to `--shuffle-row-gap` (1rem),
+     which only ever showed once doc-level bars became siblings of the page. */
+  row-gap: 0;
 }
 .pb-canvas-scroll .ProseMirror h1,
 .pb-canvas-scroll .ProseMirror h2,
@@ -1741,14 +1771,27 @@
 .shuffle-block.mt-50   { --pp-mt: 200px; }
 .shuffle-block.mt-60   { --pp-mt: 240px; }
 
-/* Per-context resolution of the top margin. A container has NO flex gap — its
-   children's spacing IS this margin (Auto = 16px, the default rhythm pagy fills
-   the gap with). Sections/cards keep their own gap, so their Auto is 0 and an
-   explicit margin is additive. First child never gets a top margin. */
+/* Per-context resolution of the block margin. A container has NO flex gap — a
+   child's spacing IS its margin, applied on the container's MAIN AXIS (so it
+   stays individually adjustable, axis-relative): top-margin when the stack is
+   vertical, left-margin when horizontal. Auto = 16px (the default rhythm);
+   sections/cards keep their own spacing, so their Auto is 0 and an explicit
+   margin is additive. The first child never gets a leading margin. */
 .pp-section > .shuffle-block { margin-top: var(--pp-mt, 0px); }
 .pp-card > .shuffle-block { margin-top: var(--pp-mt, 0px); }
 .container > .shuffle-block { margin-top: var(--pp-mt, 16px); }
 .container > .shuffle-block:first-child { margin-top: 0; }
+/* Horizontal stack: the same `--pp-mt` value becomes the leading LEFT margin;
+   the top margin is irrelevant on this axis, so zero it. Children size to their
+   content (shuffle defaults every block to `width: 100%`, right for a vertical
+   column but it would make each item fill the row and wrap) — justify-content
+   then distributes them along the row. */
+.container.-horizontal > .shuffle-block {
+  margin-top: 0;
+  margin-left: var(--pp-mt, 16px);
+  width: auto;
+}
+.container.-horizontal > .shuffle-block:first-child { margin-left: 0; }
 
 /* Themed sections (`theme -inverted` etc. — scopes from themeToCss)
    recolor their text along with the background. */
@@ -1800,14 +1843,98 @@
    layer (paint order: positioned elements in DOM order). */
 .pp-section > .shuffle-block { position: relative; }
 
-/* Shuffle's container — a flex column. NO flex `gap`: the rhythm between
-   stacked children is each child's top margin (the `.container > .shuffle-block`
-   rule above), pagy-style — so the margin handle's Auto fills the gap and is
-   adjustable down to 0 (collapse) or up. */
+/* ── Header / footer bars ───────────────────────────────────────────────────
+   The site's top/bottom bars (pagy's `header`; our `footer` mirrors a section).
+   Both are full-width subgrid passthroughs like `.pp-section`, so the row of
+   wordmark + nav (header) or the footer columns lay out on the same 12-col
+   grid. Both get their height from the section `py-{unit}` vertical-padding
+   model — so NO `padding: 0` reset here (it would beat the `py-{unit}` class at
+   equal specificity); inline padding is left at its initial 0. */
+.pp-header,
+.pp-footer {
+  position: relative;
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column-start: 1;
+  grid-column-end: 15;
+  row-gap: 24px;
+  margin: 0;
+  background-color: var(--color-background, transparent);
+  box-sizing: border-box;
+}
+/* Themed bars recolor their text along with the background (like sections). */
+.pp-header.theme,
+.pp-footer.theme { color: var(--color-neutral); }
+
+/* Position: Fixed → sticks to the top of the scroll viewport (the canvas
+   scroller is the containing block, so the bar stays glued while sections
+   scroll beneath it). pagy uses position:fixed + "not previewable while
+   editing"; sticky gives a faithful, previewable result in editor AND site. */
+.pp-header.-fixed {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+/* Background: Transparent (no fill) / Blur (translucent + backdrop blur). The
+   blur tint is painted by a ::before so the bar's grid children stay crisp
+   above it. */
+.pp-header.-transparent { background-color: transparent; }
+.pp-header.-blur { background-color: transparent; }
+.pp-header.-blur::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: rgb(from var(--color-background) r g b / 80%);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* ── Mobile hamburger (runtime only) ─────────────────────────────────────────
+   The published/preview header (rendered by renderNode's `SiteHeader`, never
+   the editor's PM NodeView) carries a burger button + a `.pp-header-mobile`
+   dropdown alongside its normal content. Both are inert until the phone
+   container query (scoped to `.pb-site`) brings them to life — see the mobile
+   block below. The editor canvas has neither element, so its mobile toggle just
+   stacks the nav inline (still editable). */
+.pp-header-burger { display: none; }
+.pp-header-mobile { display: none; }
+
+/* Block-margin context — like a section, a bar's children carry their own
+   explicit top margin (Auto = 0); no default rhythm is imposed. Positioned so
+   content paints above the blur ::before. */
+.pp-header > .shuffle-block,
+.pp-footer > .shuffle-block {
+  margin-top: var(--pp-mt, 0px);
+  position: relative;
+}
+
+/* Shuffle's container = a flex *stack* (pagy's Stack, "a container on another
+   axis"). NO flex `gap`: the rhythm between children is each child's leading
+   margin (the `.container > .shuffle-block` rules above) — top when vertical,
+   left when horizontal — so each gap stays individually adjustable via the
+   margin handle. The `stackClasses` modifiers below flip the axis + alignment;
+   bare `.container` is the default (vertical, stretch, start, wrap). */
 .container {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
 }
+.container.-horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.container.-horizontal.-nowrap { flex-wrap: nowrap; }
+/* Cross-axis (align-items) — stretch is the default (no class). */
+.container.-align-start { align-items: flex-start; }
+.container.-align-center { align-items: center; }
+.container.-align-end { align-items: flex-end; }
+/* Main-axis distribution (justify-content) — start is the default (no class). */
+.container.-justify-center { justify-content: center; }
+.container.-justify-end { justify-content: flex-end; }
+.container.-justify-between { justify-content: space-between; }
 .container > p { margin: 0; }
 
 
@@ -1818,10 +1945,12 @@
   padding: 0;
 }
 
-.pp-section h1,
-.pp-section h2,
-.pp-section h3,
-.pp-section h4 {
+/* Headings render the same inside sections AND the header/footer bars — the
+   `:is()` list keeps one source of truth so a heading's `size` control (and the
+   mobile `--pb-fs-*` ramp below) takes effect everywhere, not just in sections.
+   Bars look restrained because their TEMPLATES pick small sizes, not because
+   the type system skips them. */
+:is(.pp-section, .pp-header, .pp-footer) :is(h1, h2, h3, h4) {
   font-family: var(--font-family-heading, var(--font-family-base, var(--pb-font)));
   font-weight: var(--font-weight-heading, 700);
   line-height: 1.2;
@@ -1831,12 +1960,12 @@
 /* Per-level default sizes — the fallback when a heading has no `size`
    attr (attr is null → no `pp-size-*` class). Values mirror
    `defaultHeadingSize` in schema.ts (xl / l / s / xs): keep in sync. */
-.pp-section h1 { font-size: var(--pb-fs-h1, 64px); }
-.pp-section h2 { font-size: var(--pb-fs-h2, 48px); }
-.pp-section h3 { font-size: 28px; }
-.pp-section h4 { font-size: 22px; }
+:is(.pp-section, .pp-header, .pp-footer) h1 { font-size: var(--pb-fs-h1, 64px); }
+:is(.pp-section, .pp-header, .pp-footer) h2 { font-size: var(--pb-fs-h2, 48px); }
+:is(.pp-section, .pp-header, .pp-footer) h3 { font-size: 28px; }
+:is(.pp-section, .pp-header, .pp-footer) h4 { font-size: 22px; }
 
-.pp-section p {
+:is(.pp-section, .pp-header, .pp-footer) p {
   margin: 0;
 }
 
@@ -1865,19 +1994,19 @@
 .pp-align-right  { text-align: right; }
 
 /* T-shirt sizes for paragraph (font-size). */
-.pp-section p.pp-size-xs { font-size: 12px; }
-.pp-section p.pp-size-s  { font-size: 14px; }
-.pp-section p.pp-size-m  { font-size: 18px; }
-.pp-section p.pp-size-l  { font-size: var(--pb-fs-text-l, 22px); }
-.pp-section p.pp-size-xl { font-size: var(--pb-fs-text-xl, 28px); }
+:is(.pp-section, .pp-header, .pp-footer) p.pp-size-xs { font-size: 12px; }
+:is(.pp-section, .pp-header, .pp-footer) p.pp-size-s  { font-size: 14px; }
+:is(.pp-section, .pp-header, .pp-footer) p.pp-size-m  { font-size: 18px; }
+:is(.pp-section, .pp-header, .pp-footer) p.pp-size-l  { font-size: var(--pb-fs-text-l, 22px); }
+:is(.pp-section, .pp-header, .pp-footer) p.pp-size-xl { font-size: var(--pb-fs-text-xl, 28px); }
 
 /* T-shirt sizes for headings (font-size). The level attr still
    determines the tag, so we override per-tag at each size. */
-.pp-section :is(h1, h2, h3, h4).pp-size-xs { font-size: 22px; }
-.pp-section :is(h1, h2, h3, h4).pp-size-s  { font-size: 28px; }
-.pp-section :is(h1, h2, h3, h4).pp-size-m  { font-size: var(--pb-fs-heading-m, 36px); }
-.pp-section :is(h1, h2, h3, h4).pp-size-l  { font-size: var(--pb-fs-heading-l, 48px); }
-.pp-section :is(h1, h2, h3, h4).pp-size-xl { font-size: var(--pb-fs-heading-xl, 64px); }
+:is(.pp-section, .pp-header, .pp-footer) :is(h1, h2, h3, h4).pp-size-xs { font-size: 22px; }
+:is(.pp-section, .pp-header, .pp-footer) :is(h1, h2, h3, h4).pp-size-s  { font-size: 28px; }
+:is(.pp-section, .pp-header, .pp-footer) :is(h1, h2, h3, h4).pp-size-m  { font-size: var(--pb-fs-heading-m, 36px); }
+:is(.pp-section, .pp-header, .pp-footer) :is(h1, h2, h3, h4).pp-size-l  { font-size: var(--pb-fs-heading-l, 48px); }
+:is(.pp-section, .pp-header, .pp-footer) :is(h1, h2, h3, h4).pp-size-xl { font-size: var(--pb-fs-heading-xl, 64px); }
 
 /* Button — color (theme palette), size, width, align. The base
    styles live below in `.pp-button`; these add the variant modifiers. */
@@ -2124,20 +2253,38 @@
   padding-right: 2px;
 }
 
-/* Image presentation mirrors pagy's `.media`: a `--radius` + an
-   `--aspect-ratio` custom property drive the figure and img, and
-   modifier classes (shape / corners / style) just set those vars.
-   `position: relative` hosts the `-inset` ::before ring; `overflow`
-   clips the img to the radius (incl. the circle). */
+/* An image block is pagy's `.wrapper` + `.media`: a full-footprint FIGURE (the
+   grid item, which bears the selection ring — so the ring outlines the whole
+   BLOCK and you can see where the image sits inside it) wrapping a
+   `.pb-image-media` box that does the actual sizing/aligning/framing. `--radius`
+   + `--aspect-ratio` are set on the figure by the modifier classes and INHERIT
+   down to the media + img, so corners/shape/aspect need no extra selectors. */
 .pb-image {
   --radius: 12px;
   margin: 0;
   position: relative;
+  /* Fill the grid cell, always — the ring then spans the footprint regardless
+     of how narrow the media inside is. */
+  width: 100%;
+}
+.pb-image-media {
+  position: relative;
+  /* The second-level resize (pagy's image `width`): a % of the footprint, set
+     inline only when < full. The frame/shadow/radius ride the media, so they
+     shrink with the IMAGE — not the footprint (the figure/ring stays full). */
+  width: var(--pb-image-width, 100%);
   border-radius: var(--radius);
   overflow: hidden;
   background: #f3f4f6;
 }
-.pb-image img {
+/* Place the media within the footprint — block-level auto margins, robust in
+   every container the figure can sit in (it's a normal block box). The `align`
+   attr (default `center`) emits `pp-align-*` on the FIGURE; at full width there's
+   no free space, so all three are inert. */
+.pb-image.pp-align-left   .pb-image-media { margin-inline: 0 auto; }
+.pb-image.pp-align-center .pb-image-media { margin-inline: auto; }
+.pb-image.pp-align-right  .pb-image-media { margin-inline: auto 0; }
+.pb-image-media img {
   width: 100%;
   height: auto;
   display: block;
@@ -2146,7 +2293,8 @@
   aspect-ratio: var(--aspect-ratio, 16/9);
 }
 
-/* Aspect ratio (rectangle shapes). "original" → natural intrinsic. */
+/* Aspect ratio (rectangle shapes). "original" → natural intrinsic. Set on the
+   figure; the var inherits to the img. */
 .pb-image[data-aspect="16/9"]     { --aspect-ratio: 16 / 9; }
 .pb-image[data-aspect="3/2"]      { --aspect-ratio: 3 / 2; }
 .pb-image[data-aspect="4/3"]      { --aspect-ratio: 4 / 3; }
@@ -2163,11 +2311,11 @@
 .pb-image.pp-shape-circle { --aspect-ratio: 1 / 1; }
 .pb-image.pp-shape-circle { --radius: 9999px; }
 
-/* Style — plain (default) / inset hairline / drop shadow. */
-.pb-image.pp-frame-shadow {
+/* Style — plain (default) / inset hairline / drop shadow, on the framed media. */
+.pb-image.pp-frame-shadow .pb-image-media {
   box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.35);
 }
-.pb-image.pp-frame-inset::before {
+.pb-image.pp-frame-inset .pb-image-media::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -2462,6 +2610,59 @@
   cursor: grabbing;
 }
 
+/* Internal image-size handles — pagy's `.editor_resize` zone + its
+   `.editor_resize-handle.-inner` bar. Rendered as absolutely-positioned
+   children INSIDE `.pb-image-media` (`ImageNodeView`), which is
+   `position: relative`, so they track the rendered IMAGE (not the footprint)
+   with zero JS — no portal, no fixed coords. A full-media-height 16px grab zone
+   hugs each edge; the 2px bar (`::before`) is flex-centered → ~8px INSIDE the
+   edge (pagy's inset). Hidden until the block is selected. The bar is NOT the
+   blue ring accent: it's pagy's translucent navy + white hairline, so it reads
+   on any image, light or dark. */
+.pb-image-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  cursor: col-resize;
+  touch-action: none;
+  /* The figure is `pointer-events: none` (atom/selected-block treatment), which
+     children inherit — so without this the handle never becomes the pointer
+     target: grabbing it falls through to the image and shuffle drags the block.
+     Re-enable events on the handle so it's hittable. */
+  pointer-events: auto;
+}
+.pb-image-resize-handle[data-side="left"] {
+  left: 0;
+}
+.pb-image-resize-handle[data-side="right"] {
+  right: 0;
+}
+/* Shown only for the selected image — `pb-block-active` (our pagy-style block
+   selection) or PM's native node selection on the figure. */
+.pb-image.pb-block-active .pb-image-resize-handle,
+.pb-image.ProseMirror-selectednode .pb-image-resize-handle {
+  display: flex;
+}
+.pb-image-resize-handle::before {
+  content: "";
+  width: 2px;
+  height: 20px;
+  max-height: calc(100% - 8px);
+  min-height: 8px;
+  border-radius: 4px;
+  background-color: rgba(13, 21, 38, 0.5);
+  outline: 1px solid hsla(0, 0%, 100%, 0.75);
+  transition: background-color 100ms ease;
+}
+.pb-image-resize-handle:hover::before {
+  background-color: rgba(13, 21, 38, 0.75);
+}
+
 /* Block highlight ring — one rule, surfaced in every state a block can
    be highlighted, with an obvious class per state rather than one
    overloaded name:
@@ -2529,8 +2730,13 @@
    first/last keying is structural (`:first-child` / `:last-child` within the
    `.pb-page`). `.pp-section` is already `position: relative`; z-index 2 keeps
    it below the section chrome (z-index 5), so the toolbar/pills stay above. */
+/* Header + footer are structural too, so they share the section ring (active
+   class + hover). `sectionHighlightPlugin` stamps `.pb-section-active` on
+   whichever of section / header / footer is selected. */
 .pb-section-active::after,
-.pb-canvas-wrap .pp-section:hover::after {
+.pb-canvas-wrap .pp-section:hover::after,
+.pb-canvas-wrap .pp-header:hover::after,
+.pb-canvas-wrap .pp-footer:hover::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -2539,24 +2745,165 @@
   pointer-events: none;
   z-index: 2;
 }
-.pp-section:first-of-type.pb-section-active::after,
-.pb-canvas-wrap .pp-section:first-of-type:hover::after {
+/* Round only where the ring meets the canvas's rounded clip — the page's first
+   child's top corners, its last child's bottom corners. Keyed on `:first-child`
+   / `:last-child` of `.pb-page` (not `:first-of-type`) so a header owns the top
+   rounding and a footer the bottom, and an interior section never rounds. */
+.pb-page > .pb-section-active:first-child::after,
+.pb-canvas-wrap .pb-page > .pp-section:first-child:hover::after,
+.pb-canvas-wrap .pb-page > .pp-header:first-child:hover::after {
   border-top-left-radius: var(--pb-frame-radius);
   border-top-right-radius: var(--pb-frame-radius);
 }
-.pp-section:last-of-type.pb-section-active::after,
-.pb-canvas-wrap .pp-section:last-of-type:hover::after {
+.pb-page > .pb-section-active:last-child::after,
+.pb-canvas-wrap .pb-page > .pp-section:last-child:hover::after,
+.pb-canvas-wrap .pb-page > .pp-footer:last-child:hover::after {
   border-bottom-left-radius: var(--pb-frame-radius);
   border-bottom-right-radius: var(--pb-frame-radius);
 }
-/* Drop the hover ring mid-drag: every section's chrome carries
-   `data-dragging` while a shuffle drag is in flight, so this hides the
-   hover ring on all of them — matching how the block hover ring and the
-   chrome itself fade out during a drag. (The active ring is already
-   cleared by the plugin on drag start.) */
-.pb-canvas-wrap .pp-section:has(.pb-section-chrome[data-dragging]):hover::after {
+/* …UNLESS a global master sits at that canvas edge. A doc-level header/footer
+   lives OUTSIDE `.pb-page`, so the page's first/last section is no longer the
+   topmost/bottommost thing in the frame — the master is, and it carries the
+   radius (rules below). Without this, the first section's ring rounds its top
+   even though the global header is above it. Gated on the master being present
+   AND shown (`:not(.pb-global-bar-hidden)` — globalBarPlugin hides it when the
+   active page detaches/hides). Higher specificity than the rules above, so it
+   wins without `!important`. */
+.pb-canvas-wrap .ProseMirror:has(> .pp-header:not(.pb-global-bar-hidden)) .pb-page > .pp-section:first-child::after {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.pb-canvas-wrap .ProseMirror:has(> .pp-footer:not(.pb-global-bar-hidden)) .pb-page > .pp-section:last-child::after {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* Drop the hover ring mid-drag: every chrome carries `data-dragging` while a
+   shuffle drag is in flight, so this hides the hover ring on all of them —
+   matching how the block hover ring and the chrome itself fade out during a
+   drag. (The active ring is already cleared by the plugin on drag start.) */
+.pb-canvas-wrap .pp-section:has(.pb-section-chrome[data-dragging]):hover::after,
+.pb-canvas-wrap .pp-header:has(.pb-section-chrome[data-dragging]):hover::after,
+.pb-canvas-wrap .pp-footer:has(.pb-section-chrome[data-dragging]):hover::after {
   display: none;
 }
+
+/* ── Global (site-wide) header / footer ──────────────────────────────────────
+   The doc-level masters (`header? page+ footer?`) render around every page, so
+   editing one changes every page that inherits it. They earn a PURPLE accent
+   (--pb-accent-secondary, pagy's #925cff) everywhere a page-scoped bar/block
+   would be blue, so "this is shared chrome" reads at a glance. Global bars are
+   direct children of `.ProseMirror` (siblings of `.pb-page`); a page's own
+   override bar lives INSIDE `.pb-page`, so the `>` combinator tells them apart. */
+
+/* Hidden when the active page detaches or hides the master (a `globalBarPlugin`
+   node decoration) — so the master + an override never double up, and a hidden
+   bar truly vanishes. */
+.pb-global-bar-hidden { display: none !important; }
+
+/* Purple ring on the global bar itself (hover + active) — beats the blue
+   section ring on specificity. */
+.pb-canvas-wrap .ProseMirror > .pp-header.pb-section-active::after,
+.pb-canvas-wrap .ProseMirror > .pp-footer.pb-section-active::after,
+.pb-canvas-wrap .ProseMirror > .pp-header:hover::after,
+.pb-canvas-wrap .ProseMirror > .pp-footer:hover::after {
+  box-shadow: inset 0 0 0 2px var(--pb-accent-secondary);
+}
+/* Blocks inside a global bar are global too → purple hover/active ring. */
+.pb-canvas-wrap .ProseMirror > .pp-header .pb-block-hovered::after,
+.pb-canvas-wrap .ProseMirror > .pp-header .pb-block-active::after,
+.pb-canvas-wrap .ProseMirror > .pp-footer .pb-block-hovered::after,
+.pb-canvas-wrap .ProseMirror > .pp-footer .pb-block-active::after {
+  box-shadow: inset 0 0 0 2px var(--pb-accent-secondary);
+}
+/* Round the global header's top / footer's bottom where they meet the canvas
+   clip (they sit outside `.pb-page`, so the page-corner rules don't reach). */
+.pb-canvas-wrap .ProseMirror > .pp-header:first-child:hover::after,
+.pb-canvas-wrap .ProseMirror > .pp-header.pb-section-active:first-child::after {
+  border-top-left-radius: var(--pb-frame-radius);
+  border-top-right-radius: var(--pb-frame-radius);
+}
+.pb-canvas-wrap .ProseMirror > .pp-footer:last-child:hover::after,
+.pb-canvas-wrap .ProseMirror > .pp-footer.pb-section-active:last-child::after {
+  border-bottom-left-radius: var(--pb-frame-radius);
+  border-bottom-right-radius: var(--pb-frame-radius);
+}
+
+/* Scope section in the Header/Footer settings popover (BarScopeField) — the
+   Global / This page / Hidden segmented + its note + the promote action. */
+.pb-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pb-scope-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--pb-text-muted, var(--pb-text));
+  opacity: 0.7;
+}
+/* When the bar is Global, paint the active "Global" segment purple so the
+   shared-chrome identity reads here too (matching the canvas ring). */
+.pb-scope[data-scope="global"] .pb-segmented-option[data-active] {
+  color: #fff;
+  background: var(--pb-accent-secondary);
+}
+/* "Make this the site-wide …" — the explicit promote action. */
+.pb-scope-promote {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--pb-accent-secondary) 12%, transparent);
+  color: var(--pb-accent-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pb-scope-promote:hover {
+  background: color-mix(in srgb, var(--pb-accent-secondary) 20%, transparent);
+}
+
+/* Restore ghost — the slim dashed strip standing in for a master a page HID,
+   with a Show action (mounted at the page edge by `globalBarPlugin`). Spans the
+   12-column content area of the page subgrid. */
+.pb-global-ghost {
+  grid-column: 2 / 14;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 7px 12px;
+  border: 1px dashed color-mix(in srgb, var(--pb-accent-secondary) 55%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--pb-accent-secondary) 7%, transparent);
+  color: var(--pb-accent-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.pb-global-ghost-label { opacity: 0.85; }
+.pb-global-ghost-show {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--pb-accent-secondary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pb-global-ghost-show:hover { filter: brightness(1.06); }
+
+/* Layers panel: the global bar rows read purple, with a pin badge. */
+.pb-layer-row.-global { color: var(--pb-accent-secondary); }
+.pb-layer-global-pin { margin-left: auto; color: var(--pb-accent-secondary); flex: none; }
 
 /* We draw our own selection ring above, so suppress ProseMirror's
    default atom-selection outline. It otherwise stacks a second outline
@@ -2670,6 +3017,21 @@
 .pp-section:has([data-state="open"]) .pb-add-block,
 .pp-section:has([data-state="open"]) .pb-add-section,
 .pp-section:has([data-state="open"]) .pb-section-toolbar {
+  opacity: 1;
+  scale: 1;
+  pointer-events: auto;
+  transition-duration: 200ms;
+}
+/* Header / footer bars reuse the same chrome (Add block + toolbar), so they
+   reveal on the same hover / open-popover condition as a section. */
+.pp-header:hover .pb-add-block,
+.pp-header:hover .pb-section-toolbar,
+.pp-header:has([data-state="open"]) .pb-add-block,
+.pp-header:has([data-state="open"]) .pb-section-toolbar,
+.pp-footer:hover .pb-add-block,
+.pp-footer:hover .pb-section-toolbar,
+.pp-footer:has([data-state="open"]) .pb-add-block,
+.pp-footer:has([data-state="open"]) .pb-section-toolbar {
   opacity: 1;
   scale: 1;
   pointer-events: auto;
@@ -2792,6 +3154,15 @@
 .pb-space--margin {
   position: fixed;
 }
+/* The x-axis twin: a horizontal stack's child carries its leading margin on the
+   LEFT, so the band sits in that left gutter — the handle becomes a vertical
+   bar with an ew-resize cursor (the hatch + pill are orientation-agnostic). */
+.pb-space--margin.-x .pb-space-handle {
+  width: 1px;
+  height: 12px;
+  cursor: ew-resize;
+}
+.pb-space--margin.-x .pb-space-handle::before { inset: -16px -8px; }
 /* Diagonal hatch — pagy's exact gradient + 7.07px tile. `background-clip:
    content-box` so the margin band's 1px bottom padding keeps the hatch off the
    block edge. Lights only when the dash (the band's only hot child, so `:hover`
@@ -2817,7 +3188,9 @@
   transition: opacity 150ms ease;
 }
 .pb-space:hover::before,
-.pb-space.-dragging::before {
+.pb-space.-dragging::before,
+/* Symmetric padding: light the mirror band's hatch too while dragging. */
+.pb-space.-mirror::before {
   opacity: 1;
 }
 /* The dash handle — pagy's 12×1px accent bar with a white outline; ns-resize,
@@ -2853,7 +3226,8 @@
   inset: -24px -16px;
 }
 .pb-space:hover .pb-space-handle,
-.pb-space.-dragging .pb-space-handle {
+.pb-space.-dragging .pb-space-handle,
+.pb-space.-mirror .pb-space-handle {
   opacity: 1;
 }
 /* The px pill — accent fill, white text, fully rounded; absolutely placed just
@@ -3590,10 +3964,116 @@
      `.start-N` (no !important) on specificity + importance. For row cells —
      now flex items — grid-column is inert; `.shuffle-block { width:100% }`
      fills them. Sections themselves keep 1/15 (they aren't descendants of a
-     section), so their backgrounds stay full-bleed. */
-  .pp-section .shuffle-block {
+     section), so their backgrounds stay full-bleed. Bars get the same
+     treatment so a header/footer block that's a DIRECT child (not inside a
+     folded row) — e.g. a centered footer social row — picks up the phone
+     gutters instead of keeping its desktop start-N/end-N span. */
+  :is(.pp-section, .pp-header, .pp-footer) .shuffle-block {
     grid-column: 2 / 14 !important;
   }
+
+  /* A horizontal stack folds to vertical at phone width (pagy's mobile
+     direction override) so its children don't cramp — and its leading margin
+     flips back from left to top to keep the rhythm on the new axis. */
+  .container.-horizontal {
+    flex-direction: column;
+  }
+  .container.-horizontal > .shuffle-block {
+    margin-left: 0;
+    margin-top: var(--pp-mt, 16px);
+    /* Back to full-column width, like any vertical stack child. */
+    width: 100%;
+  }
+  .container.-horizontal > .shuffle-block:first-child { margin-top: 0; }
+
+  /* ── Header collapse (editor + runtime) ───────────────────────────────────
+     On phones the header reads as a brand + burger bar instead of the inline
+     nav EVERYWHERE — the editor canvas previews the same collapsed chrome a
+     visitor sees (edit the nav back on the desktop view). The inline nav hides
+     for both; only the burger differs:
+       • runtime (`.pb-site`): a real `.pp-header-burger` button + a
+         `.pp-header-mobile` dropdown (rendered by `SiteHeader`) — tap to open.
+       • editor (`[contenteditable]`): a non-interactive burger GLYPH below — the
+         PM contentDOM can't host a foreign button, and editing is a desktop job. */
+  .pp-header > .row {
+    /* room on the right for the burger (real button or glyph) */
+    padding-right: 44px;
+  }
+  /* Hide the inline nav (stacks + CTA buttons); the brand heading/text stays. */
+  .pp-header > .row :is(.container, .pp-button) {
+    display: none;
+  }
+  /* Editor-only burger glyph — two bars, matching the runtime button. The
+     editor header carries `contenteditable="true"` (HeaderNodeView); the runtime
+     header never does, so this stays out of the published bar. */
+  .pp-header[contenteditable="true"]::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: var(--pb-mobile-gutter, 20px);
+    width: 24px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+    box-shadow: 0 6px currentColor;
+    transform: translateY(calc(-50% - 3px));
+    pointer-events: none;
+  }
+  .pb-site .pp-header-burger {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: var(--pb-mobile-gutter, 20px);
+    margin: auto 0;
+    width: 26px;
+    height: 18px;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    z-index: 5;
+  }
+  .pb-site .pp-header-burger-line {
+    display: block;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+    transition: transform 200ms var(--pb-easing, ease), opacity 200ms;
+  }
+  /* burger → X when open */
+  .pb-site .pp-header[data-open] .pp-header-burger-line:first-child {
+    transform: translateY(4px) rotate(45deg);
+  }
+  .pb-site .pp-header[data-open] .pp-header-burger-line:last-child {
+    transform: translateY(-4px) rotate(-45deg);
+  }
+  /* Dropdown — absolute so opening it doesn't grow the bar (the burger stays
+     centered on the collapsed bar). Inherits the bar's solid background. */
+  .pb-site .pp-header-mobile {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px var(--pb-mobile-gutter, 20px) 20px;
+    background: var(--color-background);
+    box-shadow: 0 14px 28px rgb(0 0 0 / 12%);
+    z-index: 4;
+  }
+  .pb-site .pp-header[data-open] .pp-header-mobile {
+    display: flex;
+  }
+  /* It's a nav list: the brand already lives in the bar, so drop any duplicated
+     heading and let the links/CTAs fill the width. */
+  .pb-site .pp-header-mobile :is(h1, h2, h3, h4) { display: none; }
+  .pb-site .pp-header-mobile .pp-button { width: 100%; }
 }
 
 /* ───────────────────────────────────────── Add-a-section modal
@@ -3789,4 +4269,167 @@
   min-height: 0;
   overflow: visible;
   scrollbar-gutter: auto;
+}
+
+/* ─────────────────────────────────────── Layers panel (Figma-style tree)
+   A flat, depth-ordered outline of the deck. Indentation rides a
+   `--pb-layer-depth` CSS var per row (set inline), so the whole tree is one
+   utility class — no per-depth rules. Rows are click-to-select, drag-to-move
+   (@dnd-kit), and double-click-to-rename. */
+.pb-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 8px;
+  overflow-y: auto;
+  user-select: none;
+}
+.pb-layers-empty {
+  margin-top: 16px;
+  color: var(--pb-text-soft);
+  font-size: 13px;
+}
+
+.pb-layer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding-right: 8px;
+  /* Indent by depth; the row's left edge stays clickable for selection. */
+  padding-left: calc(6px + var(--pb-layer-depth, 0) * 14px);
+  border-radius: 6px;
+  color: var(--pb-text-soft);
+  cursor: default;
+}
+.pb-layer-row:hover {
+  background: var(--pb-hover);
+}
+.pb-layer-row.-active,
+.pb-layer-row.-selected {
+  background: var(--pb-accent-line);
+}
+.pb-layer-row.-active .pb-layer-label,
+.pb-layer-row.-selected .pb-layer-label,
+.pb-layer-row.-active > svg,
+.pb-layer-row.-selected > svg {
+  color: var(--pb-text);
+}
+/* The in-place row while its clone rides the cursor in the DragOverlay. */
+.pb-layer-row.-dragging {
+  opacity: 0.4;
+}
+/* The lifted clone. */
+.pb-layer-row.-overlay {
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border-strong);
+  box-shadow: var(--pb-popover-shadow);
+  color: var(--pb-text);
+}
+
+.pb-layer-row > svg {
+  flex: none;
+  color: var(--pb-text-soft);
+}
+
+.pb-layer-caret {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pb-text-very-soft);
+  cursor: pointer;
+  border-radius: 3px;
+}
+.pb-layer-caret:hover {
+  color: var(--pb-text);
+  background: var(--pb-hover-strong);
+}
+.pb-layer-caret.-leaf {
+  cursor: default;
+  pointer-events: none;
+}
+.pb-layer-caret svg {
+  transition: transform 120ms ease;
+}
+/* Expanded (not collapsed) → caret points down. */
+.pb-layer-caret:not([data-collapsed]) svg {
+  transform: rotate(90deg);
+}
+
+.pb-layer-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--pb-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Auto-derived label (reflecting the node's content, no custom name) — muted,
+   so an explicit name reads as solid and "named". A selected/active row still
+   wins (its rule is more specific), staying readable while highlighted. */
+.pb-layer-label.-auto {
+  color: var(--pb-text-soft);
+}
+
+.pb-layer-rename {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--pb-text);
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-accent);
+  border-radius: 4px;
+  padding: 1px 4px;
+  outline: none;
+}
+
+/* Drag feedback. While a row is dragged, its in-place slot becomes an insertion
+   line (indented to the projected depth); the receiving container row gets a
+   ring. Both turn red when the drop is illegal — the schema-validated snap-back
+   is then obvious before release. */
+.pb-layer-dropline {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding-right: 8px;
+  padding-left: calc(6px + var(--pb-layer-depth, 0) * 14px);
+}
+.pb-layer-dropline-bar {
+  position: relative;
+  flex: 1;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--pb-accent);
+}
+.pb-layer-dropline-bar::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pb-accent);
+  transform: translateY(-50%);
+}
+.pb-layer-dropline.-invalid .pb-layer-dropline-bar,
+.pb-layer-dropline.-invalid .pb-layer-dropline-bar::before {
+  background: var(--pb-danger);
+}
+
+.pb-layer-row.-drop-into {
+  background: var(--pb-accent-line);
+  box-shadow: inset 0 0 0 1px var(--pb-accent);
+}
+.pb-layer-row.-drop-into.-invalid {
+  background: color-mix(in srgb, var(--pb-danger) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--pb-danger);
 }

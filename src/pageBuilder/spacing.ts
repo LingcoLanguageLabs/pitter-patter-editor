@@ -36,6 +36,15 @@ export const BLOCK_MARGIN_MAX =
 /** Default section padding in px — pagy's "medium". */
 export const SECTION_PADDING_DEFAULT = 80;
 
+/** Default footer vertical padding in px — pagy footers are tighter than a
+ *  content section ("small"), so the footer node starts here, not at 80. */
+export const FOOTER_PADDING_DEFAULT = 48;
+
+/** Default header vertical padding in px. A header is a compact bar, so it
+ *  starts tighter than a section — the same symmetric `py-{unit}` model (top =
+ *  bottom) as the footer, dragged via the same hatched bands. */
+export const HEADER_PADDING_DEFAULT = 32;
+
 /** Nearest value on `scale` to `v` (pagy's `snapPadding`/`snapMargin`). */
 export function snapToScale(scale: readonly number[], v: number): number {
   return scale.reduce(
@@ -110,4 +119,44 @@ export function blockMarginClass(px: number): string {
 export function sectionPaddingFromClassName(className: string): number | null {
   const m = /(?:^|\s)py-(px|[\d.]+)(?=\s|$)/.exec(className);
   return m ? twSuffixToPx(m[1]!) : null;
+}
+
+// ── Header / footer class chains ────────────────────────────────────
+// Live here (not schema.ts) so the runtime walker + NodeViews can share them
+// without pulling the heavy schema builder into the published-site bundle —
+// the same role `sectionPaddingClass` plays for sections.
+
+/** Class string for a `header` element — shared by the schema `toDOM`,
+ *  `HeaderNodeView`, and the runtime walker so all three emit identical markup.
+ *  Vertical size is the section `py-{unit}` padding model; `background`
+ *  ("blur"/"transparent") and `fixed` become `.pp-header.-*` modifiers; a
+ *  non-default `theme` adds the `.theme.-X` scope. */
+export function headerClass(attrs: Record<string, unknown> | undefined): string {
+  const a = attrs ?? {};
+  const bg = (a["background"] as string) || "";
+  const theme = (a["theme"] as string) || "";
+  return [
+    "pp-header",
+    // Symmetric vertical padding (top = bottom) — identical to a section /
+    // footer, so the bar's height is padding-driven, not a height token.
+    sectionPaddingClass(sectionPaddingPx(a)),
+    bg ? `-${bg}` : "",
+    a["fixed"] ? "-fixed" : "",
+    theme ? `theme -${theme}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** Class string for a `footer` element — vertical padding `py-{unit}` (the same
+ *  px model + class as a section) plus an optional `theme -X` scope. */
+export function footerClass(attrs: Record<string, unknown> | undefined): string {
+  const theme = (attrs?.["theme"] as string) || "";
+  return [
+    "pp-footer",
+    sectionPaddingClass(sectionPaddingPx(attrs)),
+    theme ? `theme -${theme}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }

@@ -45,7 +45,7 @@ import {
   isBlockResizing,
   isQuietSelection,
 } from "../blockHighlightPlugin";
-import { canHaveTopMargin } from "../BlockMarginHandle";
+import { canHaveTopMargin, isHorizontalStackChild } from "../BlockMarginHandle";
 import { blockMarginValue, CONTAINER_DEFAULT_MARGIN } from "../spacing";
 
 import { BLOCK_FORMS, BLOCK_TITLES, type ActiveBlock } from "./forms";
@@ -161,9 +161,11 @@ function BlockSettingsPopover({ active }: { active: ActiveBlock }) {
       </header>
       <div className="pb-block-settings-body">
         <Form active={active} setAttr={setAttr} />
-        {/* Spacing group — block top-margin, wired to the same attr/snap scale
-            as the canvas handle. `autoPx` is what Auto resolves to here: a
-            container child's default rhythm (so Auto fills the gap), else 0. */}
+        {/* Spacing group — the block's leading margin, wired to the same attr/
+            snap scale as the canvas handle. `autoPx` is what Auto resolves to: a
+            container child's default rhythm (so Auto fills the gap), else 0.
+            `axis` orients it to the stack — a horizontal container's child shows
+            a left margin, matching its canvas band. */}
         {canHaveTopMargin(editorState, active.pos) && (
           <SpacingSection
             key={active.pos}
@@ -173,6 +175,9 @@ function BlockSettingsPopover({ active }: { active: ActiveBlock }) {
                 editorState.doc.resolve(active.pos).parent.type.name === "container"
                   ? CONTAINER_DEFAULT_MARGIN
                   : 0,
+              axis: isHorizontalStackChild(editorState, active.pos)
+                ? "horizontal"
+                : "vertical",
               onChange: (v) => setAttr("margin", v),
             }}
           />

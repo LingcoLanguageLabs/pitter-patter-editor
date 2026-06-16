@@ -40,16 +40,29 @@ import { getActiveBlockPos, isBlockResizing } from "./blockHighlightPlugin";
 import { BLOCK_MARGIN_MAX, BLOCK_MARGIN_SNAP, blockMarginValue, snapToScale } from "./spacing";
 
 /**
- * Whether the block at `pos` can carry a top margin — shared by the canvas
- * handle and the BlockSettings "Spacing" control so both agree. Row cells lay
- * out horizontally (a top margin is meaningless), and a first child's top is
- * owned by the section/container padding above it, so both are excluded.
+ * Whether the block at `pos` can carry a leading margin — shared by the canvas
+ * handle and the BlockSettings "Spacing" control so both agree. Row cells are
+ * laid out by shuffle's grid (no margin handle), and a first child's leading
+ * edge is owned by the section/container padding before it, so both are
+ * excluded. A container child IS eligible on either axis: vertical stacks use
+ * a top margin, horizontal stacks a left margin (see `isHorizontalStackChild`).
  */
 export function canHaveTopMargin(state: EditorState, pos: number | null): boolean {
   if (pos == null) return false;
   if (!state.doc.nodeAt(pos)) return false;
   const $pos = state.doc.resolve(pos);
   return $pos.parent.type.name !== "row" && $pos.index() !== 0;
+}
+
+/**
+ * Whether the block at `pos` sits in a HORIZONTAL container — its leading
+ * margin then lives on the left (the stack's main axis), not the top. Lets the
+ * canvas handle and the panel control orient themselves to the stack's axis.
+ */
+export function isHorizontalStackChild(state: EditorState, pos: number | null): boolean {
+  if (pos == null || !state.doc.nodeAt(pos)) return false;
+  const parent = state.doc.resolve(pos).parent;
+  return parent.type.name === "container" && parent.attrs["axis"] === "horizontal";
 }
 
 export function BlockMarginHandle() {
@@ -59,25 +72,47 @@ export function BlockMarginHandle() {
 
   const target = useMemo(() => {
     if (pos == null || !canHaveTopMargin(state, pos)) return null;
-    return { pos, marginValue: blockMarginValue(state.doc.nodeAt(pos)!.attrs) };
+    return {
+      pos,
+      marginValue: blockMarginValue(state.doc.nodeAt(pos)!.attrs),
+      horizontal: isHorizontalStackChild(state, pos),
+    };
   }, [state, pos]);
 
   // Hide during a shuffle drag/resize (the ring stays via blockHighlight) —
   // same gating as the resize handles + settings toolbar.
   if (!target || shuffleDragging || isBlockResizing(state)) return null;
-  return <MarginBand key={target.pos} pos={target.pos} marginValue={target.marginValue} />;
+  return (
+    <MarginBand
+      key={target.pos}
+      pos={target.pos}
+      marginValue={target.marginValue}
+      horizontal={target.horizontal}
+    />
+  );
 }
 
-function MarginBand({ pos, marginValue }: { pos: number; marginValue: number | null }) {
+function MarginBand({
+  pos,
+  marginValue,
+  horizontal,
+}: {
+  pos: number;
+  marginValue: number | null;
+  /** Horizontal stack child: the leading margin is on the LEFT, so the band
+   *  parks in the left gutter and scrubs along X instead of Y. */
+  horizontal: boolean;
+}) {
   const hasExplicit = marginValue != null;
   const bandRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  // Park the fixed band over the block's COMPUTED top-margin region — so Auto
-  // shows the real default rhythm (e.g. a container child's 16px) rather than
-  // a collapsed 0, and an explicit value shows exactly. The block's border-box
-  // top is below its margin, so the region is [top - margin, top].
+  // Park the fixed band over the block's COMPUTED leading-margin region — so
+  // Auto shows the real default rhythm (e.g. a container child's 16px) rather
+  // than a collapsed 0, and an explicit value shows exactly. The block's
+  // border-box edge is past its margin, so the region is [edge - margin, edge]
+  // on the stack's main axis (top for vertical, left for horizontal).
   const reposition = useCallback(() => {
     const view = viewRef.current;
     const band = bandRef.current;
@@ -87,17 +122,30 @@ function MarginBand({ pos, marginValue }: { pos: number; marginValue: number | n
       band.style.display = "none";
       return;
     }
-    const mt = parseFloat(getComputedStyle(dom).marginTop) || 0;
+    const cs = getComputedStyle(dom);
     const rect = dom.getBoundingClientRect();
     band.style.display = "";
-    band.style.left = `${rect.left}px`;
-    band.style.width = `${rect.width}px`;
-    band.style.top = `${rect.top - mt}px`;
-    band.style.height = `${mt}px`;
-    // pagy's trick: 1px bottom padding lifts the flex-centered dash just off
-    // the block's top edge so the hash reads as the boundary, not on the text.
-    band.style.paddingBottom = mt > 1 ? "1px" : "0px";
-  }, [pos, marginValue]);
+    if (horizontal) {
+      const ml = parseFloat(cs.marginLeft) || 0;
+      band.style.left = `${rect.left - ml}px`;
+      band.style.width = `${ml}px`;
+      band.style.top = `${rect.top}px`;
+      band.style.height = `${rect.height}px`;
+      // Mirror the 1px nudge on the inline axis so the dash reads as the edge.
+      band.style.paddingRight = ml > 1 ? "1px" : "0px";
+      band.style.paddingBottom = "0px";
+    } else {
+      const mt = parseFloat(cs.marginTop) || 0;
+      band.style.left = `${rect.left}px`;
+      band.style.width = `${rect.width}px`;
+      band.style.top = `${rect.top - mt}px`;
+      band.style.height = `${mt}px`;
+      // pagy's trick: 1px bottom padding lifts the flex-centered dash just off
+      // the block's top edge so the hash reads as the boundary, not on the text.
+      band.style.paddingBottom = mt > 1 ? "1px" : "0px";
+      band.style.paddingRight = "0px";
+    }
+  }, [pos, marginValue, horizontal]);
 
   // Re-measure after every editor render (doc edits, decoration changes) —
   // no deps, like BlockSettings' reference resolve.
@@ -124,16 +172,21 @@ function MarginBand({ pos, marginValue }: { pos: number; marginValue: number | n
     const dom = view.nodeDOM(pos);
     const start =
       explicit ??
-      (dom instanceof HTMLElement ? parseFloat(getComputedStyle(dom).marginTop) || 0 : 0);
-    const originY = e.pageY;
+      (dom instanceof HTMLElement
+        ? parseFloat(getComputedStyle(dom)[horizontal ? "marginLeft" : "marginTop"]) || 0
+        : 0);
+    // Scrub along the stack's main axis: DOWN grows a vertical stack's top
+    // margin, RIGHT grows a horizontal stack's left margin (pagy's 2× feel).
+    const origin = horizontal ? e.pageX : e.pageY;
     let current = start;
     setDragging(true);
     document.body.style.userSelect = "none";
 
     const onMove = (ev: PointerEvent) => {
+      const moved = (horizontal ? ev.pageX : ev.pageY) - origin;
       const next = snapToScale(
         BLOCK_MARGIN_SNAP,
-        Math.min(Math.max(start + 2 * (ev.pageY - originY), 0), BLOCK_MARGIN_MAX),
+        Math.min(Math.max(start + 2 * moved, 0), BLOCK_MARGIN_MAX),
       );
       if (next === current) return;
       current = next;
@@ -161,17 +214,18 @@ function MarginBand({ pos, marginValue }: { pos: number; marginValue: number | n
   // the dash, `.pb-space-handle:hover + .pb-space-value` reveals the pill. The
   // pill reads "Auto" when unset, else the px + a reset. `onPointerDown
   // preventDefault` on the band keeps the press from dropping the selection.
+  const edge = horizontal ? "left" : "top";
   return createPortal(
     <div
       ref={bandRef}
-      className={`pb-space pb-space--margin${dragging ? " -dragging" : ""}`}
+      className={`pb-space pb-space--margin${horizontal ? " -x" : ""}${dragging ? " -dragging" : ""}`}
       style={{ position: "fixed" }}
       onPointerDown={(e) => e.preventDefault()}
     >
       <button
         type="button"
         className="pb-space-handle"
-        aria-label="Drag to change top margin"
+        aria-label={`Drag to change ${edge} margin`}
         onPointerDown={onHandleDown}
       />
       <div className="pb-space-value">
@@ -180,7 +234,7 @@ function MarginBand({ pos, marginValue }: { pos: number; marginValue: number | n
           <button
             type="button"
             className="pb-space-reset"
-            aria-label="Reset top margin"
+            aria-label={`Reset ${edge} margin`}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={reset}
           >

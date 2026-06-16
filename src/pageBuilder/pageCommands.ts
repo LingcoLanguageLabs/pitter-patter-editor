@@ -114,8 +114,16 @@ export function movePage(view: EditorView, fromId: string, beforeId: string | nu
   const from = pageList(state.doc).find((p) => p.id === fromId);
   if (!from) return;
   let tr = state.tr.delete(from.pos, from.pos + from.node.nodeSize);
-  const before = beforeId != null ? pageList(tr.doc).find((p) => p.id === beforeId) : null;
-  const insertAt = before ? before.pos : tr.doc.content.size;
+  const remaining = pageList(tr.doc);
+  const before = beforeId != null ? remaining.find((p) => p.id === beforeId) : null;
+  // "To the end" means after the last page — NOT doc end, which can sit after a
+  // global footer (`header? page+ footer?`).
+  const last = remaining[remaining.length - 1];
+  const insertAt = before
+    ? before.pos
+    : last
+      ? last.pos + last.node.nodeSize
+      : tr.doc.content.size;
   tr = tr.insert(insertAt, from.node);
   commitWithActive(view, tr, fromId);
 }
@@ -191,23 +199,46 @@ export function setAllPagesTransition(
 // and the inverse — merge several pages' sections onto one page.
 // ────────────────────────────────────────────────────────────────
 
+/** A page splits into its optional `header`, its `section` body, and its
+ *  optional `footer` — the page content model (`header? section+ footer?`). */
+function splitPageChildren(page: PmNode): {
+  header: PmNode | null;
+  sections: PmNode[];
+  footer: PmNode | null;
+} {
+  let header: PmNode | null = null;
+  let footer: PmNode | null = null;
+  const sections: PmNode[] = [];
+  page.forEach((child) => {
+    if (child.type.name === "header") header = child;
+    else if (child.type.name === "footer") footer = child;
+    else sections.push(child);
+  });
+  return { header, sections, footer };
+}
+
 /** Explode a page into one page per section: a page with N sections becomes N
  *  pages, each holding one section. The first keeps the original id + title (so
- *  the active page stays valid); the rest get fresh ids and numbered titles.
- *  No-op (returns []) when the page has fewer than two sections. Returns the
- *  resulting page ids in order so the caller can select them. */
+ *  the active page stays valid); the rest get fresh ids and numbered titles. A
+ *  header/footer bookends the sequence — header on the first page, footer on the
+ *  last. No-op (returns []) when the page has fewer than two sections. Returns
+ *  the resulting page ids in order so the caller can select them. */
 export function splitPageSections(view: EditorView, id: string): string[] {
   const { state } = view;
   const entry = pageList(state.doc).find((p) => p.id === id);
-  if (!entry || entry.node.childCount < 2) return [];
-  const sections: PmNode[] = [];
-  entry.node.forEach((child) => sections.push(child));
+  if (!entry) return [];
+  const { header, sections, footer } = splitPageChildren(entry.node);
+  if (sections.length < 2) return [];
   const ids: string[] = [];
   const pages = sections.map((section, i) => {
     const pid = i === 0 ? entry.id : newPageId();
     ids.push(pid);
     const title = i === 0 ? entry.title : `${entry.title} ${i + 1}`;
-    return entry.node.type.create({ ...entry.node.attrs, id: pid, title }, section);
+    const content: PmNode[] = [];
+    if (i === 0 && header) content.push(header);
+    content.push(section);
+    if (i === sections.length - 1 && footer) content.push(footer);
+    return entry.node.type.create({ ...entry.node.attrs, id: pid, title }, content);
   });
   const tr = state.tr.replaceWith(entry.pos, entry.pos + entry.node.nodeSize, pages);
   commitWithActive(view, tr, ids[0]!);
@@ -216,8 +247,9 @@ export function splitPageSections(view: EditorView, id: string): string[] {
 
 /** Merge several pages into one: all their sections, in document order, land on
  *  a single page that keeps the first selected page's id + title and sits in its
- *  slot; the others are removed. No-op (returns null) for fewer than two pages.
- *  Returns the surviving (merged) page id. */
+ *  slot; the others are removed. The merged page keeps the first page's header
+ *  and the last page's footer (one of each is all the content model allows).
+ *  No-op (returns null) for fewer than two pages. Returns the surviving id. */
 export function mergePages(view: EditorView, ids: string[]): string | null {
   const { state } = view;
   const set = new Set(ids);
@@ -225,8 +257,19 @@ export function mergePages(view: EditorView, ids: string[]): string | null {
   if (selected.length < 2) return null;
   const first = selected[0]!;
   const sections: PmNode[] = [];
-  for (const entry of selected) entry.node.forEach((child) => sections.push(child));
-  const merged = first.node.type.create({ ...first.node.attrs }, sections, first.node.marks);
+  let header: PmNode | null = null;
+  let footer: PmNode | null = null;
+  selected.forEach((entry, idx) => {
+    const parts = splitPageChildren(entry.node);
+    if (idx === 0) header = parts.header;
+    if (idx === selected.length - 1) footer = parts.footer;
+    sections.push(...parts.sections);
+  });
+  const content: PmNode[] = [];
+  if (header) content.push(header);
+  content.push(...sections);
+  if (footer) content.push(footer);
+  const merged = first.node.type.create({ ...first.node.attrs }, content, first.node.marks);
   let tr = state.tr;
   // Delete bottom-up so each page's recorded position stays valid as we go;
   // after the last delete (the first page) its slot is where `merged` lands.

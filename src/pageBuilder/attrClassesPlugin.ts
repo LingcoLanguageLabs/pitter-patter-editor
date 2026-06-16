@@ -58,6 +58,29 @@ export function attrClasses(attrs: Record<string, unknown>): string[] {
   return out;
 }
 
+/**
+ * Container-only flex-stack modifiers — the `.container`'s layout classes,
+ * shared (like `attrClasses`) by the editor decoration pass and the runtime
+ * walker so both emit identical markup. Only NON-default values emit a class,
+ * so a bare `.container` keeps the defaults (vertical, stretch, start, wrap);
+ * inter-child spacing is the per-child `margin`, not here. Mirrors pagy's
+ * Stack modifier vocabulary (`-row`, `-align-center`, `-justify-between`, …).
+ */
+export function stackClasses(attrs: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  if (attrs["axis"] === "horizontal") out.push("-horizontal");
+  const align = attrs["stackAlign"];
+  if (typeof align === "string" && align && align !== "stretch") {
+    out.push(`-align-${align}`);
+  }
+  const justify = attrs["stackJustify"];
+  if (typeof justify === "string" && justify && justify !== "start") {
+    out.push(`-justify-${justify}`);
+  }
+  if (attrs["wrap"] === false) out.push("-nowrap");
+  return out;
+}
+
 function buildDecorations(state: EditorState) {
   const decos: Decoration[] = [];
   state.doc.descendants((node, pos) => {
@@ -68,6 +91,8 @@ function buildDecorations(state: EditorState) {
     // back to the per-context default — that's how Auto stays distinct from 0.
     const margin = blockMarginValue(node.attrs);
     if (margin != null) classes.push(blockMarginClass(margin));
+    // Container layout modifiers (axis/align/justify/wrap) ride along too.
+    if (node.type.name === "container") classes.push(...stackClasses(node.attrs));
     if (classes.length === 0) return true;
     decos.push(
       Decoration.node(pos, pos + node.nodeSize, { class: classes.join(" ") }),

@@ -68,6 +68,19 @@ function pageId(page: JsonNode): string {
   return (page.attrs?.["id"] as string) || "";
 }
 
+/** Does `page` show the global `kind` master? Needs a master to exist, no
+ *  page-level override of that kind, and the page's `hide*` flag unset. */
+function barShowsGlobal(
+  page: JsonNode | null,
+  kind: "header" | "footer",
+  master: JsonNode | null,
+): boolean {
+  if (!page || !master) return false;
+  if ((page.content ?? []).some((n) => n.type === kind)) return false; // override
+  const hidden = kind === "header" ? page.attrs?.["hideHeader"] : page.attrs?.["hideFooter"];
+  return !hidden;
+}
+
 const FORWARD_KEYS = ["ArrowRight", "ArrowDown", "PageDown", " "];
 const BACKWARD_KEYS = ["ArrowLeft", "ArrowUp", "PageUp"];
 
@@ -79,6 +92,17 @@ export function SiteRenderer({
 }: SiteRendererProps) {
   const pages = useMemo(
     () => (doc.content ?? []).filter((n) => n.type === "page"),
+    [doc],
+  );
+
+  // The site-wide masters — the doc's own header / footer (`header? page+
+  // footer?`), rendered around every page that inherits them.
+  const globalHeader = useMemo(
+    () => (doc.content ?? []).find((n) => n.type === "header") ?? null,
+    [doc],
+  );
+  const globalFooter = useMemo(
+    () => (doc.content ?? []).find((n) => n.type === "footer") ?? null,
     [doc],
   );
 
@@ -160,6 +184,20 @@ export function SiteRenderer({
 
   const activePage =
     pages.find((p) => pageId(p) === active.id) ?? pages[0] ?? null;
+
+  // Whether the active page shows each master: it must exist, the page must not
+  // carry its own override of that kind, and the page must not hide it. (When
+  // the page overrides, its own bar renders inside the page via `renderChildren`
+  // instead — so the master must stay out to avoid doubling up.) Mirrors
+  // `resolvePageBarScope` for the JSON walker.
+  const showGlobalHeader = useMemo(
+    () => barShowsGlobal(activePage, "header", globalHeader),
+    [activePage, globalHeader],
+  );
+  const showGlobalFooter = useMemo(
+    () => barShowsGlobal(activePage, "footer", globalFooter),
+    [activePage, globalFooter],
+  );
   const transitionType =
     (activePage?.attrs?.["transition"] as TransitionType) || "none";
   const transitionVariant =
@@ -201,6 +239,12 @@ export function SiteRenderer({
                 div, not an editor. */}
             <div className="ProseMirror">
               <SiteNavProvider navigate={navigate}>
+                {/* Masters bookend the page (and persist across transitions —
+                    they sit OUTSIDE the animating page wrapper). A page that
+                    overrides renders its own bar inside the page instead. */}
+                {showGlobalHeader && globalHeader && (
+                  <RenderNode node={globalHeader} index={0} />
+                )}
                 {animated ? (
                   <AnimatePresence>
                     <motion.div
@@ -219,6 +263,9 @@ export function SiteRenderer({
                   </AnimatePresence>
                 ) : (
                   activePage && <RenderNode node={activePage} index={0} />
+                )}
+                {showGlobalFooter && globalFooter && (
+                  <RenderNode node={globalFooter} index={0} />
                 )}
               </SiteNavProvider>
             </div>

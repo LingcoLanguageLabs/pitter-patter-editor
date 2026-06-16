@@ -8,6 +8,9 @@
 
 import type { Schema, Node as PmNode } from "prosemirror-model";
 
+import { FOOTER_TEMPLATES } from "./sections/footer";
+import { HEADER_TEMPLATES } from "./sections/header";
+
 // Gradient placeholder lives as a real asset, referenced by URL rather
 // than an inline `data:` blob — keeps the doc readable and the Image
 // block's Source field a tidy path instead of a 700-char URI. The
@@ -48,9 +51,17 @@ export function buildPersonalSiteDoc(schema: Schema): PmNode {
   // get (the centered content column), NOT the section's full-width 0–12.
   const container = schema.nodes["container"]!;
   const page = schema.nodes["page"]!;
-  // The doc is `page+` — a deck of slides in one document. Two pages here
-  // so render-gating is observable: only the active slide's content mounts.
+  // The site-wide header / footer (built from the same templates the
+  // Add-section modal offers). The doc is `header? page+ footer?`, so these
+  // are the GLOBAL masters — rendered around every page. New pages inherit
+  // them automatically; a page detaches or hides its own. They live ONCE here,
+  // not per-page, so editing one changes every page that inherits it.
+  const header = schema.nodeFromJSON(HEADER_TEMPLATES[0]);
+  const footer = schema.nodeFromJSON(FOOTER_TEMPLATES[0]);
+  // Two pages so render-gating is observable: only the active slide's content
+  // mounts, but the global bars persist across both.
   return doc.create(null, [
+    header,
     page.create({ id: "page-1", title: "Intro" }, [
       section.create(FULL, [
         container.create(null, [
@@ -92,6 +103,7 @@ export function buildPersonalSiteDoc(schema: Schema): PmNode {
         ),
       ]),
     ]),
+    footer,
   ]);
 }
 

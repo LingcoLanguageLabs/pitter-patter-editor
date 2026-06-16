@@ -16,6 +16,7 @@
 import { create } from "zustand";
 import type { EditorView } from "prosemirror-view";
 
+import type { LayerNode } from "./layerTree";
 import type { Theme } from "./theme/css";
 import type { TransitionSpeed, TransitionType } from "./transitions";
 
@@ -67,6 +68,7 @@ export function initialChromeTheme(): ChromeTheme {
 export type Sheet =
   | "menu"
   | "pages"
+  | "layers"
   | "transitions"
   | "design"
   | "colors"
@@ -75,7 +77,6 @@ export type Sheet =
   | "inputs"
   | "cards"
   | "code"
-  | "forms"
   | "form"
   | "settings";
 
@@ -126,6 +127,27 @@ export interface PageBuilderState {
   /** Thumbnails vs. compact list rendering for the Pages filmstrip. */
   pagesViewMode: PagesViewMode;
   setPagesViewMode: (v: PagesViewMode) => void;
+
+  /**
+   * Figma-style layers tree — a flat, depth-ordered serialization of the whole
+   * deck (page → header/section/footer → blocks → nested containers → leaves),
+   * mirrored from the doc by `editorStoreSyncPlugin` (rebuilt only on doc
+   * change). The Layers panel renders it and dispatches select / move / rename
+   * through `pagesView`, the same bridge the Pages panel rides.
+   */
+  layerTree: LayerNode[];
+  setLayerTree: (v: LayerNode[]) => void;
+  /** Layer keys whose children are collapsed in the tree (local UI state). */
+  collapsedLayers: Record<string, true>;
+  toggleLayerCollapsed: (key: string) => void;
+  /** Force-expand the given keys (reveal-on-select uncollapses ancestors of a
+   *  node selected on the canvas so its row is actually visible). */
+  expandLayers: (keys: string[]) => void;
+  /** Doc positions (before-node) of the currently selected block(s) + active
+   *  section, mirrored from the editor so the tree can highlight the matching
+   *  rows. */
+  selectedLayerPositions: number[];
+  setSelectedLayerPositions: (v: number[]) => void;
 
   /**
    * "Add a section" template picker (pagy's AddSectionModal). The
@@ -227,6 +249,31 @@ export const usePageBuilderStore = create<PageBuilderState>((set) => ({
 
   pagesViewMode: "thumbnails",
   setPagesViewMode: (v) => set({ pagesViewMode: v }),
+
+  layerTree: [],
+  setLayerTree: (v) => set({ layerTree: v }),
+  collapsedLayers: {},
+  toggleLayerCollapsed: (key) =>
+    set((prev) => {
+      const next = { ...prev.collapsedLayers };
+      if (next[key]) delete next[key];
+      else next[key] = true;
+      return { collapsedLayers: next };
+    }),
+  expandLayers: (keys) =>
+    set((prev) => {
+      let changed = false;
+      const next = { ...prev.collapsedLayers };
+      for (const key of keys) {
+        if (next[key]) {
+          delete next[key];
+          changed = true;
+        }
+      }
+      return changed ? { collapsedLayers: next } : prev;
+    }),
+  selectedLayerPositions: [],
+  setSelectedLayerPositions: (v) => set({ selectedLayerPositions: v }),
 
   sectionModalOpen: false,
   sectionInsertPos: null,

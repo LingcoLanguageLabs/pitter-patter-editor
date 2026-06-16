@@ -17,8 +17,15 @@
 
 import {
   AlignBottom,
+  AlignCenterHorizontal,
   AlignCenterVertical,
+  AlignLeft,
+  AlignRight,
   AlignTop,
+  ArrowsHorizontal,
+  ArrowsOutLineHorizontal,
+  ArrowsOutLineVertical,
+  ArrowsVertical,
   Rows,
   TextAlignCenter,
   TextAlignLeft,
@@ -30,7 +37,15 @@ import type { Node as PmNode } from "prosemirror-model";
 import { type ComponentType, useRef } from "react";
 
 import { usePageBuilderStore } from "../store";
-import { defaultHeadingSize, type Align, type AlignContent, type Size } from "../schema";
+import {
+  defaultHeadingSize,
+  type Align,
+  type AlignContent,
+  type Size,
+  type StackAlign,
+  type StackAxis,
+  type StackJustify,
+} from "../schema";
 import { TooltipButton, TooltipProvider } from "../../editor/menu";
 
 export interface ActiveBlock {
@@ -617,6 +632,8 @@ const ImageForm: BlockForm = ({ active, setAttr }) => {
   const shape = (attrs["shape"] as string) ?? "";
   const radius = (attrs["radius"] as string) ?? "medium";
   const frame = (attrs["frame"] as string) ?? "";
+  const width = attrs["width"] as number | null;
+  const align = (attrs["align"] as Align) ?? "center";
 
   return (
     <>
@@ -682,6 +699,19 @@ const ImageForm: BlockForm = ({ active, setAttr }) => {
           onChange={(e) => setAttr("alt", e.target.value)}
         />
       </Field>
+      {/* Pagy's conditional Align: only meaningful once the image has been
+          resized narrower than its footprint (the inset handles set `width`;
+          full width is stored as `null`). Mirrors `{element.width && ...}`. */}
+      {width != null && width < 100 && (
+        <Field label="Align">
+          <Segmented
+            ariaLabel="Align"
+            value={align}
+            options={ALIGN_OPTIONS}
+            onChange={(v) => setAttr("align", v)}
+          />
+        </Field>
+      )}
     </>
   );
 };
@@ -835,8 +865,8 @@ const SHUFFLE_TO_ALIGN_CONTENT: Record<ShuffleAlignment, AlignContent> = {
 
 /** Row-only. A row lays its children out horizontally, so aligning them on
  *  the cross (vertical) axis — top / middle / bottom / stretch — is meaningful.
- *  A container stacks vertically, so there's no vertical alignment to expose;
- *  it uses `ContainerForm` (header actions only, no body). */
+ *  (A container has its own axis-aware alignment controls — see
+ *  `ContainerForm` — driven by classes, not shuffle's inline `align-items`.) */
 const RowAlignForm: BlockForm = ({ active, setAttr }) => {
   const alignment =
     (active.node.attrs["alignment"] as ShuffleAlignment) ?? "center";
@@ -852,11 +882,106 @@ const RowAlignForm: BlockForm = ({ active, setAttr }) => {
   );
 };
 
-/** Container settings — intentionally no body. A container is a vertical
- *  stack with no alignment control (that's row-only). Keeping it registered
- *  in `BLOCK_FORMS` is what makes its settings popover appear at all (the
- *  header: convert to Card, duplicate, delete); there's just no form below. */
-const ContainerForm: BlockForm = () => null;
+// Container = a flex stack ("a container on another axis"). The alignment
+// controls are axis-relative, so their icons flip with the chosen direction:
+// "Align" is the CROSS axis (align-items), "Distribute" is the MAIN axis
+// (justify-content). The attr values stay canonical (start/center/end[/stretch
+// | between]); only the glyphs + labels change so they always read correctly.
+type StackOpt<T extends string> = { value: T; label: React.ReactNode; title?: string };
+
+const AXIS_OPTIONS: readonly StackOpt<StackAxis>[] = [
+  { value: "vertical", label: <ArrowsVertical size={16} />, title: "Vertical" },
+  { value: "horizontal", label: <ArrowsHorizontal size={16} />, title: "Horizontal" },
+];
+
+// Cross-axis align (align-items). Vertical stack → cross is horizontal;
+// horizontal stack → cross is vertical. `Rows` is the shared "stretch" glyph.
+const ALIGN_CROSS_HORIZONTAL: readonly StackOpt<StackAlign>[] = [
+  { value: "start", label: <AlignLeft size={16} />, title: "Left" },
+  { value: "center", label: <AlignCenterHorizontal size={16} />, title: "Center" },
+  { value: "end", label: <AlignRight size={16} />, title: "Right" },
+  { value: "stretch", label: <Rows size={16} />, title: "Stretch" },
+];
+const ALIGN_CROSS_VERTICAL: readonly StackOpt<StackAlign>[] = [
+  { value: "start", label: <AlignTop size={16} />, title: "Top" },
+  { value: "center", label: <AlignCenterVertical size={16} />, title: "Middle" },
+  { value: "end", label: <AlignBottom size={16} />, title: "Bottom" },
+  { value: "stretch", label: <Rows size={16} />, title: "Stretch" },
+];
+
+// Main-axis distribution (justify-content). Vertical stack → main is vertical;
+// horizontal stack → main is horizontal. The "between" glyph points along the
+// main axis (space pushed apart).
+const JUSTIFY_MAIN_VERTICAL: readonly StackOpt<StackJustify>[] = [
+  { value: "start", label: <AlignTop size={16} />, title: "Top" },
+  { value: "center", label: <AlignCenterVertical size={16} />, title: "Middle" },
+  { value: "end", label: <AlignBottom size={16} />, title: "Bottom" },
+  { value: "between", label: <ArrowsOutLineVertical size={16} />, title: "Space between" },
+];
+const JUSTIFY_MAIN_HORIZONTAL: readonly StackOpt<StackJustify>[] = [
+  { value: "start", label: <AlignLeft size={16} />, title: "Left" },
+  { value: "center", label: <AlignCenterHorizontal size={16} />, title: "Center" },
+  { value: "end", label: <AlignRight size={16} />, title: "Right" },
+  { value: "between", label: <ArrowsOutLineHorizontal size={16} />, title: "Space between" },
+];
+
+const WRAP_OPTIONS: readonly StackOpt<"wrap" | "nowrap">[] = [
+  { value: "wrap", label: "Wrap" },
+  { value: "nowrap", label: "No wrap" },
+];
+
+/** Container settings — the flex-stack controls. Direction flips the main axis;
+ *  Align (cross axis) and Distribute (main axis) use axis-aware icon sets so
+ *  they always read correctly; Wrap only matters once children flow
+ *  horizontally, so it's shown only then. Inter-child spacing is NOT here — it's
+ *  each child's leading margin (the canvas handle + the Spacing section below),
+ *  axis-relative, so the rhythm stays individually adjustable. */
+const ContainerForm: BlockForm = ({ active, setAttr }) => {
+  const attrs = active.node.attrs;
+  const axis = (attrs["axis"] as StackAxis) ?? "vertical";
+  const align = (attrs["stackAlign"] as StackAlign) ?? "stretch";
+  const justify = (attrs["stackJustify"] as StackJustify) ?? "start";
+  const wrap = attrs["wrap"] !== false;
+  const horizontal = axis === "horizontal";
+  return (
+    <>
+      <Field label="Direction">
+        <Segmented
+          ariaLabel="Direction"
+          value={axis}
+          options={AXIS_OPTIONS}
+          onChange={(v) => setAttr("axis", v)}
+        />
+      </Field>
+      <Field label="Align">
+        <Segmented
+          ariaLabel="Align"
+          value={align}
+          options={horizontal ? ALIGN_CROSS_VERTICAL : ALIGN_CROSS_HORIZONTAL}
+          onChange={(v) => setAttr("stackAlign", v)}
+        />
+      </Field>
+      <Field label="Distribute">
+        <Segmented
+          ariaLabel="Distribute"
+          value={justify}
+          options={horizontal ? JUSTIFY_MAIN_HORIZONTAL : JUSTIFY_MAIN_VERTICAL}
+          onChange={(v) => setAttr("stackJustify", v)}
+        />
+      </Field>
+      {horizontal && (
+        <Field label="Wrap">
+          <Segmented
+            ariaLabel="Wrap"
+            value={wrap ? "wrap" : "nowrap"}
+            options={WRAP_OPTIONS}
+            onChange={(v) => setAttr("wrap", v === "wrap")}
+          />
+        </Field>
+      )}
+    </>
+  );
+};
 
 // ────────────────────────────────────────────────────────────────
 // Card form

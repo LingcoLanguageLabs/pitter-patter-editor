@@ -34,6 +34,10 @@ import {
 import { addShuffleNodes } from "@pitter-patter/shuffle";
 
 import {
+  FOOTER_PADDING_DEFAULT,
+  footerClass,
+  HEADER_PADDING_DEFAULT,
+  headerClass,
   SECTION_PADDING_DEFAULT,
   sectionPaddingClass,
   sectionPaddingFromClassName,
@@ -58,6 +62,17 @@ export type Align = (typeof ALIGN_VALUES)[number];
 export type Size = (typeof SIZE_VALUES)[number];
 export type AlignContent = (typeof ALIGN_CONTENT_VALUES)[number];
 
+// Stack (the container as a flex primitive). `axis` flips the container's
+// main axis; `stackAlign`/`stackJustify` are the cross/main flex alignment;
+// `wrap` toggles flex-wrap. Named `stack*` (not `align`/`justify`) so they
+// don't collide with the generic text `align` → `pp-align` class mapping.
+export const STACK_AXIS_VALUES = ["vertical", "horizontal"] as const;
+export const STACK_ALIGN_VALUES = ["stretch", "start", "center", "end"] as const;
+export const STACK_JUSTIFY_VALUES = ["start", "center", "end", "between"] as const;
+export type StackAxis = (typeof STACK_AXIS_VALUES)[number];
+export type StackAlign = (typeof STACK_ALIGN_VALUES)[number];
+export type StackJustify = (typeof STACK_JUSTIFY_VALUES)[number];
+
 /** Default paragraph size — stamped when converting a heading back to
  *  a paragraph (pagy: `defaultSizeForBlockType("paragraph")`). */
 export const PARAGRAPH_DEFAULT_SIZE: Size = "m";
@@ -79,6 +94,18 @@ export type TextColor = (typeof TEXT_COLOR_VALUES)[number];
  *  default underlined treatment, "minimal" drops the underline. */
 export const LINK_VARIANTS = ["", "minimal"] as const;
 export type LinkVariant = (typeof LINK_VARIANTS)[number];
+
+/** Header background treatment — pagy's `background`: "" = Solid (paints the
+ *  theme background), "blur" = translucent + backdrop-blur, "transparent" =
+ *  no fill (content shows through to whatever scrolls beneath a fixed bar). */
+export const HEADER_BACKGROUND_VALUES = ["", "blur", "transparent"] as const;
+export type HeaderBackground = (typeof HEADER_BACKGROUND_VALUES)[number];
+
+/** Theme variant slots shared by section / card / header / footer "Colors":
+ *  "" (page default) | inverted | primary | secondary | tertiary. Maps to the
+ *  `.theme.-X` variable scopes `themeToCss` emits. */
+export const THEME_VARIANT_VALUES = ["", "inverted", "primary", "secondary", "tertiary"] as const;
+export type ThemeVariant = (typeof THEME_VARIANT_VALUES)[number];
 
 /**
  * Default size for each heading level — pagy's
@@ -196,7 +223,14 @@ const sectionSpec: NodeSpec = {
  * no descendants at all.
  */
 const pageSpec: NodeSpec = {
-  content: "section+",
+  // A page wraps an optional top `header`, its `section+` body, and an optional
+  // `footer`. At page level these bars are PER-PAGE OVERRIDES (a "detached"
+  // copy); the site-wide masters live one level up as the doc's own
+  // `header? page+ footer?` children. A page with no header child inherits the
+  // global header — unless `hideHeader` is set (a title/cover page). Same for
+  // the footer. The resolver (`headerFooter.ts`) turns these three states
+  // (override node present / hidden flag / neither) into what actually renders.
+  content: "header? section+ footer?",
   defining: true,
   isolating: true,
   attrs: {
@@ -205,6 +239,11 @@ const pageSpec: NodeSpec = {
     id: { default: "" },
     /** Shown in the slide rail. */
     title: { default: "Untitled" },
+    /** Suppress the GLOBAL header on this page (the title/cover-page escape
+     *  hatch). Ignored when the page carries its own header override. */
+    hideHeader: { default: false },
+    /** Suppress the GLOBAL footer on this page. */
+    hideFooter: { default: false },
     /** Entry transition (PowerPoint/Slides "Transitions"). Plays when the deck
      *  navigates TO this page while viewing the site (`<SiteRenderer>`); the
      *  editor canvas always cuts instantly. See `transitions.ts`. */
@@ -222,6 +261,8 @@ const pageSpec: NodeSpec = {
         return {
           id: el.getAttribute("data-page-id") || "",
           title: el.getAttribute("data-title") || "Untitled",
+          hideHeader: el.getAttribute("data-hide-header") === "true",
+          hideFooter: el.getAttribute("data-hide-footer") === "true",
           transition: el.getAttribute("data-transition") || "none",
           transitionVariant: el.getAttribute("data-transition-variant") || "",
           transitionSpeed: el.getAttribute("data-transition-speed") || "medium",
@@ -240,6 +281,9 @@ const pageSpec: NodeSpec = {
       "data-title": (a["title"] as string) || "",
       class: "pb-page",
     };
+    // Per-page bar suppression — only stamped when set, like the transitions.
+    if (a["hideHeader"]) attrs["data-hide-header"] = "true";
+    if (a["hideFooter"]) attrs["data-hide-footer"] = "true";
     // Only stamp the transition attrs when they're non-default, mirroring how
     // section/card omit default attrs — keeps the serialized DOM clean.
     if (transition !== "none") attrs["data-transition"] = transition;
@@ -351,6 +395,18 @@ const imageSpec: NodeSpec = {
     radius: { default: "medium" as "none" | "medium" | "large" },
     /** "" (plain) | "inset" | "shadow". */
     frame: { default: "" as "" | "inset" | "shadow" },
+    /** Internal image width as a % of the block footprint (the shuffle grid
+     *  span). `null` = full (100%). Set by the inset image-resize handles
+     *  (rendered inside the figure by `ImageNodeView`); cleared back to `null` the moment a drag reaches
+     *  full, exactly as pagy clears its px `width` at `>= maxWidth`
+     *  (image-resize.tsx). We store a % rather than pagy's px because our
+     *  footprint is an independent shuffle grid span — a % stays correct across
+     *  footprint + breakpoint changes, where a fixed px would orphan. */
+    width: { default: null as number | null },
+    /** Horizontal placement within the footprint when `width` < 100 — pagy's
+     *  conditional `align`. Maps to `justify-self` on the figure (the grid
+     *  item) via `.pb-image.pp-align-*`. No visible effect at full width. */
+    align: { default: "center" as "left" | "center" | "right" },
   },
   parseDOM: [
     {
@@ -358,6 +414,7 @@ const imageSpec: NodeSpec = {
       getAttrs(node) {
         const el = node as HTMLImageElement;
         const fig = el.closest("figure");
+        const w = fig?.getAttribute("data-width");
         return {
           src: el.getAttribute("src") || "",
           alt: el.getAttribute("alt") || "",
@@ -365,11 +422,14 @@ const imageSpec: NodeSpec = {
           shape: fig?.getAttribute("data-shape") || "",
           radius: fig?.getAttribute("data-radius") || "medium",
           frame: fig?.getAttribute("data-frame") || "",
+          width: w ? Number(w) : null,
+          align: fig?.getAttribute("data-align") || "center",
         };
       },
     },
   ],
   toDOM(node) {
+    const width = node.attrs["width"] as number | null;
     return [
       "figure",
       {
@@ -378,10 +438,16 @@ const imageSpec: NodeSpec = {
         "data-shape": (node.attrs["shape"] as string) || "",
         "data-radius": (node.attrs["radius"] as string) || "medium",
         "data-frame": (node.attrs["frame"] as string) || "",
+        "data-align": (node.attrs["align"] as string) || "center",
         // `pb-image`, not `pp-image`: the form-builder editor's global
         // stylesheet targets `.ProseMirror figure.pp-image` at higher
         // specificity and would otherwise clobber our radius/aspect.
         class: "pb-image",
+        // Internal width rides as the same CSS var the NodeView + runtime
+        // walker set, so a copy/paste round-trip keeps the figure's size.
+        ...(width != null
+          ? { "data-width": String(width), style: `--pb-image-width:${width}%` }
+          : {}),
       },
       [
         "img",
@@ -574,14 +640,118 @@ const cardSpec: NodeSpec = {
   },
 };
 
+/**
+ * Header — the site's top bar (pagy's `header` node). A full-width structural
+ * wrapper like `section` (NOT in the "block" group, so shuffle never drags or
+ * resizes the bar itself), holding blocks — typically one `row` with a wordmark
+ * + nav. The page is `header? section+ footer?`, so it's the optional first
+ * child of a page.
+ *
+ * Visual attrs mirror pagy's header settings panel (`Position`, `Colors`,
+ * `Background`) plus the section/footer symmetric vertical-padding model (the
+ * bar's height); they surface as classes the NodeView / toDOM / `renderNode`
+ * apply, exactly like the section's.
+ */
+const headerSpec: NodeSpec = {
+  content: "block+",
+  defining: true,
+  isolating: true,
+  attrs: {
+    /** Symmetric vertical padding in PX (same model + `py-{unit}` class as a
+     *  section / footer); this is what gives the bar its height. */
+    padding: { default: HEADER_PADDING_DEFAULT as number },
+    /** Position: false = Normal (flows above the first section), true = Fixed
+     *  (sticks to the top of the scroll viewport). */
+    fixed: { default: false },
+    /** Theme variant ("Colors"), self-rescoping like a section/card. */
+    theme: { default: "" as ThemeVariant },
+    /** Background: "" solid | "blur" | "transparent". */
+    background: { default: "" as HeaderBackground },
+  },
+  parseDOM: [
+    {
+      tag: 'header[data-node-type="header"]',
+      getAttrs(node) {
+        const el = node as HTMLElement;
+        return {
+          padding:
+            sectionPaddingFromClassName(el.className) ?? HEADER_PADDING_DEFAULT,
+          fixed: el.getAttribute("data-fixed") === "true",
+          theme: el.getAttribute("data-theme") || "",
+          background: el.getAttribute("data-background") || "",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const a = node.attrs;
+    const theme = (a["theme"] as string) || "";
+    const attrs: Record<string, string> = {
+      "data-node-type": "header",
+      // Padding lives in the `py-{unit}` class (via `headerClass`), the source
+      // of truth — no data-height.
+      class: headerClass(a),
+    };
+    if (a["fixed"]) attrs["data-fixed"] = "true";
+    if (theme) attrs["data-theme"] = theme;
+    if (a["background"]) attrs["data-background"] = a["background"] as string;
+    return ["header", attrs, 0];
+  },
+};
+
+/**
+ * Footer — the site's bottom bar (pagy renders footers as ordinary sections;
+ * we give them a dedicated node so they're addressable + the page can require
+ * `footer?` as its last child). Same content model + symmetric vertical-padding
+ * model as a section (the `py-{unit}` class), but a leaner settings surface
+ * (Colors + Spacing).
+ */
+const footerSpec: NodeSpec = {
+  content: "block+",
+  defining: true,
+  isolating: true,
+  attrs: {
+    /** Symmetric vertical padding in PX (same model + `py-{unit}` class as a
+     *  section); starts tighter than a section (pagy's "small" footer). */
+    padding: { default: FOOTER_PADDING_DEFAULT as number },
+    /** Theme variant ("Colors"), self-rescoping like a section/card. */
+    theme: { default: "" as ThemeVariant },
+  },
+  parseDOM: [
+    {
+      tag: 'footer[data-node-type="footer"]',
+      getAttrs(node) {
+        const el = node as HTMLElement;
+        return {
+          padding:
+            sectionPaddingFromClassName(el.className) ?? FOOTER_PADDING_DEFAULT,
+          theme: el.getAttribute("data-theme") || "",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const a = node.attrs;
+    const theme = (a["theme"] as string) || "";
+    const attrs: Record<string, string> = {
+      "data-node-type": "footer",
+      class: footerClass(a),
+    };
+    if (theme) attrs["data-theme"] = theme;
+    return ["footer", attrs, 0];
+  },
+};
+
 // ────────────────────────────────────────────────────────────────
 
-/** Step 1 — adds page + section + button + card + video + audio, replaces
- *  image with block-level. */
+/** Step 1 — adds page + section + header + footer + button + card + video +
+ *  audio, replaces image with block-level. */
 function addPageBuilderNodes(schema: Schema): Schema {
   const nodes = schema.spec.nodes
     .addToEnd("page", pageSpec)
     .addToEnd("section", sectionSpec)
+    .addToEnd("header", headerSpec)
+    .addToEnd("footer", footerSpec)
     .addToEnd("button", buttonSpec)
     .addToEnd("card", cardSpec)
     .addToEnd("video", videoSpec)
@@ -619,14 +789,19 @@ function augmentTextBlockAttrs(schema: Schema): Schema {
   return new Schema({ nodes, marks: schema.spec.marks });
 }
 
-/** Step 3 — `doc.content` becomes `page+` so the root holds slides (each
- *  a `section+` page), not bare sections. Run after page is in the schema. */
+/** Step 3 — `doc.content` becomes `header? page+ footer?`. The deck of slides
+ *  (`page+`) is bookended by the SITE-WIDE header / footer: one master bar each,
+ *  rendered around every page (unless a page overrides or hides it). They reuse
+ *  the same `header`/`footer` node types pages use for overrides — a node type
+ *  is allowed in more than one content context — so a "detach" is just a
+ *  content copy from doc level into the page, and "make global" the reverse.
+ *  Run after page + header + footer are in the schema. */
 function requirePageRoot(schema: Schema): Schema {
   const docSpec = schema.spec.nodes.get("doc");
   if (!docSpec) return schema;
   const nodes = schema.spec.nodes.update("doc", {
     ...docSpec,
-    content: "page+",
+    content: "header? page+ footer?",
   });
   return new Schema({ nodes, marks: schema.spec.marks });
 }
@@ -678,6 +853,54 @@ function addBlockMarginAttr(schema: Schema): Schema {
     nodes = nodes.update(name, {
       ...spec,
       attrs: { ...spec.attrs, margin: { default: null } },
+    });
+  });
+  return new Schema({ nodes, marks: schema.spec.marks });
+}
+
+/** Step 5b — turns shuffle's `container` into a full flex *stack* by adding the
+ *  layout attrs that drive its flexbox: `axis` (vertical | horizontal — the
+ *  main axis), `stackAlign` (cross-axis align-items), `stackJustify` (main-axis
+ *  justify-content), and `wrap` (flex-wrap). Container-only — `row` keeps its
+ *  own shuffle grid layout.
+ *
+ *  Like `margin`, none of these touch `toDOM`: they surface as utility classes
+ *  (`stackClasses`) on the same `.container` element — applied by
+ *  `attrClassesPlugin` in the editor and by `renderNode` on the site — so the
+ *  flex CSS can target `.container.-horizontal`, `.container.-align-center`,
+ *  etc. Inter-child spacing is NOT an attr here: it reuses every block's
+ *  per-child `margin` (top-margin when vertical, left-margin when horizontal),
+ *  so a stack's rhythm stays individually adjustable, axis-relative. */
+function addStackAttrs(schema: Schema): Schema {
+  const spec = schema.spec.nodes.get("container");
+  if (!spec) return schema;
+  const nodes = schema.spec.nodes.update("container", {
+    ...spec,
+    attrs: {
+      ...spec.attrs,
+      axis: { default: "vertical" },
+      stackAlign: { default: "stretch" },
+      stackJustify: { default: "start" },
+      wrap: { default: true },
+    },
+  });
+  return new Schema({ nodes, marks: schema.spec.marks });
+}
+
+/** Step 5c — adds an editor-only `name` attr (a Figma-style layer name) to
+ *  every block-group node plus the structural section / header / footer, so any
+ *  layer can be renamed in the Layers panel. Empty = use the derived label.
+ *  Like `margin`, it never renders (no toDOM / parseDOM) — it's metadata that
+ *  lives in the doc JSON and survives internal copy/paste. Pages keep `title`. */
+function addLayerNameAttr(schema: Schema): Schema {
+  let nodes = schema.spec.nodes;
+  const structural = new Set(["section", "header", "footer"]);
+  schema.spec.nodes.forEach((name, spec) => {
+    const groups = (spec.group ?? "").split(/\s+/);
+    if (!groups.includes("block") && !structural.has(name)) return;
+    nodes = nodes.update(name, {
+      ...spec,
+      attrs: { ...spec.attrs, name: { default: "" } },
     });
   });
   return new Schema({ nodes, marks: schema.spec.marks });
@@ -792,7 +1015,9 @@ export function buildPageBuilderSchema(base: Schema): Schema {
   // can beat the inline style — so it's gone.
   const withShuffle = addShuffleNodes(withPageRoot, "block+", "block");
   const withMargin = addBlockMarginAttr(withShuffle);
-  return constrainBlocksToSection(withMargin);
+  const withStack = addStackAttrs(withMargin);
+  const withNames = addLayerNameAttr(withStack);
+  return constrainBlocksToSection(withNames);
 }
 
 /** Signature for the function that builds the initial doc from the

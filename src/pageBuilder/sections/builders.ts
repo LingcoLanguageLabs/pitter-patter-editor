@@ -16,9 +16,11 @@
  * `start`/`end`, so ports are near-mechanical.
  */
 
+import { FOOTER_PADDING_DEFAULT, HEADER_PADDING_DEFAULT } from "../spacing";
 import type { JsonNode } from "../runtime/shuffleLayout";
 
-/** A section template — always a single `section` node. */
+/** A template — a single top-level node: a `section`, or (for the Header /
+ *  Footer categories) a `header` / `footer` bar. */
 export type SectionTemplate = JsonNode;
 
 type Leaf = JsonNode;
@@ -83,6 +85,47 @@ export function section(
       contentAlign: attrs.contentAlign ?? "top",
       background: "solid",
       ...(attrs.theme ? { theme: attrs.theme } : {}),
+    },
+    content: children,
+  };
+}
+
+// ── Header / footer bars ─────────────────────────────────────────────
+/** The site top bar. Symmetric vertical `padding` (px, = its height), `fixed`,
+ *  `theme`, and `background` ("" | "blur" | "transparent") mirror the header
+ *  settings panel. */
+export function header(
+  attrs: {
+    padding?: number;
+    fixed?: boolean;
+    theme?: string;
+    background?: "" | "blur" | "transparent";
+  },
+  children: JsonNode[],
+): JsonNode {
+  return {
+    type: "header",
+    attrs: {
+      padding: attrs.padding ?? HEADER_PADDING_DEFAULT,
+      fixed: attrs.fixed ?? false,
+      theme: attrs.theme ?? "",
+      background: attrs.background ?? "",
+    },
+    content: children,
+  };
+}
+
+/** The site bottom bar. Symmetric vertical `padding` (px) + `theme`, mirroring
+ *  the footer settings panel. */
+export function footer(
+  attrs: { padding?: number; theme?: string },
+  children: JsonNode[],
+): JsonNode {
+  return {
+    type: "footer",
+    attrs: {
+      padding: attrs.padding ?? FOOTER_PADDING_DEFAULT,
+      theme: attrs.theme ?? "",
     },
     content: children,
   };
@@ -169,24 +212,68 @@ export function row(children: JsonNode[], o: { align?: "start" | "center" | "end
   };
 }
 
-/** Vertical stack within one grid column (flex column). `align` maps to
- *  `align-items`: the default (stretch) lets text/images fill the column;
- *  "start"/"center" size children to content — use it for a stack of pill
- *  buttons so they don't stretch edge to edge. */
+type StackAlign = "stretch" | "start" | "center" | "end";
+type StackJustify = "start" | "center" | "end" | "between";
+
+/** A flex *stack* spanning one grid column range. `axis` is the main axis
+ *  (vertical column by default, or horizontal row); `align` is the CROSS axis
+ *  (align-items — default `stretch` lets text/images fill); `justify` is the
+ *  MAIN-axis distribution; `wrap` toggles flex-wrap. Inter-child spacing is
+ *  each child's leading `margin` (top when vertical, left when horizontal) —
+ *  NOT a flex `gap` — so every gap stays individually adjustable. We leave
+ *  shuffle's `alignment` attr empty so it emits no inline `align-items` that
+ *  would shadow the class-based `stackAlign`. */
 export function container(
-  o: Cols & { align?: "start" | "center" | "end" },
+  o: Cols & {
+    axis?: "vertical" | "horizontal";
+    align?: StackAlign;
+    justify?: StackJustify;
+    wrap?: boolean;
+  },
   children: JsonNode[],
 ): JsonNode {
   return {
     type: "container",
-    attrs: { ...shuffleAttrs(o), alignment: o.align ?? "", zIndex: 0 },
+    attrs: {
+      ...shuffleAttrs(o),
+      axis: o.axis ?? "vertical",
+      stackAlign: o.align ?? "stretch",
+      stackJustify: o.justify ?? "start",
+      wrap: o.wrap ?? true,
+      alignment: "",
+      zIndex: 0,
+    },
     content: children,
   };
 }
 
-/** A content-sized stack of buttons inside a column (won't stretch). */
-export function buttonStack(o: Cols & { align?: "start" | "center" | "end" }, buttons: JsonNode[]): JsonNode {
+/** A content-sized vertical stack of buttons (won't stretch edge to edge). */
+export function buttonStack(o: Cols & { align?: StackAlign }, buttons: JsonNode[]): JsonNode {
   return container({ ...o, align: o.align ?? "start" }, buttons);
+}
+
+/** Horizontal stack ("x-axis container") — children flow left→right, spaced by
+ *  each child's leading LEFT margin. `justify` packs them along the row;
+ *  `align` (cross axis) defaults to `center` so a mixed-height run lines up. */
+export function hstack(
+  o: Cols & { align?: StackAlign; justify?: StackJustify; wrap?: boolean },
+  children: JsonNode[],
+): JsonNode {
+  return container({ ...o, axis: "horizontal", align: o.align ?? "center" }, children);
+}
+
+/** A horizontal run of text links (nav / social) as a real x-axis stack: each
+ *  link is its own block, spaced by the stack's per-child left margin instead
+ *  of literal whitespace — so the gaps are individually adjustable, not baked
+ *  into a paragraph as collapsed spaces. */
+export function linkRow(
+  o: Cols & { justify?: StackJustify; size?: Size },
+  labels: string[],
+): JsonNode {
+  return hstack(
+    { start: o.start, end: o.end, justify: o.justify ?? "start" },
+    labels.map((label) => paragraph([link(label)], { size: o.size ?? "s" })),
+  );
 }
 
 export function card(

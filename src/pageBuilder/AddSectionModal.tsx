@@ -17,6 +17,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { setGlobalBar } from "./headerFooter";
 import { SectionTemplateCard } from "./SectionTemplateCard";
 import { BLANK_SECTION, SECTION_CATEGORIES } from "./sections";
 import { usePageBuilderStore } from "./store";
@@ -53,15 +54,27 @@ function AddSectionModalBody() {
     };
   }, [close]);
 
-  /** Insert a section template (full PM JSON) at the stashed position. */
+  /** Insert a template at the stashed position. Sections drop into the clicked
+   *  gap; header / footer bars ignore the gap and set the SITE-WIDE master (the
+   *  doc-level `header? page+ footer?` bar), replacing any existing master of
+   *  that kind — so picking a header template means "this is my site header",
+   *  applied to every page that inherits it. */
   const insert = (template: unknown) => {
     if (!view || insertPos == null) {
       close();
       return;
     }
     const { state } = view;
-    const pos = Math.min(insertPos, state.doc.content.size);
     const node = state.schema.nodeFromJSON(template);
+    const typeName = node.type.name;
+
+    if (typeName === "header" || typeName === "footer") {
+      setGlobalBar(view, node);
+      close();
+      return;
+    }
+
+    const pos = Math.min(insertPos, state.doc.content.size);
     view.dispatch(state.tr.insert(pos, node).scrollIntoView());
     view.focus();
     close();
