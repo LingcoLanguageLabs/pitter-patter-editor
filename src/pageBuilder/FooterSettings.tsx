@@ -1,5 +1,6 @@
 /**
  * Footer settings popover — a footer is a leaner section, so its panel is just:
+ *   • Position — Normal / Fixed (glued to the bottom while content scrolls)
  *   • Colors   — theme-variant "A" swatches (shared `ThemeVariantPicker`)
  *   • Spacing  — Vertical padding (the same `ScrubField` the Section panel uses,
  *                driving the footer's symmetric `py-{unit}` padding)
@@ -12,7 +13,7 @@
 import { ArrowsVertical } from "@phosphor-icons/react";
 
 import { BarScopeField } from "./BarScopeField";
-import { Field, ThemeVariantPicker } from "./blockSettings/forms";
+import { Field, Segmented, ThemeVariantPicker } from "./blockSettings/forms";
 import { ScrubField } from "./blockSettings/SpacingSection";
 import { SettingsPopover } from "./SettingsPopover";
 import {
@@ -21,6 +22,11 @@ import {
   SECTION_PADDING_SNAP,
   sectionPaddingPx,
 } from "./spacing";
+
+const POSITION_OPTIONS = [
+  { value: "normal", label: "Normal" },
+  { value: "fixed", label: "Fixed" },
+] as const;
 
 export function FooterSettings({
   anchor,
@@ -41,11 +47,20 @@ export function FooterSettings({
     >
       {(node, setAttr) => {
         const attrs = node.attrs;
+        const fixed = !!attrs["fixed"];
         const theme = (attrs["theme"] as string) || "";
         const padding = sectionPaddingPx(attrs);
         return (
           <>
             <BarScopeField kind="footer" getPos={getPos} onClose={onClose} />
+            <Field label="Position">
+              <Segmented
+                ariaLabel="Position"
+                value={fixed ? "fixed" : "normal"}
+                options={POSITION_OPTIONS}
+                onChange={(v) => setAttr("fixed", v === "fixed")}
+              />
+            </Field>
             <Field label="Colors">
               <ThemeVariantPicker
                 value={theme}

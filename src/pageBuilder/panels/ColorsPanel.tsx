@@ -11,24 +11,44 @@
  * saving.
  */
 
+import { useEffect, useRef, useState } from "react";
+
+import { ColorPicker, isValidColor } from "../ColorPicker";
 import { PaletteCluster } from "../PaletteCluster";
 import { navigateTo, usePageBuilderStore } from "../store";
 import { PALETTES, type ColorPalette } from "../theme/palettes";
 import type { Theme } from "../theme/css";
+import { isGradient } from "../theme/fill";
 
 type ColorKey = "background" | "neutral" | "primary" | "secondary" | "tertiary";
 
-const FIELDS: { key: ColorKey; label: string; required: boolean; span: number }[] = [
-  { key: "background", label: "Background", required: true, span: 3 },
+const FIELDS: {
+  key: ColorKey;
+  label: string;
+  required: boolean;
+  span: number;
+  gradient?: boolean;
+}[] = [
+  // Background + accents accept gradients. A gradient paints fills (page/section
+  // backgrounds, filled buttons); text/border uses fall back to the base solid.
+  // Neutral stays solid — it's the workhorse text/ink colour.
+  { key: "background", label: "Background", required: true, span: 3, gradient: true },
   { key: "neutral", label: "Neutral", required: true, span: 3 },
-  { key: "primary", label: "Primary", required: true, span: 2 },
-  { key: "secondary", label: "Secondary", required: false, span: 2 },
-  { key: "tertiary", label: "Tertiary", required: false, span: 2 },
+  { key: "primary", label: "Primary", required: true, span: 2, gradient: true },
+  { key: "secondary", label: "Secondary", required: false, span: 2, gradient: true },
+  { key: "tertiary", label: "Tertiary", required: false, span: 2, gradient: true },
 ];
 
 export function ColorsPanel() {
   const theme = usePageBuilderStore((s) => s.theme);
   const setTheme = usePageBuilderStore((s) => s.setTheme);
+
+  // The live palette doubles as quick-pick swatches in every field's picker,
+  // so reusing an existing theme colour is one click. Solids only — a gradient
+  // Background isn't a usable swatch.
+  const swatches = FIELDS.map(
+    (f) => (theme.colors as Theme["colors"])[f.key],
+  ).filter((c): c is string => !!c && !isGradient(c));
 
   const updateColor = (key: ColorKey, value: string) => {
     setTheme((prev) => ({
@@ -69,6 +89,8 @@ export function ColorsPanel() {
             label={f.label}
             value={(theme.colors as Theme["colors"])[f.key] ?? ""}
             span={f.span}
+            swatches={swatches}
+            allowGradient={f.gradient}
             onChange={(v) => updateColor(f.key, v)}
           />
         ))}
@@ -115,31 +137,63 @@ function ColorField({
   label,
   value,
   span,
+  swatches,
+  allowGradient,
   onChange,
 }: {
   label: string;
   value: string;
   span: number;
+  swatches: string[];
+  allowGradient?: boolean;
   onChange: (v: string) => void;
 }) {
+  // Local draft so partial input (e.g. "#" or "#62") stays in the box without
+  // being pushed to the theme — only complete, parseable colours commit, which
+  // keeps themeToCss from choking on a half-typed hex.
+  const [draft, setDraft] = useState(value);
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!focused.current) setDraft(value);
+  }, [value]);
+
+  // A gradient value isn't editable as text — show a label, edit it in the
+  // picker. The hex input only handles solids.
+  const gradient = isGradient(value);
+
   return (
-    <label className="pb-color-field" style={{ gridColumn: `span ${span}` }}>
+    <div className="pb-color-field" style={{ gridColumn: `span ${span}` }}>
       <span className="pb-color-field-label">{label}</span>
       <div className="pb-color-field-input">
-        <input
-          type="color"
-          className="pb-color-field-swatch"
-          value={value || "#ffffff"}
-          onChange={(e) => onChange(e.target.value)}
-          aria-label={label}
+        <ColorPicker
+          value={value}
+          onChange={onChange}
+          ariaLabel={label}
+          swatches={swatches}
+          allowGradient={allowGradient}
         />
         <input
           type="text"
           className="pb-color-field-hex"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={gradient ? "Gradient" : draft}
+          readOnly={gradient}
+          spellCheck={false}
+          autoComplete="off"
+          aria-label={`${label} hex`}
+          onFocus={() => (focused.current = true)}
+          onBlur={() => {
+            focused.current = false;
+            setDraft(value);
+          }}
+          onChange={(e) => {
+            const v = e.target.value;
+            setDraft(v);
+            const trimmed = v.trim();
+            const norm = !trimmed || trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+            if (isValidColor(norm)) onChange(norm);
+          }}
         />
       </div>
-    </label>
+    </div>
   );
 }

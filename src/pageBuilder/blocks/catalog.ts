@@ -26,13 +26,23 @@ import {
   Image as ImageIcon,
   VideoCamera,
   MusicNotes,
+  BezierCurve,
+  Code,
+  Minus,
+  Gauge,
   StackSimple,
   Layout,
   Rows,
   Cards,
+  ListDashes,
+  Browser,
+  Table as TableIcon,
 } from "@phosphor-icons/react";
 
-export type BlockGroup = "Basic" | "Media" | "Layout";
+import { itemCatalogEntries } from "../items/registry";
+import { UnsplashIcon } from "./UnsplashIcon";
+
+export type BlockGroup = "Basic" | "Media" | "Layout" | "Questions";
 
 export interface BlockCatalogEntry {
   /** Label shown in the picker. */
@@ -96,11 +106,19 @@ export const BLOCK_CATALOG: BlockCatalogEntry[] = [
     group: "Basic",
   },
   { name: "Button", type: "button", icon: Cursor, group: "Basic" },
+  { name: "Divider", type: "divider", icon: Minus, group: "Basic" },
+  { name: "Progress", type: "progress", icon: Gauge, group: "Basic" },
+  { name: "Table", type: "table", icon: TableIcon, group: "Basic" },
 
   // Media
   { name: "Image", type: "image", icon: ImageIcon, group: "Media" },
+  // Unsplash — not a schema node; the chrome special-cases it (click opens the
+  // photo picker, drag drops an image placeholder). See `unsplashPicker.ts`.
+  { name: "Unsplash", type: "unsplash", icon: UnsplashIcon, group: "Media" },
   { name: "Video", type: "video", icon: VideoCamera, group: "Media" },
   { name: "Audio", type: "audio", icon: MusicNotes, group: "Media" },
+  { name: "Vector", type: "vector", icon: BezierCurve, group: "Media" },
+  { name: "Embed", type: "embed", icon: Code, group: "Media" },
 
   // Layout
   { name: "Row", type: "row", icon: Rows, group: "Layout" },
@@ -111,7 +129,28 @@ export const BLOCK_CATALOG: BlockCatalogEntry[] = [
     group: "Layout",
   },
   { name: "Card", type: "card", icon: Cards, group: "Layout" },
+  { name: "Accordion", type: "accordion", icon: ListDashes, group: "Layout" },
+  { name: "Tabs", type: "tabs", icon: Browser, group: "Layout" },
   { name: "Section", type: "section", icon: Layout, group: "Layout" },
+
+  // Questions — learning items, contributed by the item registry so this list
+  // grows by registering a type, not by editing here.
+  ...itemCatalogEntries().map(
+    (e): BlockCatalogEntry => ({
+      name: e.label,
+      type: e.type,
+      icon: e.icon,
+      group: e.group,
+      // Preset attrs (e.g. an opinion poll's scoringMode) ride through to the
+      // item's `construct` via `createBlockNode`.
+      ...(e.attrs ? { attrs: e.attrs } : {}),
+    }),
+  ),
 ];
 
-export const BLOCK_GROUPS: BlockGroup[] = ["Basic", "Media", "Layout"];
+export const BLOCK_GROUPS: BlockGroup[] = [
+  "Basic",
+  "Media",
+  "Layout",
+  "Questions",
+];

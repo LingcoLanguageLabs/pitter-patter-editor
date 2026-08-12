@@ -20,6 +20,8 @@ import {
   DeviceMobile,
 } from "@phosphor-icons/react";
 
+import { redo, undo } from "prosemirror-history";
+
 import { Tooltip, TooltipProvider } from "../editor/menu";
 
 import { usePageBuilderStore } from "./store";
@@ -34,8 +36,22 @@ export function TopBar() {
     setPreview,
     chromeTheme,
     toggleChromeTheme,
+    pagesView,
+    canUndo,
+    canRedo,
   } = usePageBuilderStore();
   const dark = chromeTheme === "dark";
+
+  // The TopBar lives outside the ProseMirror context, so it dispatches undo/
+  // redo through the live view stashed in the store (the same bridge the Pages
+  // and Layers panels ride). Re-focus after so the keyboard shortcuts (⌘Z /
+  // ⌘⇧Z, handled by the editor keymap) keep working without a re-click.
+  const runHistory = (command: typeof undo) => () => {
+    const view = pagesView;
+    if (!view) return;
+    command(view.state, view.dispatch);
+    view.focus();
+  };
 
   return (
     <TooltipProvider delayDuration={200} skipDelayDuration={300}>
@@ -54,10 +70,18 @@ export function TopBar() {
             >
               <Sidebar size={20} weight="regular" />
             </IconButton>
-            <IconButton aria-label="Undo">
+            <IconButton
+              aria-label="Undo"
+              onClick={runHistory(undo)}
+              disabled={!canUndo}
+            >
               <ArrowCounterClockwise size={20} weight="regular" />
             </IconButton>
-            <IconButton aria-label="Redo">
+            <IconButton
+              aria-label="Redo"
+              onClick={runHistory(redo)}
+              disabled={!canRedo}
+            >
               <ArrowClockwise size={20} weight="regular" />
             </IconButton>
           </>

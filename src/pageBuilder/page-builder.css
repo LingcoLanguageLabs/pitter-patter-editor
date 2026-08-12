@@ -3,6 +3,37 @@
    pagy.co/styles/04-editor.css and 01-tokens.css.
    ───────────────────────────────────────────────────────────────── */
 
+/* Self-hosted Playfair Display with TRIMMED vertical metrics.
+   Google's copy reports a ~1.33em content box (big ascent + descent), so the
+   browser draws the text caret/selection at 1.33em — towering over the glyphs
+   at display sizes and bleeding into neighbors (the XXL hero caret problem).
+   `ascent/descent-override` shrink the font's content box (and therefore the
+   caret) to hug the glyphs, so a tight `line-height: 1` contains the caret.
+   Glyphs still render full-size — they overflow the trimmed metrics, never
+   clipped. Kept out of the Google link + CDN @font-face via `source: "self"`
+   (fonts.ts → font-face-css.ts). Latin (variable, 400–900) is enough for the
+   current sites; add subsets/files if other ranges are needed. */
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("./assets/fonts/PlayfairDisplay-latin.woff2") format("woff2");
+  ascent-override: 78%;
+  descent-override: 20%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Playfair Display";
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("./assets/fonts/PlayfairDisplay-latin-italic.woff2") format("woff2");
+  ascent-override: 78%;
+  descent-override: 20%;
+  line-gap-override: 0%;
+}
+
 :root {
   /* Colors — exact Pagy accents. Defined globally so portaled
      overlays (highlights, affordances) see them. */
@@ -210,6 +241,15 @@
 .pb-topbar .pb-icon-button:hover {
   background: var(--pb-hover);
 }
+/* Disabled undo/redo (nothing on that side of the history stack): dim, no
+   hover affordance. */
+.pb-topbar .pb-icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pb-topbar .pb-icon-button:disabled:hover {
+  background: transparent;
+}
 .pb-topbar .pb-icon-button[data-active] {
   background: var(--pb-active);
 }
@@ -298,7 +338,8 @@
   font: inherit;
   color: var(--pb-text);
 }
-.pb-site-picker:hover {
+.pb-site-picker:hover,
+.pb-site-picker[data-open] {
   background: var(--pb-hover);
 }
 .pb-site-picker-name {
@@ -306,6 +347,89 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Site picker dropdown — the floating switcher card. Portaled to `document.body`
+   (so the panel's overflow can't clip it), sized to the picker button's width,
+   and carrying the elevated surface + popover shadow the body-level popovers use.
+   Items reuse the `.pb-site-picker-*` text classes so the rows match the trigger. */
+.pb-site-menu {
+  box-sizing: border-box;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: var(--pb-surface-raised);
+  border: 1px solid var(--pb-border);
+  border-radius: 14px;
+  box-shadow: var(--pb-popover-shadow);
+}
+.pb-site-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--pb-text);
+}
+.pb-site-menu-item:hover {
+  background: var(--pb-hover);
+}
+.pb-site-menu-check {
+  flex: none;
+  color: var(--pb-text);
+}
+.pb-site-menu-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--pb-text);
+}
+.pb-site-menu-new:hover {
+  background: var(--pb-hover);
+}
+.pb-site-menu-divider {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--pb-border);
+}
+/* Debug-only reset — muted so it reads as a utility, not a primary action. */
+.pb-site-menu-reset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  color: var(--pb-text-soft);
+}
+.pb-site-menu-reset:hover {
+  background: var(--pb-hover);
+  color: var(--pb-text);
 }
 .pb-site-picker-plan {
   background: var(--pb-active);
@@ -395,12 +519,97 @@
   font-weight: 700;
   letter-spacing: -0.015em;
 }
+/* Small muted help text under a panel control (e.g. Settings → Grading). */
+.pb-panel-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pb-text-soft);
+}
 .pb-panel-section-title {
   margin: 16px 0 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--pb-text-soft);
   text-transform: none;
+}
+
+/* Settings → Danger zone: a destructive region fenced off from the rest of the
+   panel by a top rule. The delete control is two-step — the first click swaps
+   the outline button for an inline Cancel / confirm pair (no native dialog). */
+.pb-danger-zone {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--pb-border);
+}
+.pb-danger-title {
+  margin-top: 0;
+  color: var(--pb-danger);
+}
+.pb-danger-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--pb-danger);
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pb-danger);
+}
+.pb-danger-button:hover:not(:disabled) {
+  background: var(--pb-danger);
+  color: #fff;
+}
+.pb-danger-button:disabled {
+  border-color: var(--pb-border);
+  color: var(--pb-text-soft);
+  opacity: 0.5;
+  cursor: default;
+}
+.pb-danger-confirm {
+  margin-top: 12px;
+}
+.pb-danger-confirm-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pb-text);
+}
+.pb-danger-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+.pb-danger-cancel,
+.pb-danger-delete {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+.pb-danger-cancel {
+  background: transparent;
+  border: 1px solid var(--pb-border);
+  color: var(--pb-text);
+}
+.pb-danger-cancel:hover {
+  background: var(--pb-hover);
+}
+.pb-danger-delete {
+  background: var(--pb-danger);
+  border: 1px solid var(--pb-danger);
+  color: #fff;
+}
+.pb-danger-delete:hover {
+  filter: brightness(0.92);
 }
 
 /* ─────────────────────────────────────── Design landing tiles */
@@ -624,21 +833,6 @@
   border-radius: 8px;
   padding: 4px;
 }
-.pb-color-field-swatch {
-  width: 24px;
-  height: 24px;
-  border: 0;
-  padding: 0;
-  border-radius: 6px;
-  cursor: pointer;
-  appearance: none;
-  background: transparent;
-}
-.pb-color-field-swatch::-webkit-color-swatch-wrapper { padding: 0; }
-.pb-color-field-swatch::-webkit-color-swatch {
-  border: 0;
-  border-radius: 6px;
-}
 .pb-color-field-hex {
   flex: 1;
   border: 0;
@@ -648,6 +842,485 @@
   outline: none;
   color: var(--pb-text);
   min-width: 0;
+}
+
+/* ─────────────────────────────────────── Color picker (ColorPicker.tsx)
+   Our own solid picker replacing the native <input type="color"> popup.
+   `--pb-cp-fill` is the live colour, set inline; the checkerboard shows
+   through translucent fills. The checker token is image-only (no position/
+   size) so it stays valid inside `background-image`; the tile size is applied
+   separately via `background-size`. */
+:root {
+  --pb-cp-checker: repeating-conic-gradient(
+    rgba(0, 0, 0, 0.16) 0 25%,
+    transparent 0 50%
+  );
+  --pb-cp-checker-size: 14px 14px;
+}
+.pb-cp-checker {
+  background-color: #fff;
+  background-image: var(--pb-cp-checker);
+  background-size: var(--pb-cp-checker-size);
+}
+
+/* Trigger swatch — sits where the native colour well used to. */
+.pb-cp-trigger {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--pb-border-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: #fff;
+  background-image: var(--pb-cp-checker);
+  background-size: var(--pb-cp-checker-size);
+}
+.pb-cp-trigger:focus-visible {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: 1px;
+}
+.pb-cp-trigger-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.pb-color-picker {
+  z-index: 80;
+  width: 232px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: var(--pb-surface-raised);
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  box-shadow: var(--pb-popover-shadow);
+  font-family: var(--pb-font);
+}
+
+/* Saturation / value square. The base hue is set inline; two overlays bake
+   in the white→colour (saturation) and colour→black (value) gradients. */
+.pb-cp-area {
+  position: relative;
+  height: 160px;
+  border-radius: 8px;
+  cursor: crosshair;
+  touch-action: none;
+  outline: none;
+}
+.pb-cp-area:focus-visible {
+  box-shadow: 0 0 0 2px var(--pb-accent);
+}
+.pb-cp-area-sat,
+.pb-cp-area-val {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+}
+.pb-cp-area-sat {
+  background: linear-gradient(to right, #fff, rgba(255, 255, 255, 0));
+}
+.pb-cp-area-val {
+  background: linear-gradient(to top, #000, rgba(0, 0, 0, 0));
+}
+
+.pb-cp-thumb {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.pb-cp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pb-cp-eyedropper {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  background: var(--pb-surface);
+  color: var(--pb-text);
+  cursor: pointer;
+}
+.pb-cp-eyedropper:hover {
+  background: var(--pb-hover);
+}
+.pb-cp-preview {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  background-image: linear-gradient(var(--pb-cp-fill), var(--pb-cp-fill)),
+    var(--pb-cp-checker);
+  background-size: auto, var(--pb-cp-checker-size);
+}
+.pb-cp-sliders {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pb-cp-slider {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+.pb-cp-slider:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.1),
+    0 0 0 2px var(--pb-accent);
+}
+/* Alpha track: the current colour fading to transparent, over the checker. */
+.pb-cp-alpha {
+  background-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0) 0%,
+      var(--pb-cp-fill) 100%
+    ),
+    var(--pb-cp-checker);
+  background-size: auto, var(--pb-cp-checker-size);
+}
+.pb-cp-slider .pb-cp-thumb {
+  width: 16px;
+  height: 16px;
+}
+
+.pb-cp-inputs {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.pb-cp-channels {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.pb-cp-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.pb-cp-field-hex {
+  flex: 1;
+}
+.pb-cp-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 4px;
+  text-align: center;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--pb-text);
+  outline: none;
+}
+.pb-cp-field-hex .pb-cp-input {
+  text-align: left;
+  padding-left: 8px;
+}
+.pb-cp-input:focus {
+  border-color: var(--pb-accent);
+}
+.pb-cp-field-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--pb-text-very-soft);
+}
+.pb-cp-format {
+  flex: none;
+  width: 28px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pb-border);
+  border-radius: 6px;
+  background: var(--pb-surface);
+  color: var(--pb-text-soft);
+  font-size: 13px;
+  cursor: pointer;
+}
+.pb-cp-format:hover {
+  background: var(--pb-hover);
+  color: var(--pb-text);
+}
+
+.pb-cp-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pb-border);
+}
+.pb-cp-swatch {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+.pb-cp-swatch[data-active] {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: 2px;
+}
+
+/* ── Color picker: gradient mode (PowerPoint-style fill editor) ── */
+
+/* Segmented tabs: Solid|Gradient and Linear|Radial|Conic. */
+.pb-cp-seg {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--pb-bg);
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+}
+.pb-cp-seg-btn {
+  flex: 1;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pb-text-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.pb-cp-seg-btn:hover {
+  color: var(--pb-text);
+}
+.pb-cp-seg-btn[data-active] {
+  background: var(--pb-surface-raised);
+  color: var(--pb-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+/* Gradient stops bar + add/remove buttons. */
+.pb-cp-grad-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pb-cp-grad-bar {
+  position: relative;
+  flex: 1;
+  height: 26px;
+  border-radius: 7px;
+  cursor: copy;
+  touch-action: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+.pb-cp-grad-bar-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  pointer-events: none;
+}
+.pb-cp-grad-stop {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%);
+  cursor: grab;
+}
+.pb-cp-grad-stop[data-active] {
+  width: 18px;
+  height: 18px;
+  border-color: var(--pb-accent);
+  z-index: 1;
+}
+.pb-cp-grad-bar-btns {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+.pb-cp-icon-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pb-border);
+  border-radius: 7px;
+  background: var(--pb-surface);
+  color: var(--pb-text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pb-cp-icon-btn:hover {
+  background: var(--pb-hover);
+}
+.pb-cp-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Type row: segmented + (angle dial | position grid) + position field. */
+.pb-cp-grad-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pb-cp-grad-controls .pb-cp-seg {
+  flex: 1;
+}
+
+.pb-cp-angle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.pb-cp-dial {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--pb-bg);
+  border: 1px solid var(--pb-border);
+  cursor: grab;
+  outline: none;
+}
+.pb-cp-dial:focus-visible {
+  border-color: var(--pb-accent);
+}
+.pb-cp-dial-knob {
+  position: absolute;
+  inset: 0;
+}
+.pb-cp-dial-knob::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: var(--pb-accent);
+}
+.pb-cp-angle-field,
+.pb-cp-pos-field {
+  width: 44px;
+  flex: none;
+}
+
+.pb-cp-posgrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--pb-border);
+  border-radius: 7px;
+  background: var(--pb-bg);
+}
+.pb-cp-posdot {
+  border: 0;
+  padding: 0;
+  border-radius: 2px;
+  background: var(--pb-border-strong);
+  cursor: pointer;
+}
+.pb-cp-posdot:hover {
+  background: var(--pb-text-very-soft);
+}
+.pb-cp-posdot[data-active] {
+  background: var(--pb-accent);
+}
+
+/* Raw CSS code field — paste/edit a gradient string. */
+.pb-cp-code {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pb-cp-code-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 7px 8px;
+  background: var(--pb-bg);
+  border: 1px solid var(--pb-border);
+  border-radius: 7px;
+  color: var(--pb-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  outline: none;
+}
+.pb-cp-code-input:focus {
+  border-color: var(--pb-accent);
+}
+.pb-cp-code-input[data-invalid] {
+  border-color: var(--pb-danger);
+}
+
+/* Preset gradients row. */
+.pb-cp-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pb-border);
+}
+.pb-cp-preset {
+  width: 30px;
+  height: 22px;
+  flex: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+.pb-cp-preset:hover {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: 1px;
 }
 
 /* ─────────────────────────────────────── Fields & selects */
@@ -695,6 +1368,47 @@
 }
 
 /* ─────────────────────────────────────── Add block picker (popover) */
+/* Variable autocomplete — the {{ }} typeahead menu (VariableAutocomplete). */
+.pb-var-menu {
+  z-index: 60;
+  width: max-content;
+  min-width: 200px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--pb-surface-raised);
+  border-radius: 10px;
+  box-shadow: var(--pb-popover-shadow);
+  font-family: var(--pb-font);
+}
+.pb-var-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.pb-var-menu-item[data-active] {
+  background: var(--pb-hover);
+}
+.pb-var-menu-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pb-text);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.pb-var-menu-label {
+  font-size: 11px;
+  color: var(--pb-text-soft);
+}
+
 .pb-block-picker {
   z-index: 50;
   width: max-content;
@@ -1055,6 +1769,9 @@
    theme style tag mounts the canvas swaps to the chosen face. */
 .pb-canvas.site {
   background: var(--color-background, var(--pb-surface));
+  /* A gradient Background paints over the solid via this image layer; for a
+     solid theme the var is `none`, so this is a no-op. */
+  background-image: var(--fill-background-image, none);
   color: var(--color-neutral, var(--pb-text));
   /* Query container for the mobile preview. The @container rules in the
      "Mobile preview" section collapse the layout once the frame shrinks to
@@ -1361,7 +2078,8 @@
    interactivity suppressions — undo them here, scoped to the `.pb-site` root,
    same as `.pb-preview`. */
 .pb-site .pb-canvas-scroll .ProseMirror .pb-video video,
-.pb-site .pb-canvas-scroll .ProseMirror .pb-audio audio {
+.pb-site .pb-canvas-scroll .ProseMirror .pb-audio audio,
+.pb-site .pb-canvas-scroll .ProseMirror .pb-embed iframe {
   pointer-events: auto;
 }
 .pb-site .pp-link,
@@ -1717,8 +2435,18 @@
   padding: 0;
   /* Same var the canvas paints with, so a default section is invisible
      against the page — until a `theme -X` class rescopes the var
-     (pagy's section always paints --color-background the same way). */
-  background-color: var(--color-background, transparent);
+     (pagy's section always paints --color-background the same way).
+     Background-only opacity: the fill fades via `--pp-bg-opacity` (default 1)
+     while content stays opaque; section media fades on `.pp-section-media`. */
+  background-color: color-mix(
+    in srgb,
+    var(--color-background, transparent) calc(var(--pp-bg-opacity, 1) * 100%),
+    transparent
+  );
+  /* A gradient Background paints over the solid fill; `none` for a solid theme.
+     Themed sections (-inverted/-primary/…) reset this to `none` via themeToCss,
+     so they keep their flat accent rather than inheriting the page gradient. */
+  background-image: var(--fill-background-image, none);
   box-sizing: border-box;
 }
 
@@ -1819,6 +2547,9 @@
   overflow: hidden;
   pointer-events: none;
   user-select: none;
+  /* Section background image/video fades with `--pp-bg-opacity` (default 1),
+     alongside the solid fill on `.pp-section` — content stays opaque. */
+  opacity: var(--pp-bg-opacity, 1);
 }
 .pp-section-media img,
 .pp-section-media video {
@@ -1860,27 +2591,36 @@
   row-gap: 24px;
   margin: 0;
   background-color: var(--color-background, transparent);
+  background-image: var(--fill-background-image, none);
   box-sizing: border-box;
 }
 /* Themed bars recolor their text along with the background (like sections). */
 .pp-header.theme,
 .pp-footer.theme { color: var(--color-neutral); }
 
-/* Position: Fixed → sticks to the top of the scroll viewport (the canvas
-   scroller is the containing block, so the bar stays glued while sections
-   scroll beneath it). pagy uses position:fixed + "not previewable while
-   editing"; sticky gives a faithful, previewable result in editor AND site. */
+/* Position: Fixed → the bar sticks to an edge of the scroll viewport (the canvas
+   scroller is the containing block, so the bar stays glued while sections scroll
+   past it) — header to the top, footer to the bottom. pagy uses position:fixed +
+   "not previewable while editing"; sticky gives a faithful, previewable result in
+   editor AND site. */
 .pp-header.-fixed {
   position: sticky;
   top: 0;
+  z-index: 4;
+}
+.pp-footer.-fixed {
+  position: sticky;
+  bottom: 0;
   z-index: 4;
 }
 
 /* Background: Transparent (no fill) / Blur (translucent + backdrop blur). The
    blur tint is painted by a ::before so the bar's grid children stay crisp
    above it. */
-.pp-header.-transparent { background-color: transparent; }
-.pp-header.-blur { background-color: transparent; }
+/* Transparent / blur bars opt out of the page background fill too (the blur
+   tint is painted by the ::before below). */
+.pp-header.-transparent { background-color: transparent; background-image: none; }
+.pp-header.-blur { background-color: transparent; background-image: none; }
 .pp-header.-blur::before {
   content: "";
   position: absolute;
@@ -2007,6 +2747,18 @@
 :is(.pp-section, .pp-header, .pp-footer) :is(h1, h2, h3, h4).pp-size-m  { font-size: var(--pb-fs-heading-m, 36px); }
 :is(.pp-section, .pp-header, .pp-footer) :is(h1, h2, h3, h4).pp-size-l  { font-size: var(--pb-fs-heading-l, 48px); }
 :is(.pp-section, .pp-header, .pp-footer) :is(h1, h2, h3, h4).pp-size-xl { font-size: var(--pb-fs-heading-xl, 64px); }
+/* XXL — the oversized cover/hero tier (one step past XL, heading-only via
+   HEADING_SIZE_OPTIONS). Fluid `clamp` so a giant title (e.g. the Iceland
+   deck's ~240px "Iceland") scales with the viewport instead of needing a fixed
+   px the other sizes can't reach. `line-height: 1` keeps it compact; the caret
+   stays inside the box because Playfair's metrics are trimmed (see the
+   self-hosted @font-face at the top of this file) so its content box ≈ the
+   glyphs. The mobile `@container` ramp below caps `--pb-fs-heading-xxl`. */
+:is(.pp-section, .pp-header, .pp-footer) :is(h1, h2, h3, h4).pp-size-xxl {
+  font-size: var(--pb-fs-heading-xxl, clamp(72px, 16vw, 240px));
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
 
 /* Button — color (theme palette), size, width, align. The base
    styles live below in `.pp-button`; these add the variant modifiers. */
@@ -2014,9 +2766,9 @@
    (its contrast pair for filled text); the variant rules below decide which
    property each lands on. */
 .pp-button.pp-color-neutral   { --pp-btn-color: var(--color-neutral);   --pp-btn-on: var(--color-background); }
-.pp-button.pp-color-primary   { --pp-btn-color: var(--color-primary);   --pp-btn-on: var(--color-primary-foreground, #fff); }
-.pp-button.pp-color-secondary { --pp-btn-color: var(--color-secondary); --pp-btn-on: var(--color-secondary-foreground, var(--color-neutral)); }
-.pp-button.pp-color-tertiary  { --pp-btn-color: var(--color-tertiary);  --pp-btn-on: var(--color-tertiary-foreground, var(--color-neutral)); }
+.pp-button.pp-color-primary   { --pp-btn-color: var(--color-primary);   --pp-btn-on: var(--color-primary-foreground, #fff); --pp-btn-fill: var(--fill-primary-image, none); }
+.pp-button.pp-color-secondary { --pp-btn-color: var(--color-secondary); --pp-btn-on: var(--color-secondary-foreground, var(--color-neutral)); --pp-btn-fill: var(--fill-secondary-image, none); }
+.pp-button.pp-color-tertiary  { --pp-btn-color: var(--color-tertiary);  --pp-btn-on: var(--color-tertiary-foreground, var(--color-neutral)); --pp-btn-fill: var(--fill-tertiary-image, none); }
 
 .pp-button.pp-size-xs { padding: 6px 12px; font-size: 12px; }
 .pp-button.pp-size-s  { padding: 8px 14px; font-size: 13px; }
@@ -2057,11 +2809,27 @@
   padding: 24px;
   border-radius: 28px;
   overflow: hidden;
+}
+/* Background layer — theme color + optional image (`--pp-card-image`), painted on
+   an absolutely-positioned pseudo so `--pp-bg-opacity` fades color AND image
+   together while the content above stays fully opaque (element `opacity` would
+   fade the text too). `overflow: hidden` + `border-radius: inherit` clip it to
+   the card's rounded shape. The overlay scrim layers onto this same pseudo
+   (below), keeping `::after` free for the editor selection ring. */
+.pp-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
   background-color: var(--color-background, var(--pb-surface));
+  background-image: var(--pp-card-image, none);
   background-size: cover;
   background-position: center;
+  opacity: var(--pp-bg-opacity, 1);
 }
-/* Keep content above the image/overlay layers. */
+/* Keep content above the background/overlay layer. */
 .pp-card > * {
   position: relative;
   z-index: 1;
@@ -2081,20 +2849,33 @@
    variant's neutral. The card's palette therefore comes only from its own
    variant — never from the section it's nested in. */
 .pp-card.theme { color: var(--color-neutral); }
-/* Image overlay scrim (only shown when an overlay level is set). */
-.pp-card.pp-overlay-light::before,
-.pp-card.pp-overlay-medium::before,
-.pp-card.pp-overlay-strong::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 0;
+/* Image overlay scrim — a dark wash for text contrast. It's the topmost
+   background layer on the same `::before` (above the image, below the content),
+   so cards still need only the two pseudo-elements (`::before` background,
+   `::after` ring). Unset → `none`, so a plain card shows no scrim. */
+.pp-card.pp-overlay-light::before {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)),
+    var(--pp-card-image, none);
 }
-.pp-card.pp-overlay-light::before  { background: rgba(0, 0, 0, 0.2); }
-.pp-card.pp-overlay-medium::before { background: rgba(0, 0, 0, 0.45); }
-.pp-card.pp-overlay-strong::before { background: rgba(0, 0, 0, 0.65); }
+.pp-card.pp-overlay-medium::before {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)),
+    var(--pp-card-image, none);
+}
+.pp-card.pp-overlay-strong::before {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.65)),
+    var(--pp-card-image, none);
+}
+/* Style — plain (default) / inset hairline / drop shadow, mirroring the image &
+   video `pp-frame-*` vocabulary (applied via attrClassesPlugin). Shadow is a
+   drop shadow on the card box; `overflow: hidden` clips the children, never the
+   element's own outer shadow. Inset rides on the `::before` background layer (the
+   card's two pseudo-elements are spoken for — `::before` bg, `::after` ring). */
+.pp-card.pp-frame-shadow {
+  box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.35);
+}
+.pp-card.pp-frame-inset::before {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
 
 /* The button's color flows through these two vars so each variant uses it
    correctly — fill paints the background, outline/ghost paint the text. The
@@ -2106,6 +2887,8 @@
 .pp-button {
   --pp-btn-color: #1f2937;
   --pp-btn-on: #ffffff;
+  /* Gradient accent fill for filled buttons; "none" for a solid accent. */
+  --pp-btn-fill: none;
 }
 .pp-button,
 .pb-canvas-scroll .ProseMirror a.pp-button {
@@ -2136,22 +2919,41 @@
 }
 /* `color` is `!important` to beat the canvas's generic `a` link color (a
    higher-specificity rule); the original variants did the same. */
-/* Filled: color fills the button, text is its contrast pair. */
+/* Filled: color fills the button, text is its contrast pair. The fill fades
+   via `--pp-bg-opacity` (background-only opacity) while the label stays opaque. */
 .pp-button--primary {
-  background: var(--pp-btn-color);
+  background: color-mix(
+    in srgb,
+    var(--pp-btn-color) calc(var(--pp-bg-opacity, 1) * 100%),
+    transparent
+  );
+  /* A gradient accent paints over the solid fill; "none" for a solid accent. */
+  background-image: var(--pp-btn-fill, none);
   color: var(--pp-btn-on) !important;
 }
-/* Outline: sits on the page background with a subtle border; the color is
-   the *text* (pagy renders e.g. purple text, not a filled pill). */
+/* Outline: transparent fill, the color is BOTH the text and the border — pagy
+   renders e.g. purple text + purple hairline, not a filled pill. The border must
+   ride the page theme (`--pp-btn-color`, set from `--color-*`), NOT the editor
+   chrome: `--pb-border` flips with the builder's dark/light toggle and isn't even
+   defined on the published site, so a chrome hairline was invisible on the canvas
+   and absent in production. The `button-style-*` themes override per their look
+   (thick = 2px color, soft = neutral hairline, brutal = its own frame). */
 .pp-button--secondary {
-  background: var(--color-background, #ffffff);
+  background: transparent;
   color: var(--pp-btn-color) !important;
-  border: 1px solid var(--pb-border, #ececea);
+  border: 1px solid var(--pp-btn-color);
 }
 /* Ghost: no fill, no border — the color is the text. */
 .pp-button--ghost {
   background: transparent;
   color: var(--pp-btn-color) !important;
+}
+/* Dead-end nav action (prev on the first page, next on the last) — clearly a
+   no-op: dimmed, not clickable, no hover affordance. */
+.pp-button[aria-disabled="true"] {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: default;
 }
 
 /* ─────────────────────────── Theme button tokens (Design → Buttons)
@@ -2276,6 +3078,35 @@
   border-radius: var(--radius);
   overflow: hidden;
   background: #f3f4f6;
+  /* The media IS the image's "background" — fade it via `--pp-bg-opacity`
+     (default 1, a no-op). No text here, so this is the whole visual. */
+  opacity: var(--pp-bg-opacity, 1);
+}
+/* Runtime link wrapper: `display: contents` adds no box, so the figure stays
+   the grid item and `.pb-image-media` keeps its sizing/align selectors. The
+   media shows a pointer cursor to signal the image is clickable. */
+.pb-image-link {
+  display: contents;
+}
+.pb-image[data-linked] .pb-image-media {
+  cursor: pointer;
+}
+/* Editor-only "this image is a link" badge — a small chip in the media's top
+   corner. The runtime never renders it (it emits a real <a> instead). */
+.pb-image-link-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: #fff;
+  background: rgba(15, 17, 21, 0.66);
+  pointer-events: none;
 }
 /* Place the media within the footprint — block-level auto margins, robust in
    every container the figure can sit in (it's a normal block box). The `align`
@@ -2291,6 +3122,32 @@
   object-fit: cover;
   border-radius: var(--radius);
   aspect-ratio: var(--aspect-ratio, 16/9);
+}
+
+/* Empty-state — an image block with no source yet (e.g. a placeholder dropped
+   from the "Unsplash" catalog block). A dashed, clickable frame that opens the
+   photo picker; replaced by the real <img> once a photo is chosen. Children of
+   the atom figure inherit `pointer-events: none`, so re-enable it here. */
+.pb-image-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  aspect-ratio: var(--aspect-ratio, 16/9);
+  border: 1px dashed var(--pb-border-strong);
+  border-radius: var(--radius);
+  background: var(--pb-hover);
+  color: var(--pb-text-soft);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.pb-image-empty:hover {
+  border-color: var(--pb-accent);
+  color: var(--pb-text);
 }
 
 /* Aspect ratio (rectangle shapes). "original" → natural intrinsic. Set on the
@@ -2325,6 +3182,360 @@
   z-index: 1;
 }
 
+/* Vector block — inline author-pasted SVG (or an `<img>` when only a URL is
+   set). Mirrors the image block's full-footprint figure + inner `.media` split:
+   the figure is the grid item (bears the ring), the media does the sizing /
+   aligning. Unlike the image, the media holds an inline `<svg>`, so it scales
+   crisply and can inherit `currentColor` (the Recolor control). */
+.pb-vector {
+  margin: 0;
+  width: 100%;
+}
+.pb-vector-media {
+  /* Width as a % of the footprint — set inline by the NodeView / runtime walker
+     (a string `style` on the figure can't carry it reliably); the SVG fills the
+     box and keeps its own ratio. */
+  width: 100%;
+  opacity: var(--pp-bg-opacity, 1);
+}
+/* Place the media within the footprint — block-level auto margins, like the
+   image. The `align` attr emits `pp-align-*` on the figure; at full width
+   there's no free space, so all three are inert. */
+.pb-vector.pp-align-left   .pb-vector-media { margin-inline: 0 auto; }
+.pb-vector.pp-align-center .pb-vector-media { margin-inline: auto; }
+.pb-vector.pp-align-right  .pb-vector-media { margin-inline: auto 0; }
+.pb-vector-media > svg,
+.pb-vector-media img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* Recolor a monochrome SVG: `data-recolor` rides with the `pp-text -X` class
+   (which sets `color`), and every fill/stroke that isn't explicitly "none"
+   adopts `currentColor`. Multicolor art flattens — recolor is opt-in. */
+.pb-vector[data-recolor] .pb-vector-media svg:not([fill="none"]),
+.pb-vector[data-recolor] .pb-vector-media svg *:not([fill="none"]) {
+  fill: currentColor;
+}
+.pb-vector[data-recolor] .pb-vector-media svg [stroke]:not([stroke="none"]) {
+  stroke: currentColor;
+}
+/* Settings-panel SVG code box — monospace + vertical resize. */
+.pb-svg-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Divider
+   ────────────────────────────────────────────────────────────────── */
+.pb-divider {
+  border: none;
+  border-top: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  margin: 0;
+  width: 100%;
+}
+.pb-divider[data-variant="dashed"] { border-top-style: dashed; }
+.pb-divider[data-variant="dotted"] { border-top-style: dotted; }
+
+/* ──────────────────────────────────────────────────────────────────
+   Progress — bar + ring indicator (builder NodeView + runtime share this).
+   The fill color comes from the theme slot via `data-color`; the indicator
+   markup is the shared <ProgressIndicator>.
+   ────────────────────────────────────────────────────────────────── */
+.pb-progress {
+  margin: 0;
+  width: 100%;
+  --pp-progress-fill: var(--color-primary);
+  --pp-progress-track: color-mix(in srgb, currentColor 14%, transparent);
+}
+.pb-progress[data-color="secondary"] { --pp-progress-fill: var(--color-secondary); }
+.pb-progress[data-color="tertiary"] { --pp-progress-fill: var(--color-tertiary); }
+.pb-progress[data-color="neutral"] { --pp-progress-fill: var(--color-neutral); }
+
+/* Bar form */
+.pb-progress-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.pb-progress-bar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+.pb-progress-bar-label { font-weight: 500; }
+.pb-progress-bar-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--pp-progress-fill);
+}
+.pb-progress-bar-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--pp-progress-track);
+  overflow: hidden;
+}
+.pb-progress-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pp-progress-fill);
+  transition: width 0.4s ease;
+}
+
+/* Ring form */
+.pb-progress[data-display="ring"] {
+  display: flex;
+  justify-content: center;
+}
+.pb-progress-ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 120px;
+  height: 120px;
+}
+.pb-progress-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg); /* start the fill at 12 o'clock */
+}
+.pb-progress-ring-track {
+  fill: none;
+  stroke: var(--pp-progress-track);
+  stroke-width: 8;
+}
+.pb-progress-ring-fill {
+  fill: none;
+  stroke: var(--pp-progress-fill);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s ease;
+}
+.pb-progress-ring-value {
+  position: absolute;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pb-progress-ring-label {
+  position: absolute;
+  bottom: -1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Accordion + Tabs — shared add/delete chrome (builder only)
+   ────────────────────────────────────────────────────────────────── */
+.pb-block-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: flex-start;
+  appearance: none;
+  border: 1px dashed color-mix(in srgb, currentColor 32%, transparent);
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.pb-block-add:hover { opacity: 1; }
+.pb-block-add--nested { margin-top: 0.4rem; }
+
+/* ── Accordion (shared builder + runtime) ───────────────────────── */
+.pb-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+.pb-accordion-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.pb-accordion-item {
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+.pb-accordion-item-content { display: block; }
+.pb-accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+.pb-accordion-header-text { flex: 1; outline: none; }
+/* CSS caret (shared) — points right, rotates down when the row is open. */
+.pb-accordion-caret {
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+.pb-accordion-item[data-open] .pb-accordion-caret { transform: rotate(90deg); }
+.pb-accordion-panel { padding: 0.2rem 0.85rem 0.7rem; }
+.pb-accordion-panel[hidden] { display: none; }
+.pb-accordion-panel-content { outline: none; }
+/* Delete-row button — builder chrome, floats at the row's top-right. */
+.pb-accordion-item-delete,
+.pb-tab-delete {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+.pb-accordion-item:hover .pb-accordion-item-delete,
+.pb-tab:hover .pb-tab-delete { opacity: 0.75; }
+.pb-accordion-item-delete:hover,
+.pb-tab-delete:hover { opacity: 1; }
+.pb-accordion-item-delete:disabled,
+.pb-tab-delete:disabled { opacity: 0; pointer-events: none; }
+
+/* ── Tabs ────────────────────────────────────────────────────────── */
+.pb-tabs { width: 100%; }
+/* Builder: the tab editors stacked (label chip above its panel). */
+.pb-tabs-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.pb-tab {
+  position: relative;
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pb-tab-content { display: block; }
+/* Runtime: the label strip (a row of tab buttons). */
+.pb-tabs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  margin-bottom: 0.75rem;
+}
+.pb-tab-label {
+  display: inline-block;
+  padding: 0.45rem 0.85rem;
+  font: inherit;
+  font-weight: 600;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.pb-tab-label-text { outline: none; }
+/* Runtime active tab. */
+.pb-tabs-list > .pb-tab-label {
+  border-radius: 8px 8px 0 0;
+  opacity: 0.6;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+}
+.pb-tabs-list > .pb-tab-label[data-active] {
+  opacity: 1;
+  border-bottom-color: var(--color-primary, currentColor);
+}
+.pb-tab-panel { padding: 0.4rem 0.1rem; outline: none; }
+.pb-tab-panel[hidden] { display: none; }
+
+/* ──────────────────────────────────────────────────────────────────
+   Table (prosemirror-tables) — borders + mobile scroll + settings ops
+   ────────────────────────────────────────────────────────────────── */
+/* Runtime wrapper scrolls a wide table; the builder uses prosemirror-tables'
+   own `.tableWrapper` (which scrolls itself). */
+.pb-table {
+  width: 100%;
+  overflow-x: auto;
+}
+/* Base cell styling for BOTH the runtime (`.pb-table`) and builder
+   (`.tableWrapper`) wrappers. The `table` in each selector lifts specificity
+   above prosemirror-tables' package `.ProseMirror td/th` rule, so these win in
+   the editor too. */
+.pb-table table,
+.tableWrapper table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+}
+.pb-table table td,
+.pb-table table th,
+.tableWrapper table td,
+.tableWrapper table th {
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  padding: 0.45rem 0.6rem;
+  vertical-align: top;
+  text-align: left;
+}
+.pb-table table th,
+.tableWrapper table th {
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  font-weight: 600;
+}
+.pb-table table th > *,
+.pb-table table td > *,
+.tableWrapper table th > *,
+.tableWrapper table td > * { margin: 0; }
+
+/* Style variants — the `pp-table--*` class rides on the wrapper (set directly by
+   the runtime walker, added as a node decoration in the builder). Placed AFTER
+   the base block so equal-specificity overrides win by source order. */
+.pp-table--rows table td,
+.pp-table--rows table th { border-left: none; border-right: none; }
+.pp-table--none table td,
+.pp-table--none table th { border: none; }
+.pp-table--striped table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+.pp-table--compact table td,
+.pp-table--compact table th { padding: 0.25rem 0.45rem; }
+
+/* Delete-row / delete-column glyphs in the floating table toolbar. */
+.pb-table-tool-glyph { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; }
+.pb-field-hint {
+  margin: 0.1rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  opacity: 0.6;
+}
+
 /* Video + audio mirror pagy's `.media`: a full-column-width box with a
    `--radius` custom property the corner/style modifiers drive. The
    crucial bit is `margin: 0` + `width: 100%` — a bare `<figure>` carries
@@ -2352,6 +3563,11 @@
   object-fit: cover;
   border-radius: var(--radius);
   background: #0b0b0f;
+}
+/* The media IS the video's "background" — fade it via `--pp-bg-opacity`. */
+.pb-video video,
+.pb-video .pb-media-placeholder {
+  opacity: var(--pp-bg-opacity, 1);
 }
 
 /* Empty-state placeholder — the NodeView renders this in place of the
@@ -2387,6 +3603,53 @@
   z-index: 1;
 }
 
+/* Embed mirrors the video block's `.media` box — a full-width iframe in a
+   `--radius` rounded frame — but the aspect ratio is configurable via
+   `data-aspect` (like the image block) rather than fixed at 16/9, since an
+   iframe carries no intrinsic dimensions. */
+.pb-embed {
+  --radius: 12px;
+  --aspect-ratio: 16 / 9;
+  margin: 0;
+  width: 100%;
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.pb-embed[data-aspect="16/9"] { --aspect-ratio: 16 / 9; }
+.pb-embed[data-aspect="4/3"]  { --aspect-ratio: 4 / 3; }
+.pb-embed[data-aspect="1/1"]  { --aspect-ratio: 1 / 1; }
+.pb-embed iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--aspect-ratio, 16 / 9);
+  border: 0;
+  border-radius: var(--radius);
+  background: #0b0b0f;
+}
+/* The empty-state placeholder takes the chosen aspect too (the global
+   `.pb-media-placeholder` keeps its flex centering + grey fill). */
+.pb-embed .pb-media-placeholder {
+  aspect-ratio: var(--aspect-ratio, 16 / 9);
+}
+/* Corners + Style reuse the image/video vocabulary (`pp-radius-*`/`pp-frame-*`
+   applied via attrClassesPlugin). */
+.pb-embed.pp-radius-none   { --radius: 0; }
+.pb-embed.pp-radius-medium { --radius: 12px; }
+.pb-embed.pp-radius-large  { --radius: 28px; }
+.pb-embed.pp-frame-shadow {
+  box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.35);
+}
+.pb-embed.pp-frame-inset::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* Audio has no media frame (corners/shadow don't read on a native
    control). Just zero the figure margin and stretch the control to the
    column so it lines up with the selection ring. */
@@ -2410,7 +3673,8 @@
    Scoped to `.ProseMirror` so the published page and the settings-panel
    preview — where playback is meant to happen — stay fully playable. */
 .pb-canvas-scroll .ProseMirror .pb-audio audio,
-.pb-canvas-scroll .ProseMirror .pb-video video {
+.pb-canvas-scroll .ProseMirror .pb-video video,
+.pb-canvas-scroll .ProseMirror .pb-embed iframe {
   pointer-events: none;
 }
 
@@ -2428,12 +3692,59 @@
 }
 
 /* Text color mark — pagy's `.text.-x` (03-site.css), pp-prefixed.
-   Slots, not raw colors: retheming recolors marked text for free. */
+   Slots, not raw colors: retheming recolors marked text for free.
+   Muted/Light read --color-neutral-* so "quiet" text stays surface-aware (a
+   themed section rotates --color-neutral to its legible foreground — right for
+   default/quiet text). The named brand accents instead read the STABLE
+   --accent-* vars (set once on `.site`, never rotated by a `.theme.-X` surface
+   variant), so an explicit "Primary/Secondary/Tertiary" pick is the literal
+   brand color the picker shows — e.g. a Tertiary heading is the brand tone even
+   inside a `theme -tertiary` section, instead of collapsing to that section's
+   contrast color. (Deliberate divergence from pagy, which conflates the two.) */
 .pp-text.-muted { color: var(--color-neutral-80); }
 .pp-text.-light { color: var(--color-neutral-60); }
-.pp-text.-primary { color: var(--color-primary); }
-.pp-text.-secondary { color: var(--color-secondary); }
-.pp-text.-tertiary { color: var(--color-tertiary); }
+.pp-text.-primary { color: var(--accent-primary); }
+.pp-text.-secondary { color: var(--accent-secondary); }
+.pp-text.-tertiary { color: var(--accent-tertiary); }
+
+/* Highlight mark — a marker-style background slot (theme-driven, so retheming
+   recolors it for free). Text color is paired per slot for contrast on a
+   typical palette (saturated primary / dark neutral → light text; light
+   secondary / tertiary tints → dark text). `box-decoration-break: clone` keeps
+   the rounded marker on every line of a wrapped run. */
+.pp-highlight {
+  padding: 0.05em 0.18em;
+  border-radius: 0.18em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.pp-highlight.-primary {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+.pp-highlight.-neutral {
+  background-color: var(--color-neutral);
+  color: var(--color-background);
+}
+.pp-highlight.-secondary {
+  background-color: var(--color-secondary);
+  color: var(--color-neutral);
+}
+.pp-highlight.-tertiary {
+  background-color: var(--color-tertiary);
+  color: var(--color-neutral);
+}
+
+/* Drop cap — an enlarged, floated first letter on a paragraph (editorial lead
+   effect). Toggled per paragraph via the `dropCap` attr → `pp-dropcap` class. */
+.pp-dropcap::first-letter {
+  float: left;
+  font-size: 3.1em;
+  line-height: 0.78;
+  padding-right: 0.08em;
+  margin-top: 0.02em;
+  font-weight: 600;
+}
 
 /* Link mark — pagy's `.link` verbatim: current text color, underline
    in a faint neutral that darkens on hover; `-minimal` drops the
@@ -2454,6 +3765,83 @@
 }
 .pp-link.-minimal:hover {
   color: var(--color-neutral-80);
+}
+/* A prev/next link dead-ending at the deck edge — dimmed + inert, like the
+   button's disabled state. */
+.pp-link[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: default;
+}
+
+/* Tooltip term (the `tooltip` mark). A glossed word/phrase: dotted underline
+   + pointer cursor everywhere so it reads as "hover me". On the site it's the
+   Radix tooltip trigger (renderMarks). In the editor it previews live: the
+   gloss rides in `data-tooltip`, and the `::after` bubble below shows it on
+   hover — the same dark `.pp-tooltip` look, no Radix needed in the canvas. */
+.pp-tooltip-term {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--color-neutral-40);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.pb-site .pp-tooltip-term:hover,
+.pb-site .pp-tooltip-term:focus-visible {
+  text-decoration-color: var(--color-neutral-80);
+  outline: none;
+}
+
+/* Live in-editor preview — hover a glossed term, see its note above it in the
+   same dark bubble the published tooltip + the edit popup use. Skipped while
+   the gloss is empty (a just-created mark mid-edit). */
+.ProseMirror .pp-tooltip-term[data-tooltip]:not([data-tooltip=""]) {
+  position: relative;
+}
+.ProseMirror .pp-tooltip-term[data-tooltip]:not([data-tooltip=""])::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 240px;
+  white-space: normal;
+  text-align: center;
+  text-decoration: none;
+  background: #1a1a1a;
+  color: #f3f3ee;
+  font-family: var(--pb-font);
+  font-size: 0.82rem;
+  font-weight: 450;
+  line-height: 1.3;
+  padding: 6px 8px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 80ms ease-out;
+  z-index: 50;
+}
+.ProseMirror .pp-tooltip-term[data-tooltip]:not([data-tooltip=""]):hover::after {
+  opacity: 1;
+}
+/* While the edit popup is open it floats above the term — fully suppress the
+   hover preview (even mid-hover) so the two don't stack into a double bubble.
+   `!important` so it beats the base `::after` rule regardless of its longer
+   attribute-selector specificity. */
+.ProseMirror.pb-tooltip-editing .pp-tooltip-term::after {
+  content: none !important;
+}
+
+/* Language tag (the `language` mark). The payload is the `lang` attribute
+   (screen readers / hyphenation / spellcheck); visually it's neutral on the
+   published site. In the EDITOR only, a faint dashed underline shows the
+   author which run carries a tag. */
+.ProseMirror .pp-lang {
+  text-decoration: underline dashed;
+  text-decoration-color: var(--pb-accent, var(--color-neutral-40));
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
 }
 
 /* ─────────────────────────────────────── Image block: preview + Replace
@@ -2541,6 +3929,28 @@
   justify-content: center;
 }
 .pb-audio-preview {
+  width: 100%;
+}
+
+/* ImagePicker's Unsplash/Upload popover — same shell as `.pb-color-picker`,
+   sized for the Unsplash grid's two-up thumbnails. Scrolls internally so a
+   full result page can't grow the popover past the viewport. */
+.pb-image-pick-pop {
+  z-index: 80;
+  width: 288px;
+  max-height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: var(--pb-surface-raised);
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  box-shadow: var(--pb-popover-shadow);
+  font-family: var(--pb-font);
+}
+.pb-image-pick-upload {
   width: 100%;
 }
 
@@ -2663,6 +4073,68 @@
   background-color: rgba(13, 21, 38, 0.75);
 }
 
+/* Pinned (floating) image — absolutely positioned within its section by the
+   inline left/top/width set in the NodeView + runtime. Decorative by default,
+   so on the published site it does NOT block clicks to the content beneath;
+   a linked pinned image stays clickable, and the editor re-enables hit-testing
+   so it can be selected + dragged. */
+.pb-image--pinned {
+  pointer-events: none;
+}
+.pb-image--pinned[data-linked="true"] {
+  pointer-events: auto;
+}
+.ProseMirror[contenteditable="true"] .pb-image--pinned {
+  pointer-events: auto;
+}
+/* Drag-to-position handle — covers the pinned image, shown only when selected
+   (like the resize handles). Its native pointerdown writes pinX/pinY. */
+.pb-image-move-handle {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: none;
+  cursor: move;
+  touch-action: none;
+  pointer-events: auto;
+}
+.pb-image--pinned.pb-block-active .pb-image-move-handle,
+.pb-image--pinned.ProseMirror-selectednode .pb-image-move-handle {
+  display: block;
+}
+
+/* Image caption — a rich figcaption below the media (its own `image_caption`
+   node, so it can hold marks: italic credit, a link, theme color). Editable
+   inline in the canvas (needs pointer-events since the figure suppresses them
+   for shuffle drag). Empty captions render nothing on the site. Text-align
+   comes from the caption's own `pp-align-*` class (below), not a flat
+   property here — same vocabulary as paragraph/heading. */
+.pb-image-caption {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--color-neutral-60, color-mix(in srgb, currentColor 55%, transparent));
+  pointer-events: auto;
+}
+
+/* Empty caption — hidden until the block is active/selected (settings
+   panel's "+ Add caption", or a click inside it placing the cursor there):
+   a ghost "+ Add a caption" row, Notion-style, that only claims layout
+   space when it's actually in play. Deliberately NOT shown on mere hover —
+   that shifted the layout just from mousing over the image, and the
+   settings panel's "Caption" row is already the discoverable entry point.
+   `display: none/block` (not opacity) so it collapses the gap entirely,
+   matching the published site's skip-if-empty render. */
+.pb-image .pb-image-caption.pb-empty-block {
+  display: none;
+}
+.pb-image.pb-block-active .pb-image-caption.pb-empty-block,
+.pb-image.ProseMirror-selectednode .pb-image-caption.pb-empty-block {
+  display: block;
+}
+
 /* Block highlight ring — one rule, surfaced in every state a block can
    be highlighted, with an obvious class per state rather than one
    overloaded name:
@@ -2707,7 +4179,9 @@
 .pb-image.pb-block-hovered::after,
 .pb-image.pb-block-active::after,
 .pb-video.pb-block-hovered::after,
-.pb-video.pb-block-active::after {
+.pb-video.pb-block-active::after,
+.pb-embed.pb-block-hovered::after,
+.pb-embed.pb-block-active::after {
   border-radius: inherit;
 }
 
@@ -3350,6 +4824,18 @@
 .pb-text-tool.-bold {
   font-weight: 700;
 }
+/* Language dropdown trigger — the Translate glyph plus, when a language is
+   tagged, its uppercased code (e.g. "ES"). */
+.pb-text-tool-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pb-text-tool-lang-code {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 .pb-text-toolbar-separator {
   width: 1px;
   align-self: stretch;
@@ -3399,6 +4885,65 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--pb-text);
+}
+
+/* ─────────────────────────────────────── Tooltip edit popup
+   Opens ABOVE the selection from the toolbar's Tooltip button, styled as the
+   dark `.pp-tooltip` bubble itself — so typing the note is a live preview of
+   how it'll appear on the site. Just the text field (+ a quiet remove). */
+.pb-tooltip-edit {
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 260px;
+  padding: 6px 8px;
+  background: #1a1a1a;
+  color: #f3f3ee;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-family: var(--pb-font);
+  animation: pp-tooltip-in 0.08s ease-out;
+}
+.pb-tooltip-edit-input {
+  width: 210px;
+  min-height: 1.3em;
+  /* Auto-grows to fit the note (Chromium) so the bubble matches the rendered
+     tooltip; the min-height keeps a sensible floor where unsupported. */
+  field-sizing: content;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  resize: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 450;
+  line-height: 1.3;
+}
+.pb-tooltip-edit-input::placeholder {
+  color: rgba(243, 243, 238, 0.45);
+}
+.pb-tooltip-edit-remove {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: rgba(243, 243, 238, 0.6);
+  cursor: pointer;
+}
+.pb-tooltip-edit-remove:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f3f3ee;
 }
 
 /* Tooltip — the page builder doesn't load the form-builder's global
@@ -3783,6 +5328,134 @@
   font-weight: 600;
 }
 
+/* Background opacity (`--pp-bg-opacity`) must fade only the block it's set on —
+   never bleed into a nested block (a faded card's child button keeps its own
+   fill). It's a normal inheriting custom property, so each visual block re-bases
+   it to 1; the explicit value the editor decoration / runtime writes INLINE
+   overrides that re-base, while pseudo-element background layers
+   (e.g. `.pp-card::before`) still inherit the element's value because they carry
+   no re-base of their own. (A registered non-inheriting `@property` would scope
+   it cleanly but also hide it from those pseudo layers.) */
+.pp-card,
+.pp-section,
+.pp-button,
+.pb-image,
+.pb-video {
+  --pp-bg-opacity: 1;
+}
+
+/* Attributes section — the shared home for a block's semantic HTML attributes
+   (Language for text-bearing blocks, Alt text for images). Same stacked layout
+   as the Spacing/Styles sections. Language/Placeholder are opt-in via the
+   section header's "+" menu — a row only ever renders already-added, so it's
+   always the picker + ✕ (no per-row "+" state). */
+.pb-attributes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pb-attr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* The picker fills the row, ✕ sits at the end. */
+.pb-attr-control {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pb-attr-control .pb-select {
+  flex: 1;
+  min-width: 0;
+}
+/* Static unit suffix after a number input (e.g. the width clamps' "px"); the
+   input keeps the row, the unit sits between it and the ✕. */
+.pb-attr-control .pb-input-unit {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--pb-text-soft);
+}
+
+/* Styles section — visual treatments (opacity + px width clamps) for blocks with
+   a background / fill / media. All three are opt-in via the section header's
+   "+" menu (the old standalone "Width limits" section folded in here); a row
+   only ever renders already-added. */
+.pb-styles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pb-opacity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* An input-like track holding value · slider · ✕. */
+.pb-opacity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--pb-hover);
+  border-radius: 8px;
+  padding: 2px 4px;
+}
+.pb-opacity-value {
+  flex: 0 0 auto;
+  width: 34px;
+  text-align: center;
+}
+/* Custom slider (a div, not <input type=range>) so a drag survives the doc
+   re-render each move triggers — see OpacitySlider. */
+.pb-opacity-slider {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 16px;
+  cursor: pointer;
+  touch-action: none;
+  outline: 0;
+}
+/* The 4px track, vertically centered. */
+.pb-opacity-slider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--pb-border);
+}
+.pb-opacity-fill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--pb-text-soft);
+}
+.pb-opacity-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--pb-text);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.pb-opacity-slider:focus-visible .pb-opacity-thumb {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: 1px;
+}
+
 /* Button "Type" control — pagy renders three separate cards (not a
    segmented track), each previewing the style live. The chosen card gets a
    dark ring on white; the rest sit on a faint fill. */
@@ -3955,6 +5628,9 @@
     --pb-fs-heading-xl: 40px;
     --pb-fs-heading-l: 32px;
     --pb-fs-heading-m: 28px;
+    /* XXL stays fluid on phones but caps far lower than the desktop 240px
+       so a hero title can't dwarf a ~430px frame. */
+    --pb-fs-heading-xxl: clamp(40px, 15vw, 92px);
     --pb-fs-text-xl: 22px;
     --pb-fs-text-l: 20px;
   }
@@ -4432,4 +6108,136 @@
 .pb-layer-row.-drop-into.-invalid {
   background: color-mix(in srgb, var(--pb-danger) 14%, transparent);
   box-shadow: inset 0 0 0 1px var(--pb-danger);
+}
+
+/* ─────────────────────────────────────── Photos (Unsplash) panel
+   The left-rail photo picker (`panels/PhotosPanel`). Search + filters at the
+   top, a scrolling thumbnail grid below, attribution pinned at the bottom. */
+.pb-unsplash-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  background: var(--pb-surface);
+  color: var(--pb-text-soft);
+}
+.pb-unsplash-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  color: var(--pb-text);
+  outline: none;
+}
+.pb-unsplash-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pb-unsplash-color {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--pb-border-strong);
+  border-radius: 999px;
+  background: var(--pb-surface);
+  cursor: pointer;
+}
+/* "Any" reads as a no-filter chip — a diagonal slash over the surface. */
+.pb-unsplash-color[data-any] {
+  background:
+    linear-gradient(
+      to top left,
+      transparent calc(50% - 1px),
+      var(--pb-text-soft) calc(50% - 1px),
+      var(--pb-text-soft) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+}
+.pb-unsplash-color[data-active] {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: 1px;
+  border-color: var(--pb-accent);
+}
+.pb-unsplash-hint {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  color: var(--pb-text-soft);
+}
+.pb-unsplash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.pb-unsplash-status {
+  grid-column: 1 / -1;
+  padding: 24px 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--pb-text-soft);
+}
+.pb-unsplash-thumb {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--pb-hover);
+  cursor: pointer;
+  aspect-ratio: 1 / 1;
+}
+/* Browse mode: thumbs are draggable into the canvas (shuffle inflate). */
+.pb-unsplash-thumb[data-shuffle-inflatable] {
+  cursor: grab;
+}
+.pb-unsplash-thumb[data-shuffle-inflatable]:active {
+  cursor: grabbing;
+}
+.pb-unsplash-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.pb-unsplash-thumb:hover {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: -2px;
+}
+/* Photographer credit — required attribution, surfaced on hover so it doesn't
+   clutter the grid. The link stays clickable (stops the thumb's onClick). */
+.pb-unsplash-credit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 6px 4px;
+  font-size: 10px;
+  line-height: 1.3;
+  color: #fff;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.pb-unsplash-thumb:hover .pb-unsplash-credit {
+  opacity: 1;
+}
+.pb-unsplash-credit a {
+  color: #fff;
+  text-decoration: underline;
+}
+.pb-unsplash-footer {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--pb-text-soft);
+}
+.pb-unsplash-footer a {
+  color: var(--pb-text-soft);
+  text-decoration: underline;
 }

@@ -17,8 +17,16 @@ import { create } from "zustand";
 import type { EditorView } from "prosemirror-view";
 
 import type { LayerNode } from "./layerTree";
+import {
+  clearPersistedSites,
+  loadPersistedSites,
+  persistSites,
+} from "./sitePersistence";
+import { SAMPLE_SITES, createBlankSite, type SampleSite } from "./sites";
+import type { GradeScope } from "./items/shared/grading";
 import type { Theme } from "./theme/css";
 import type { TransitionSpeed, TransitionType } from "./transitions";
+import type { UnsplashPickerState } from "./unsplashPicker";
 
 /** A slide's id + title + entry transition, mirrored from the doc for the
  *  Pages panel (the transition gallery + filmstrip badge read these). */
@@ -78,6 +86,7 @@ export type Sheet =
   | "cards"
   | "code"
   | "form"
+  | "photos"
   | "settings";
 
 export interface PageBuilderState {
@@ -123,6 +132,28 @@ export interface PageBuilderState {
   setActivePageId: (v: string | null) => void;
   pagesView: EditorView | null;
   setPagesView: (v: EditorView | null) => void;
+
+  /**
+   * Unsplash photo-picker state, mirrored from `unsplashPickerPlugin` by
+   * `editorStoreSyncPlugin`. The picker UI is the left-panel "Photos" sheet
+   * (outside the editor context): it watches `open` to auto-reveal itself,
+   * reads `target` to know whether a pick should land somewhere specific
+   * (targeted mode) vs. just browse, and dispatches the pick back through
+   * `pagesView`.
+   */
+  unsplash: UnsplashPickerState;
+  setUnsplash: (v: UnsplashPickerState) => void;
+
+  /**
+   * Undo/redo availability, mirrored from the editor's history plugin by
+   * `editorStoreSyncPlugin` (it reads `undoDepth`/`redoDepth` on every view
+   * update). The TopBar lives outside the ProseMirror context, so it reads
+   * these to enable/disable its buttons and dispatches the commands through
+   * `pagesView`. The ⌘Z / ⌘⇧Z shortcuts are handled by the editor keymap.
+   */
+  canUndo: boolean;
+  canRedo: boolean;
+  setHistoryState: (v: { canUndo: boolean; canRedo: boolean }) => void;
 
   /** Thumbnails vs. compact list rendering for the Pages filmstrip. */
   pagesViewMode: PagesViewMode;
@@ -178,14 +209,80 @@ export interface PageBuilderState {
   setIsDragging: (v: boolean) => void;
 
   /**
+   * The catalog of sample sites (the page builder's in-memory "global store"
+   * of starter sites — see {@link SampleSite}). Seeded from `SAMPLE_SITES`;
+   * "+ New site" appends to it. The site picker lists these and switches the
+   * `activeSiteId`.
+   */
+  sites: SampleSite[];
+  /** Id of the site currently loaded in the editor. */
+  activeSiteId: string;
+  /**
+   * Per-site edited-document snapshots (site id → ProseMirror doc JSON). Kept
+   * current for the active site by a debounced capture in `editorStoreSync`
+   * (`cacheActiveDoc`) and snapshotted on switch-away. The `<Shell>` seeds the
+   * editor from this if present, else the site's starter `buildDoc`. Persisted
+   * to localStorage (see `sitePersistence`) so edits survive a reload.
+   */
+  docCache: Record<string, unknown>;
+  /** Per-site theme overrides (site id → edited theme), so design-panel tweaks
+   *  persist per site across switches and reloads. Written by `setTheme`. */
+  themeCache: Record<string, Theme>;
+  /**
+   * Bumped on `resetSites` and mixed into the `<Shell>` editor key, so a reset
+   * forces a fresh editor mount even when `activeSiteId` is unchanged (e.g.
+   * resetting while already on the first site).
+   */
+  siteEpoch: number;
+  /**
+   * Switch to a site by id: snapshots the current doc into `docCache`, points
+   * `activeSiteId` at the target, and applies its (possibly overridden) theme.
+   * The `<Shell>` keys the editor on `activeSiteId`, so this also re-mounts it
+   * with the new document. Cross-site state keyed by doc position / page id
+   * (thumbnails, layer selection) is cleared so nothing bleeds across the
+   * switch — the fresh editor re-syncs it. No-op for an unknown / current id.
+   */
+  setActiveSite: (id: string) => void;
+  /** Mint a fresh blank site, append it to the catalog, and switch to it. */
+  addNewSite: () => void;
+  /** Rename the active site (Settings → Site name). Edits the catalog entry in
+   *  place, so the site picker + persisted catalog pick it up immediately. */
+  setSiteName: (name: string) => void;
+  /**
+   * Delete the active site (Settings → Danger zone): drops it from the catalog,
+   * discards its cached doc + theme override, and switches to the first
+   * remaining site (re-themed, with doc-keyed state cleared like
+   * `setActiveSite`). Bumps `siteEpoch` so the `<Shell>` remounts the editor on
+   * the survivor. No-op when it's the only site — the catalog never empties.
+   */
+  deleteSite: () => void;
+  /** Debounced capture of the active site's live document into `docCache`
+   *  (called from `editorStoreSync` on doc changes). */
+  cacheActiveDoc: (doc: unknown) => void;
+  /** DEBUG: wipe persisted local state and restore the clean seed catalog
+   *  (clears edits, theme overrides, and "+ New site" entries). */
+  resetSites: () => void;
+
+  /**
    * The currently-applied site theme — colors + fonts + button/input
    * tokens. Mirrors `site.theme` in pagy, where it's stored on the
    * server. We hold it in the client store since pitter-patter has
    * no API yet; the design panel mutates this directly and the
-   * canvas re-renders via the injected style tag.
+   * canvas re-renders via the injected style tag. Seeded from (and reset by)
+   * the active site's theme.
    */
   theme: Theme;
   setTheme: (v: Theme | ((prev: Theme) => Theme)) => void;
+
+  /**
+   * Site-wide grading scope (Settings → Grading) — the granularity at which a
+   * Check button grades learning prompts: per prompt / section / page /
+   * activity. It gates which "Check" target a button's Action form offers; the
+   * button records its own scope+target, so this is an authoring policy, not a
+   * runtime input. Editor-state only for now (not yet per-site persisted).
+   */
+  gradingScope: GradeScope;
+  setGradingScope: (v: GradeScope) => void;
 
   /** Light/dark mode for the editor chrome (see {@link ChromeTheme}). */
   chromeTheme: ChromeTheme;
@@ -194,32 +291,25 @@ export interface PageBuilderState {
 }
 
 /**
- * Default theme matches the YAG 1 site on pagy: Karla / Karla 500 with
- * the green-on-cream palette (#62bfad primary). We use this as the
- * seed so first-run looks like the screenshot the user is comparing
- * against. Once we wire a `theme` field into the demoDoc / fixtures
- * we can read it from there instead.
+ * Default theme = the first sample site's theme (YAG 1 on pagy: Karla 500,
+ * green-on-cream, #62bfad primary). Site themes now live in the catalog
+ * ({@link SAMPLE_SITES}); this re-export keeps the name other modules import
+ * (e.g. the `SiteRenderer` story) pointing at the same seed.
  */
-export const DEFAULT_THEME: Theme = {
-  colors: {
-    background: "#ffffff",
-    neutral: "#34384f",
-    primary: "#62bfad",
-    secondary: "#d0ece6",
-    tertiary: "#f9f7e8",
-  },
-  fonts: {
-    base: "Karla",
-    heading: "Karla",
-    headingWeight: "500",
-  },
-  // Pagy's token vocabulary: radius "" = pill (default), "none" | "small" |
-  // "medium"; style "" = default, then thick | soft | shadow | sharp | brutal.
-  buttons: { radius: "", style: "" },
-  // shape: radius-none | radius-small | radius-medium | radius-large;
-  // style: solid (default) | outline | soft | line.
-  inputs: { shape: "radius-small", style: "solid" },
-};
+export const DEFAULT_THEME: Theme = SAMPLE_SITES[0]!.theme;
+
+// Rehydrate the sample-site catalog from localStorage (a debug aid; falls back
+// to the seed catalog when nothing's stored). Resolved once at module load so
+// the store's initial values reflect a prior session's edits.
+const persisted = loadPersistedSites();
+const initialSites = persisted?.sites ?? SAMPLE_SITES;
+const initialActiveSiteId = persisted?.activeSiteId ?? SAMPLE_SITES[0]!.id;
+const initialDocCache = persisted?.docCache ?? {};
+const initialThemeCache = persisted?.themeCache ?? {};
+const initialTheme =
+  initialThemeCache[initialActiveSiteId] ??
+  initialSites.find((s) => s.id === initialActiveSiteId)?.theme ??
+  SAMPLE_SITES[0]!.theme;
 
 export const usePageBuilderStore = create<PageBuilderState>((set) => ({
   blockPanelOpen: false,
@@ -246,6 +336,13 @@ export const usePageBuilderStore = create<PageBuilderState>((set) => ({
   setActivePageId: (v) => set({ activePageId: v }),
   pagesView: null,
   setPagesView: (v) => set({ pagesView: v }),
+
+  unsplash: { open: false, target: null },
+  setUnsplash: (v) => set({ unsplash: v }),
+
+  canUndo: false,
+  canRedo: false,
+  setHistoryState: (v) => set(v),
 
   pagesViewMode: "thumbnails",
   setPagesViewMode: (v) => set({ pagesViewMode: v }),
@@ -287,9 +384,110 @@ export const usePageBuilderStore = create<PageBuilderState>((set) => ({
   isDragging: false,
   setIsDragging: (v) => set({ isDragging: v }),
 
-  theme: DEFAULT_THEME,
+  sites: initialSites,
+  activeSiteId: initialActiveSiteId,
+  docCache: initialDocCache,
+  themeCache: initialThemeCache,
+  siteEpoch: 0,
+  setActiveSite: (id) =>
+    set((prev) => {
+      if (id === prev.activeSiteId) return prev;
+      const site = prev.sites.find((s) => s.id === id);
+      if (!site) return prev;
+      return {
+        ...captureCurrentDoc(prev),
+        activeSiteId: id,
+        // Restore this site's theme override if it has one, else its default.
+        theme: prev.themeCache[id] ?? site.theme,
+        // Doc-keyed state from the outgoing site — clear it so the incoming
+        // editor re-syncs cleanly (page ids can collide across sites).
+        pageThumbs: {},
+        activePageId: null,
+        selectedLayerPositions: [],
+      };
+    }),
+  addNewSite: () =>
+    set((prev) => {
+      const seq = prev.sites.filter((s) => s.id.startsWith("site-")).length + 1;
+      const site = createBlankSite(seq);
+      return {
+        ...captureCurrentDoc(prev),
+        sites: [...prev.sites, site],
+        activeSiteId: site.id,
+        theme: site.theme,
+        pageThumbs: {},
+        activePageId: null,
+        selectedLayerPositions: [],
+      };
+    }),
+  setSiteName: (name) =>
+    set((prev) => ({
+      sites: prev.sites.map((s) =>
+        s.id === prev.activeSiteId ? { ...s, name } : s,
+      ),
+    })),
+  deleteSite: () =>
+    set((prev) => {
+      // Never delete the only site — the catalog must always have one.
+      if (prev.sites.length <= 1) return prev;
+      const remaining = prev.sites.filter((s) => s.id !== prev.activeSiteId);
+      const next = remaining[0]!;
+      // Drop the deleted site's cached doc + theme override so they don't
+      // linger in localStorage (and can't bleed onto a future site reusing
+      // the id).
+      const docCache = { ...prev.docCache };
+      delete docCache[prev.activeSiteId];
+      const themeCache = { ...prev.themeCache };
+      delete themeCache[prev.activeSiteId];
+      return {
+        sites: remaining,
+        activeSiteId: next.id,
+        docCache,
+        themeCache,
+        theme: themeCache[next.id] ?? next.theme,
+        // Doc-keyed state from the deleted site — clear it so the survivor's
+        // editor re-syncs cleanly (same reset `setActiveSite` does on switch).
+        pageThumbs: {},
+        activePageId: null,
+        selectedLayerPositions: [],
+        // Force a fresh editor mount on the survivor.
+        siteEpoch: prev.siteEpoch + 1,
+      };
+    }),
+  cacheActiveDoc: (doc) =>
+    set((prev) => ({
+      docCache: { ...prev.docCache, [prev.activeSiteId]: doc },
+    })),
+  resetSites: () => {
+    clearPersistedSites();
+    set((prev) => ({
+      sites: SAMPLE_SITES,
+      activeSiteId: SAMPLE_SITES[0]!.id,
+      docCache: {},
+      themeCache: {},
+      theme: SAMPLE_SITES[0]!.theme,
+      pageThumbs: {},
+      activePageId: null,
+      selectedLayerPositions: [],
+      // Force a fresh editor mount even if we were already on the first site.
+      siteEpoch: prev.siteEpoch + 1,
+    }));
+  },
+
+  theme: initialTheme,
   setTheme: (v) =>
-    set((prev) => ({ theme: typeof v === "function" ? v(prev.theme) : v })),
+    set((prev) => {
+      const theme = typeof v === "function" ? v(prev.theme) : v;
+      // Mirror into the per-site cache so the override persists across switches
+      // and reloads.
+      return {
+        theme,
+        themeCache: { ...prev.themeCache, [prev.activeSiteId]: theme },
+      };
+    }),
+
+  gradingScope: "prompt",
+  setGradingScope: (v) => set({ gradingScope: v }),
 
   chromeTheme: initialChromeTheme(),
   setChromeTheme: (v) => {
@@ -305,6 +503,33 @@ export const usePageBuilderStore = create<PageBuilderState>((set) => ({
       return { chromeTheme: next };
     }),
 }));
+
+// Persist the catalog slice (active site + per-site doc/theme caches + custom
+// sites) to localStorage on any change. `persistSites` debounces, so the very
+// frequent editor-driven updates collapse into at most one write per idle
+// window. A debug aid — see `sitePersistence`.
+usePageBuilderStore.subscribe((state) =>
+  persistSites({
+    sites: state.sites,
+    activeSiteId: state.activeSiteId,
+    docCache: state.docCache,
+    themeCache: state.themeCache,
+  }),
+);
+
+/**
+ * Snapshot the live editor's current document into `docCache` under the
+ * outgoing site's id, so switching back restores the in-session edits. Reads
+ * the doc off the stashed `pagesView` (the same bridge the panels dispatch
+ * through); a no-op `{}` when no view is mounted yet.
+ */
+function captureCurrentDoc(
+  prev: PageBuilderState,
+): Pick<PageBuilderState, "docCache"> | Record<string, never> {
+  const doc = prev.pagesView?.state.doc;
+  if (!doc) return {};
+  return { docCache: { ...prev.docCache, [prev.activeSiteId]: doc.toJSON() } };
+}
 
 /**
  * Navigate to a sheet and remember where we came from so the

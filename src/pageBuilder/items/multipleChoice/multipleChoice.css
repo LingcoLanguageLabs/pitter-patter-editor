@@ -1,0 +1,370 @@
+/**
+ * Multiple Choice styles — both surfaces.
+ *
+ *   .pp-mc*           builder (the ProseMirror NodeViews)
+ *   .pp-mc-completer* completer (the student render)
+ *
+ * Colors derive from `currentColor` (via color-mix) so the block adapts to
+ * whatever theme/section it sits in; correct/incorrect feedback uses fixed
+ * semantic greens/reds. No fixed light/dark assumptions.
+ */
+
+/* ── shared tokens ───────────────────────────────────────────────── */
+.pp-mc,
+.pp-mc-completer {
+  --pp-mc-border: color-mix(in srgb, currentColor 16%, transparent);
+  --pp-mc-border-strong: color-mix(in srgb, currentColor 32%, transparent);
+  --pp-mc-surface: color-mix(in srgb, currentColor 4%, transparent);
+  --pp-mc-correct: #16a34a;
+  --pp-mc-incorrect: #dc2626;
+  --pp-mc-radius: 10px;
+}
+
+/* ── builder ─────────────────────────────────────────────────────── */
+/* No background/border/label — the question reads as plain content; selection
+   ring + block menu provide its chrome. */
+.pp-mc {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pp-mc-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* Stem = a block container; its blocks (paragraph by default, plus any added
+   image/audio/heading/…) stack vertically. No baked-in bold — blocks style
+   themselves via the theme; the author formats the question paragraph. */
+.pp-mc-prompt-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.pp-mc-prompt {
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* The stem's "+ Add to question" affordance — lighter than the option adder. */
+.pp-mc-add--stem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.pp-mc-option {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--pp-mc-border);
+  border-radius: 8px;
+}
+
+.pp-mc-option--correct {
+  border-color: color-mix(in srgb, var(--pp-mc-correct) 55%, transparent);
+  background: color-mix(in srgb, var(--pp-mc-correct) 8%, transparent);
+}
+
+.pp-mc-option-mark {
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  cursor: pointer;
+  accent-color: var(--color-primary, currentColor);
+}
+
+.pp-mc-option-text {
+  flex: 1 1 auto;
+  outline: none;
+  min-height: 1.2em;
+}
+
+.pp-mc-option-delete {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  /* Hidden until the row is hovered/focused — keeps options uncluttered. */
+  opacity: 0;
+  cursor: pointer;
+  padding: 0.15rem;
+  border-radius: 6px;
+  flex: none;
+  display: inline-flex;
+  transition: opacity 0.12s ease;
+}
+
+.pp-mc-option:hover .pp-mc-option-delete,
+.pp-mc-option:focus-within .pp-mc-option-delete {
+  opacity: 0.5;
+}
+
+.pp-mc-option:hover .pp-mc-option-delete:hover:not(:disabled),
+.pp-mc-option:focus-within .pp-mc-option-delete:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--pp-mc-incorrect);
+}
+
+.pp-mc-option-delete:disabled {
+  opacity: 0;
+  cursor: not-allowed;
+}
+
+.pp-mc-add {
+  align-self: flex-start;
+  appearance: none;
+  border: 1px dashed var(--pp-mc-border-strong);
+  background: transparent;
+  color: inherit;
+  opacity: 0.75;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pp-mc-add:hover {
+  opacity: 1;
+}
+
+/* ── completer ───────────────────────────────────────────────────── */
+.pp-mc-completer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--pp-mc-border);
+  border-radius: var(--pp-mc-radius);
+  background: var(--pp-mc-surface);
+}
+
+/* Stem blocks render via the shared walker; stack them, no forced emphasis. */
+.pp-mc-completer-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pp-mc-completer-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pp-mc-completer-option {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--pp-mc-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.pp-mc-completer-option:hover {
+  border-color: var(--pp-mc-border-strong);
+}
+
+.pp-mc-completer-option[data-selected] {
+  border-color: var(--pp-mc-border-strong);
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.pp-mc-completer-option[data-state="correct"] {
+  border-color: var(--pp-mc-correct);
+  background: color-mix(in srgb, var(--pp-mc-correct) 12%, transparent);
+}
+
+.pp-mc-completer-option[data-state="incorrect"] {
+  border-color: var(--pp-mc-incorrect);
+  background: color-mix(in srgb, var(--pp-mc-incorrect) 12%, transparent);
+}
+
+.pp-mc-completer-option[data-state="missed"] {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--pp-mc-correct) 70%, transparent);
+}
+
+.pp-mc-completer-option input {
+  flex: none;
+  cursor: pointer;
+}
+
+.pp-mc-completer-option-text {
+  flex: 1 1 auto;
+}
+
+/* The graded verdict line is the shared `.pp-item-verdict` (items/shared) —
+   no MC-specific result chip. */
+
+/* ── Image-grid layout ────────────────────────────────────────────────
+   `layout: "grid"` turns the options into image-forward cards (the deck's
+   "tap the animals" pattern). Shared card visuals across the completer and the
+   builder; the name always reads light on a dark scrim over the photo, like the
+   reference, regardless of the surrounding theme. */
+.pp-mc-completer[data-layout="grid"] .pp-mc-completer-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pp-mc-completer-card {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 2;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background-color: color-mix(in srgb, currentColor 12%, transparent);
+  background-size: cover;
+  background-position: center;
+  transition: outline-color 0.12s ease;
+  outline: 3px solid transparent;
+  outline-offset: -3px;
+}
+.pp-mc-completer-card input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.pp-mc-card-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 10, 12, 0) 38%, rgba(8, 10, 12, 0.82) 100%);
+}
+.pp-mc-card-name {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 16px;
+  z-index: 1;
+  color: #fcfaf6;
+  font-family: var(--font-family-heading, inherit);
+  font-weight: var(--font-weight-heading, 700);
+  font-size: clamp(18px, 2vw, 28px);
+  line-height: 1.05;
+}
+.pp-mc-card-tick {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-primary, #2f6df6);
+  color: var(--color-primary-foreground, #fff);
+  font-size: 14px;
+  font-weight: 700;
+}
+.pp-mc-completer-card:hover {
+  outline-color: color-mix(in srgb, var(--color-primary, currentColor) 45%, transparent);
+}
+.pp-mc-completer-card[data-selected] {
+  outline-color: var(--color-primary, currentColor);
+}
+.pp-mc-completer-card[data-state="correct"] {
+  outline-color: var(--pp-mc-correct);
+}
+.pp-mc-completer-card[data-state="incorrect"] {
+  outline-color: var(--pp-mc-incorrect);
+}
+.pp-mc-completer-card[data-state="missed"] {
+  outline-style: dashed;
+  outline-color: var(--pp-mc-correct);
+}
+
+/* Builder: tile the options as cards in the SAME responsive grid the completer
+   uses (one rule, both surfaces) — the prompt / explanation span the full width
+   as their own rows. Grid (not flex-wrap) so this never depends on the base
+   `.pp-mc-content` flex-direction. */
+.pp-mc[data-layout="grid"] .pp-mc-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+.pp-mc[data-layout="grid"] .pp-mc-content > *:not(.pp-mc-option) {
+  grid-column: 1 / -1;
+}
+.pp-mc[data-layout="grid"] .pp-mc-option {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  align-items: flex-end;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+  padding: 0;
+}
+/* The photo is its own memoized layer (OptionCardImage) so it never repaints on
+   an option re-render / hover. Sits behind the scrim + text. */
+.pp-mc-option-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+}
+.pp-mc[data-layout="grid"] .pp-mc-option .pp-mc-option-text {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
+  z-index: 2;
+  color: #fcfaf6;
+  font-family: var(--font-family-heading, inherit);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+}
+.pp-mc[data-layout="grid"] .pp-mc-option::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(8, 10, 12, 0) 40%, rgba(8, 10, 12, 0.75) 100%);
+  pointer-events: none;
+}
+.pp-mc[data-layout="grid"] .pp-mc-option-mark {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  margin: 0;
+}
+.pp-mc-option-image {
+  position: absolute;
+  top: 8px;
+  right: 38px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: rgba(8, 10, 12, 0.55);
+  color: #fff;
+  cursor: pointer;
+}
+.pp-mc[data-layout="grid"] .pp-mc-option-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  background: rgba(8, 10, 12, 0.55);
+}

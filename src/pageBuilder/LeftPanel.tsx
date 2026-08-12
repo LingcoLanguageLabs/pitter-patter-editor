@@ -16,11 +16,11 @@
  * touching the layout.
  */
 
-import { CaretUpDown } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ComponentType, ReactElement } from "react";
+import { useEffect, type ComponentType, type ReactElement } from "react";
 
 import { PanelAnimator } from "./PanelAnimator";
+import { SitePicker } from "./SitePicker";
 import { ButtonsPanel } from "./panels/ButtonsPanel";
 import { ColorsPanel } from "./panels/ColorsPanel";
 import { DesignPanel } from "./panels/DesignPanel";
@@ -28,6 +28,8 @@ import { FontsPanel } from "./panels/FontsPanel";
 import { InputsPanel } from "./panels/InputsPanel";
 import { LayersPanel } from "./panels/LayersPanel";
 import { PagesPanel } from "./panels/PagesPanel";
+import { PhotosPanel } from "./panels/PhotosPanel";
+import { SettingsPanel } from "./panels/SettingsPanel";
 import { TransitionsPanel } from "./panels/TransitionsPanel";
 import {
   navigateTo,
@@ -58,13 +60,11 @@ const SHEETS: Record<Sheet, SheetDef> = {
   pages: { width: "-medium", Component: PagesPanel },
   layers: { width: "-medium", Component: LayersPanel },
   transitions: { width: "-medium", Component: TransitionsPanel },
-  settings: {
-    width: "-medium",
-    Component: () => <Placeholder title="Settings" />,
-  },
+  settings: { width: "-medium", Component: SettingsPanel },
   code: { width: "-large", Component: () => <Placeholder title="Code" /> },
   buttons: { width: "-medium", Component: ButtonsPanel },
   inputs: { width: "-medium", Component: InputsPanel },
+  photos: { width: "-large", Component: PhotosPanel },
   // Currently-unbuilt routes — present so the typed `Sheet` union
   // stays exhaustive and PanelAnimator can pick correct slide
   // directions when navigating into/out of them.
@@ -83,11 +83,25 @@ const NAV_ITEMS: { label: string; sheet: Sheet }[] = [
   { label: "Code", sheet: "code" },
   { label: "Settings", sheet: "settings" },
 ];
+// Note: "photos" is intentionally NOT in the nav. The Photos sheet is reached
+// only on demand — the "Unsplash" catalog block opens it via the auto-reveal
+// effect below; it stays registered in SHEETS so that navigation works.
 
 export function LeftPanel() {
   const panelOpen = usePageBuilderStore((s) => s.panel);
   const sheet = usePageBuilderStore((s) => s.sheet);
   const def = SHEETS[sheet];
+
+  // The "Unsplash" catalog block opens the picker by setting `unsplash.open`
+  // (mirrored from the editor plugin). Reveal the Photos sheet when that flips
+  // true — the picker UI lives here, outside the editor context.
+  const pickerOpen = usePageBuilderStore((s) => s.unsplash.open);
+  const setPanel = usePageBuilderStore((s) => s.setPanel);
+  useEffect(() => {
+    if (!pickerOpen) return;
+    setPanel(true);
+    navigateTo("photos");
+  }, [pickerOpen, setPanel]);
 
   return (
     <motion.aside
@@ -131,15 +145,7 @@ function renderSheet(Component: ComponentType): ReactElement {
 function MenuSheet() {
   return (
     <>
-      <button type="button" className="pb-site-picker">
-        <div className="pb-site-picker-text">
-          <div className="pb-site-picker-name">
-            YAG 1 <span className="pb-site-picker-plan">Free</span>
-          </div>
-          <div className="pb-site-picker-subdomain">yag1.pagy.site</div>
-        </div>
-        <CaretUpDown size={14} weight="regular" />
-      </button>
+      <SitePicker />
 
       <nav className="pb-nav">
         {NAV_ITEMS.map((item) => (

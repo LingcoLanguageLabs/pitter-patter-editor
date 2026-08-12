@@ -61,7 +61,9 @@ interface Cols {
 }
 
 type TextOpts = Cols & { align?: "left" | "center" | "right"; size?: Size };
-type Size = "xs" | "s" | "m" | "l" | "xl";
+// "xxl" is the heading-only oversized tier (see HEADING_SIZE_OPTIONS /
+// `.pp-size-xxl`); valid on headings, ignored as a no-op elsewhere.
+type Size = "xs" | "s" | "m" | "l" | "xl" | "xxl";
 
 function shuffleAttrs(o: Cols, extra?: Record<string, unknown>) {
   return { shuffleStart: o.start ?? 1, shuffleEnd: o.end ?? 12, ...(extra ?? {}) };
@@ -115,16 +117,17 @@ export function header(
   };
 }
 
-/** The site bottom bar. Symmetric vertical `padding` (px) + `theme`, mirroring
- *  the footer settings panel. */
+/** The site bottom bar. Symmetric vertical `padding` (px), `fixed` (glued to the
+ *  bottom of the viewport), + `theme`, mirroring the footer settings panel. */
 export function footer(
-  attrs: { padding?: number; theme?: string },
+  attrs: { padding?: number; fixed?: boolean; theme?: string },
   children: JsonNode[],
 ): JsonNode {
   return {
     type: "footer",
     attrs: {
       padding: attrs.padding ?? FOOTER_PADDING_DEFAULT,
+      fixed: attrs.fixed ?? false,
       theme: attrs.theme ?? "",
     },
     content: children,
@@ -158,6 +161,10 @@ export function button(
     width?: "fit" | "fill";
     align?: "left" | "center" | "right";
     href?: string;
+    /** Click action — defaults to a plain URL link. `prevPage`/`nextPage`
+     *  step the deck (and dim at its edges); other attrs fall back to schema
+     *  defaults. */
+    action?: "url" | "page" | "prevPage" | "nextPage" | "section";
   } = {},
 ): JsonNode {
   return {
@@ -169,7 +176,7 @@ export function button(
       size: o.size ?? "m",
       width: o.width ?? "fit",
       align: o.align ?? "left",
-      linkType: "url",
+      action: o.action ?? "url",
       pageId: "",
       href: o.href ?? "#",
       openInNewTab: false,
@@ -196,6 +203,33 @@ export function image(
       shape: o.shape ?? "",
       radius: o.radius ?? "medium",
       frame: o.frame ?? "",
+      ...shuffleAttrs(o),
+    },
+    // The image requires a caption child (an empty, rich figcaption node).
+    content: [{ type: "image_caption" }],
+  };
+}
+
+// ── Progress (atom) — value is an expression over the variable scope ──
+export function progress(
+  o: Cols & {
+    value?: string;
+    max?: string;
+    display?: "bar" | "ring";
+    color?: "primary" | "secondary" | "tertiary" | "neutral";
+    label?: string;
+    showValue?: boolean;
+  } = {},
+): JsonNode {
+  return {
+    type: "progress",
+    attrs: {
+      value: o.value ?? "score.percent",
+      max: o.max ?? "100",
+      display: o.display ?? "bar",
+      color: o.color ?? "primary",
+      label: o.label ?? "",
+      showValue: o.showValue ?? true,
       ...shuffleAttrs(o),
     },
   };

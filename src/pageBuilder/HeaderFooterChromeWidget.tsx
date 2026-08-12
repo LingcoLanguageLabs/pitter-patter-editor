@@ -34,13 +34,21 @@ import { HeaderSettings } from "./HeaderSettings";
 import { SectionSpacingBands } from "./SectionSpacingBands";
 import { findEnclosingOfType } from "./sectionUtils";
 import { usePageBuilderStore } from "./store";
+import {
+  buildUnsplashPlaceholder,
+  isUnsplashEntry,
+  unsplashOpenInsert,
+} from "./unsplashPicker";
 
 const HF_TYPES = ["header", "footer"] as const;
 
-// Sections aren't valid inside a bar (bar content is `block+`), so drop that
-// catalog entry — every other block is fine.
+// A bar holds chrome, not content blocks like a section: drop "Section" (bar
+// content is `block+`, not sections) AND the whole "Questions" group — a quiz
+// question in the header/footer makes no sense and can't be graded there (it's
+// outside the page sections `SiteRenderer` grades). The `restrictBarItemsPlugin`
+// is the matching schema-side guarantee for drag / paste / nested inserts.
 const BAR_CATALOG: BlockCatalogEntry[] = BLOCK_CATALOG.filter(
-  (e) => e.type !== "section",
+  (e) => e.type !== "section" && e.group !== "Questions",
 );
 
 export const HeaderFooterChromeWidget = forwardRef<
@@ -64,9 +72,14 @@ export const HeaderFooterChromeWidget = forwardRef<
     (view, entry: BlockCatalogEntry) => {
       const at = findEnclosingOfType(view.state, getPos(), HF_TYPES);
       if (!at) return;
-      const node = createBlockNode(view.state.schema, entry);
       const insertAt =
         at.pos + 1 + (view.state.doc.nodeAt(at.pos)?.content.size ?? 0);
+      // Unsplash opens the picker targeting this spot instead of inserting now.
+      if (isUnsplashEntry(entry)) {
+        unsplashOpenInsert(insertAt)(view.state, view.dispatch);
+        return;
+      }
+      const node = createBlockNode(view.state.schema, entry);
       view.dispatch(view.state.tr.insert(insertAt, node));
       view.focus();
     },
@@ -76,7 +89,10 @@ export const HeaderFooterChromeWidget = forwardRef<
    *  `data-shuffle-inflatable`), matching the section chrome. */
   const inflatableJSON = (entry: BlockCatalogEntry): string | undefined => {
     try {
-      return JSON.stringify(createBlockNode(editorState.schema, entry).toJSON());
+      const node = isUnsplashEntry(entry)
+        ? buildUnsplashPlaceholder(editorState.schema)
+        : createBlockNode(editorState.schema, entry);
+      return node ? JSON.stringify(node.toJSON()) : undefined;
     } catch {
       return undefined;
     }

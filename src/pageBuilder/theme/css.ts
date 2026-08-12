@@ -20,6 +20,7 @@
 import chroma from "chroma-js";
 
 import { hasLowContrast } from "./contrast";
+import { fillBaseColor, fillToCssImage } from "./fill";
 import { FONTS_DEFAULT, FONTS_PRO, type FontDef } from "./fonts";
 
 export interface Theme {
@@ -78,10 +79,41 @@ function findFont(name: string | undefined): FontDef | undefined {
 export function themeToCss(theme: Theme): string {
   const body = findFont(theme.fonts?.base);
   const heading = findFont(theme.fonts?.heading);
-  const { background: bg, primary, secondary, tertiary } = theme.colors;
   const neutral = theme.colors.neutral || theme.colors.text;
+  // Each colour (background + every accent) may be a solid OR a gradient. The
+  // bare name is the representative SOLID — it drives all contrast math and the
+  // `--color-*` vars, which feed `color` / border / text where a gradient is
+  // invalid. The `…FillImg` is the gradient string for `background-image`, or
+  // "none" for a solid (so the solid path stays byte-identical).
+  const bgRaw = theme.colors.background;
+  const primaryRaw = theme.colors.primary;
 
-  if (!primary || !bg || !neutral) return "";
+  if (!primaryRaw || !bgRaw || !neutral) return "";
+
+  const bg = fillBaseColor(bgRaw);
+  const bgImage = fillToCssImage(bgRaw);
+  const primary = fillBaseColor(primaryRaw);
+  const primaryFillImg = fillToCssImage(primaryRaw);
+
+  // A colour caught mid-edit (e.g. "#" while a hex is being typed) would throw
+  // inside chroma below and blank the whole editor. Bail until the required
+  // colours parse; for valid input the output is byte-identical to before.
+  if (!chroma.valid(bg) || !chroma.valid(neutral) || !chroma.valid(primary)) {
+    return "";
+  }
+
+  // Optional accents: a gradient or a solid; drop any whose base doesn't parse.
+  const accentBase = (raw: string | undefined): string | undefined => {
+    if (!raw) return undefined;
+    const base = fillBaseColor(raw);
+    return chroma.valid(base) ? base : undefined;
+  };
+  const secondaryRaw = theme.colors.secondary;
+  const tertiaryRaw = theme.colors.tertiary;
+  const secondary = accentBase(secondaryRaw);
+  const tertiary = accentBase(tertiaryRaw);
+  const secondaryFillImg = secondary ? fillToCssImage(secondaryRaw!) : "none";
+  const tertiaryFillImg = tertiary ? fillToCssImage(tertiaryRaw!) : "none";
 
   // For each accent colour, pick the legible foreground (neutral or bg)
   // given the inversion state.
@@ -112,11 +144,26 @@ export function themeToCss(theme: Theme): string {
       ${heading && `--font-size-heading-offset: ${heading.offset}px;`}
 
       --color-background: ${bg};
+      --fill-background-image: ${bgImage};
       --color-neutral: ${neutral};
 
       --color-primary: ${primary};
       --color-secondary: ${secondary};
       --color-tertiary: ${tertiary};
+
+      /* Stable brand accents — set ONCE here and NEVER rotated by the .theme.-X
+         surface variants below. An explicit text-color pick reads these, so
+         "Primary/Secondary/Tertiary" is always the literal brand color the picker
+         swatch shows, in any section. (--color-* DO rotate per surface for
+         contrast — right for a section/card BEING that color, wrong for an
+         explicit text accent, which is what these decouple.) */
+      --accent-primary: ${primary};
+      --accent-secondary: ${secondary};
+      --accent-tertiary: ${tertiary};
+
+      --fill-primary-image: ${primaryFillImg};
+      --fill-secondary-image: ${secondaryFillImg};
+      --fill-tertiary-image: ${tertiaryFillImg};
 
       --color-neutral-surface: ${neutral};
       --color-neutral-foreground: ${bg};
@@ -141,11 +188,16 @@ export function themeToCss(theme: Theme): string {
 
     .theme.-default {
       --color-background: ${bg};
+      --fill-background-image: ${bgImage};
       --color-neutral: ${neutral};
 
       --color-primary: ${primary};
       --color-secondary: ${secondary};
       --color-tertiary: ${tertiary};
+
+      --fill-primary-image: ${primaryFillImg};
+      --fill-secondary-image: ${secondaryFillImg};
+      --fill-tertiary-image: ${tertiaryFillImg};
 
       --color-neutral-surface: ${neutral};
       --color-neutral-foreground: ${bg};
@@ -169,6 +221,7 @@ export function themeToCss(theme: Theme): string {
 
     .theme.-inverted {
       --color-background: ${neutral};
+      --fill-background-image: none;
       --color-neutral: ${bg};
 
       --color-neutral-surface: ${bg};
@@ -194,6 +247,7 @@ export function themeToCss(theme: Theme): string {
 
     .theme.-primary {
       --color-background: ${primary};
+      --fill-background-image: ${primaryFillImg};
       --color-neutral: ${primaryFg};
 
       --color-primary: ${primaryFg};
@@ -226,6 +280,7 @@ export function themeToCss(theme: Theme): string {
         ? `
     .theme.-secondary {
       --color-background: ${secondary};
+      --fill-background-image: ${secondaryFillImg};
       --color-neutral: ${secondaryFg};
 
       --color-primary: ${primary};
@@ -260,6 +315,7 @@ export function themeToCss(theme: Theme): string {
         ? `
     .theme.-tertiary {
       --color-background: ${tertiary};
+      --fill-background-image: ${tertiaryFillImg};
       --color-neutral: ${tertiaryFg};
 
       --color-primary: ${primary};

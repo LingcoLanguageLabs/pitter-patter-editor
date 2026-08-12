@@ -73,4 +73,39 @@ export const FOOTER_TEMPLATES: SectionTemplate[] = [
     socialRow({ start: 4, end: 9, justify: "center" }, ["Twitter", "Instagram", "LinkedIn"]),
     paragraph([muted("© 2026 " + BRAND)], { start: 4, end: 9, align: "center", size: "xs" }),
   ]),
+
+  // 4 — slim deck pager: Back / Next around a centred page counter. Tight
+  // (py-4) and fixed to the viewport bottom; the buttons step the deck and dim
+  // at its edges.
+  footer({ padding: 16, fixed: true }, [
+    row(
+      [
+        button("Back", {
+          start: 1,
+          end: 3,
+          variant: "secondary",
+          color: "neutral",
+          size: "s",
+          align: "left",
+          action: "prevPage",
+        }),
+        paragraph("{{page.number}} / {{page.count}} {{page.name}}", {
+          start: 4,
+          end: 9,
+          align: "center",
+          size: "s",
+        }),
+        button("Next", {
+          start: 10,
+          end: 12,
+          variant: "secondary",
+          color: "neutral",
+          size: "s",
+          align: "right",
+          action: "nextPage",
+        }),
+      ],
+      { align: "center" },
+    ),
+  ]),
 ];

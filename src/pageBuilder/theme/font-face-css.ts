@@ -77,7 +77,57 @@ export function fontFaceCssFor(font: FontDef): string {
     .join(" ");
 }
 
-/** Concatenates `@font-face` blocks for every font in the catalog. */
+/** Concatenates `@font-face` blocks for every CDN-served font in the catalog.
+ *  Skipped: `source: "google"` (loaded from Google Fonts via {@link
+ *  googleFontsHref}'s `<link>`) and `source: "self"` (self-hosted with a
+ *  hand-written `@font-face` carrying metric overrides — e.g. Playfair Display,
+ *  whose generous ascent/descent is trimmed so the caret hugs the glyphs; see
+ *  page-builder.css). */
 export function allFontFaceCss(fonts: FontDef[]): string {
-  return fonts.map(fontFaceCssFor).join(" ");
+  return fonts
+    .filter((font) => font.source !== "google" && font.source !== "self")
+    .map(fontFaceCssFor)
+    .join(" ");
+}
+
+/**
+ * Builds a single Google Fonts `css2` stylesheet URL for every `source:
+ * "google"` font in `fonts`, or "" when there are none. We load these directly
+ * from Google rather than `cdn.pagy.co` so the editor isn't limited to whatever
+ * pagy happens to mirror.
+ *
+ * The `weights` listed on each FontDef MUST be ones Google actually serves for
+ * that family — Google `css2` rejects the WHOLE request (HTTP 400) on an
+ * unknown weight (e.g. Playfair Display has no 300 on Google).
+ *
+ * Variable fonts are requested as a `min..max` RANGE (so any weight in between
+ * — e.g. a 375/425/450 `regular` — renders from the real variable file);
+ * static fonts list their exact served `weights`. Italic tuples come after
+ * normal (`css2` requires ascending `ital,wght`).
+ */
+export function googleFontsHref(fonts: FontDef[]): string {
+  const families = fonts
+    .filter((font) => font.source === "google")
+    .map((font) => {
+      const family = (font.googleFamily ?? font.name).replaceAll(" ", "+");
+      const weights = font.weights ?? [400];
+      if (font.variable) {
+        const lo = Math.min(...weights);
+        const hi = Math.max(...weights);
+        const range = lo === hi ? `${lo}` : `${lo}..${hi}`;
+        return font.italics
+          ? `family=${family}:ital,wght@0,${range};1,${range}`
+          : `family=${family}:wght@${range}`;
+      }
+      if (font.italics) {
+        const tuples = [
+          ...weights.map((w) => `0,${w}`),
+          ...weights.map((w) => `1,${w}`),
+        ];
+        return `family=${family}:ital,wght@${tuples.join(";")}`;
+      }
+      return `family=${family}:wght@${weights.join(";")}`;
+    });
+  if (!families.length) return "";
+  return `https://fonts.googleapis.com/css2?${families.join("&")}&display=swap`;
 }

@@ -22,6 +22,7 @@ import {
 import { type DragHandleProps, shufflePluginKey } from "@pitter-patter/shuffle";
 
 import { selectBlockPos } from "./blockHighlightPlugin";
+import { itemNodeLabel } from "./items/registry";
 
 export function SelectableDragHandle({
   style,
@@ -48,7 +49,7 @@ export function SelectableDragHandle({
       onPointerDown={onPointerDown}
       onClick={select}
     >
-      {node.type.name}
+      {itemNodeLabel(node.type.name) ?? node.type.name}
     </button>
   );
 }

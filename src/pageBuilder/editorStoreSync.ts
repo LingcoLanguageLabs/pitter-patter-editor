@@ -23,6 +23,7 @@
  */
 
 import { shufflePluginKey } from "@pitter-patter/shuffle";
+import { redoDepth, undoDepth } from "prosemirror-history";
 import { Plugin } from "prosemirror-state";
 import type { Node as PmNode } from "prosemirror-model";
 
@@ -32,6 +33,7 @@ import { buildLayerTree } from "./layerTree";
 import { getActiveSectionPos } from "./sectionHighlightPlugin";
 import { usePageBuilderStore } from "./store";
 import type { TransitionSpeed, TransitionType } from "./transitions";
+import { unsplashPluginKey } from "./unsplashPicker";
 
 export function editorStoreSyncPlugin() {
   return new Plugin({
@@ -41,6 +43,14 @@ export function editorStoreSyncPlugin() {
       let lastDragging: boolean | null = null;
       let lastDoc: PmNode | null = null;
       let lastSelSignature = "";
+      let lastCanUndo: boolean | null = null;
+      let lastCanRedo: boolean | null = null;
+      let lastUnsplash = "";
+      // Debounced capture of the live doc into the store's per-site `docCache`
+      // (which `sitePersistence` mirrors to localStorage), so edits survive a
+      // reload. Cleared on destroy so a pending capture can't fire for a site
+      // we've already switched away from (the next editor owns the new site).
+      let docCaptureTimer: ReturnType<typeof setTimeout> | null = null;
 
       /** editor → store, diffed so we only write when something changed. */
       const pushOut = () => {
@@ -51,8 +61,18 @@ export function editorStoreSyncPlugin() {
         // immutable, so a reference check is exact). Positions shift on any
         // edit, so a changed doc always means a fresh tree.
         if (state.doc !== lastDoc) {
+          const isInitial = lastDoc === null;
           lastDoc = state.doc;
           s.setLayerTree(buildLayerTree(state.doc));
+          // Persist edits, debounced. Skip the initial load — that doc is
+          // already what seeded the editor, so there's nothing new to cache.
+          if (!isInitial) {
+            if (docCaptureTimer) clearTimeout(docCaptureTimer);
+            docCaptureTimer = setTimeout(() => {
+              docCaptureTimer = null;
+              store.getState().cacheActiveDoc(view.state.doc.toJSON());
+            }, 600);
+          }
         }
 
         // Selection mirror so the tree can highlight the active row(s): the
@@ -88,6 +108,30 @@ export function editorStoreSyncPlugin() {
           lastDragging = dragging;
           s.setIsDragging(dragging);
         }
+
+        // History availability for the TopBar's undo/redo buttons (which sit
+        // outside the editor and dispatch back through `pagesView`).
+        const canUndo = undoDepth(state) > 0;
+        const canRedo = redoDepth(state) > 0;
+        if (canUndo !== lastCanUndo || canRedo !== lastCanRedo) {
+          lastCanUndo = canUndo;
+          lastCanRedo = canRedo;
+          s.setHistoryState({ canUndo, canRedo });
+        }
+
+        // Unsplash picker (open + target) for the left-panel "Photos" sheet,
+        // which lives outside the editor and dispatches picks back through
+        // `pagesView`. Diffed via a JSON signature so a pos-remap on every
+        // keystroke doesn't thrash the panel.
+        const unsplash = unsplashPluginKey.getState(state) ?? {
+          open: false,
+          target: null,
+        };
+        const unsplashSig = JSON.stringify(unsplash);
+        if (unsplashSig !== lastUnsplash) {
+          lastUnsplash = unsplashSig;
+          s.setUnsplash(unsplash);
+        }
       };
 
       /** store → editor: mobile preview ⇒ shuffle single-column stack mode. */
@@ -120,6 +164,7 @@ export function editorStoreSyncPlugin() {
         update: pushOut,
         destroy() {
           unsubscribe();
+          if (docCaptureTimer) clearTimeout(docCaptureTimer);
           store.getState().setPagesView(null);
         },
       };

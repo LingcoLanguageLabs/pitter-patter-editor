@@ -21,6 +21,19 @@ const portalPackages = [
   "version-history-client",
 ] as const;
 
+// oxc transpiles `foo.ts` → `foo.js` on disk but leaves the import specifier
+// text untouched, so an `export ... from "./plugin.ts"` ends up pointing at a
+// file that no longer exists. The monorepo relies on tsc's
+// `rewriteRelativeImportExtensions` to fix this at emit time; since we bypass
+// tsc here, mirror that behaviour and rewrite relative .ts/.tsx specifiers
+// (in `import`/`export ... from` and dynamic `import()`) to .js.
+function rewriteRelativeTsExtensions(code: string): string {
+  return code.replace(
+    /((?:\bfrom|\bimport)\s*\(?\s*)(["'])(\.{1,2}\/[^"']*?)\.tsx?(["'])/g,
+    (_match, prefix, open, spec, close) => `${prefix}${open}${spec}.js${close}`,
+  );
+}
+
 async function walk(dir: string, files: string[] = []): Promise<string[]> {
   for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
@@ -56,7 +69,8 @@ async function buildPortalPackage(pkg: string) {
     } as Parameters<typeof transformWithOxc>[2]);
     await fs.mkdir(path.dirname(outFile), { recursive: true });
     const mapName = path.basename(outFile) + ".map";
-    await fs.writeFile(outFile, `${result.code}\n//# sourceMappingURL=${mapName}\n`);
+    const outCode = rewriteRelativeTsExtensions(result.code);
+    await fs.writeFile(outFile, `${outCode}\n//# sourceMappingURL=${mapName}\n`);
     if (result.map) await fs.writeFile(outFile + ".map", JSON.stringify(result.map));
   }
 }

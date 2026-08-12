@@ -1,0 +1,105 @@
+/**
+ * Rating styles — builder (`.pp-rating*`) + completer (`.pp-rating-completer`).
+ * The icon scale is shared markup (`.pp-rating-scale` / `.pp-rating-icon`); the
+ * builder preview just adds `--preview` (non-interactive). "On" = filled
+ * (star/heart, cumulative) or picked (emoji/number, single).
+ */
+
+.pp-rating,
+.pp-rating-completer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* ── builder stem ────────────────────────────────────────────────── */
+.pp-rating-prompt-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.pp-rating-prompt,
+.pp-rating-prompt-render {
+  outline: none;
+}
+
+/* ── the icon scale (shared builder preview + completer) ─────────── */
+.pp-rating-scale {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+}
+.pp-rating-scale--preview {
+  pointer-events: none;
+}
+.pp-rating-icon {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0.15rem;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  transition: color 0.12s ease, transform 0.12s ease, opacity 0.12s ease,
+    filter 0.12s ease;
+}
+span.pp-rating-icon {
+  cursor: default; /* the builder preview spans aren't buttons */
+}
+
+/* star / heart: muted outline by default, warm fill when on. */
+.pp-rating-scale[data-icon="star"] .pp-rating-icon,
+.pp-rating-scale[data-icon="heart"] .pp-rating-icon {
+  color: color-mix(in srgb, currentColor 28%, transparent);
+}
+.pp-rating-scale[data-icon="star"] .pp-rating-icon[data-on] { color: #f59e0b; }
+.pp-rating-scale[data-icon="heart"] .pp-rating-icon[data-on] { color: #e0245e; }
+.pp-rating-scale[data-icon="star"] .pp-rating-icon:hover,
+.pp-rating-scale[data-icon="heart"] .pp-rating-icon:hover { transform: scale(1.1); }
+
+/* emoji: dimmed until picked/hovered, then full color + a small pop. */
+.pp-rating-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.pp-rating-scale[data-icon="emoji"] .pp-rating-icon {
+  filter: grayscale(0.55);
+  opacity: 0.55;
+}
+.pp-rating-scale[data-icon="emoji"] .pp-rating-icon[data-on] {
+  filter: none;
+  opacity: 1;
+  transform: scale(1.18);
+}
+
+/* number: outline chip, filled accent when on. */
+.pp-rating-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.pp-rating-icon[data-on] .pp-rating-number {
+  background: var(--color-primary, currentColor);
+  color: var(--color-on-primary, #fff);
+  border-color: transparent;
+}
+
+/* ── end labels ──────────────────────────────────────────────────── */
+.pp-rating-labels {
+  display: flex;
+  justify-content: space-between;
+  max-width: 22rem;
+  font-size: 0.72rem;
+  opacity: 0.6;
+}

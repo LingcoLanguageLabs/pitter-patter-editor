@@ -26,6 +26,7 @@ export function FooterNodeView({
       {...props}
       className={`${injectedClass} ${footerClass(attrs)}`.trim()}
       data-node-type="footer"
+      {...(attrs["fixed"] ? { "data-fixed": "true" } : {})}
       {...(attrs["theme"] ? { "data-theme": attrs["theme"] as string } : {})}
       contentEditable={true}
       suppressContentEditableWarning

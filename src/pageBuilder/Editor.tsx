@@ -33,10 +33,12 @@ import { keymap } from "prosemirror-keymap";
 import { Schema } from "prosemirror-model";
 import { schema as basic } from "prosemirror-schema-basic";
 import { EditorState, type Command } from "prosemirror-state";
+import { columnResizing, goToNextCell, tableEditing } from "prosemirror-tables";
 import { Decoration } from "prosemirror-view";
 import { useMemo } from "react";
 
 import "@pitter-patter/shuffle/style/shuffle.css";
+import "prosemirror-tables/style/tables.css";
 
 import {
   Bold,
@@ -57,16 +59,24 @@ import { BlockResizeHandles } from "./BlockResizeHandles";
 import { BlockSettings } from "./blockSettings/BlockSettings";
 import { editorStoreSyncPlugin } from "./editorStoreSync";
 import { globalBarPlugin } from "./globalBarPlugin";
+import { itemBuilderTools } from "./itemBuilderTools";
+import { itemSelectionPopovers } from "./items/registry";
+import { ItemBuilderToolsProvider } from "./items/shared/blockTools";
+
+const ITEM_SELECTION_POPOVERS = itemSelectionPopovers();
 import { layerHoverPlugin } from "./layerHoverPlugin";
 import { nodeViewComponents } from "./nodeViews";
-import { ensurePageSectionsPlugin } from "./pageInvariants";
+import { ensurePageSectionsPlugin, restrictBarItemsPlugin } from "./pageInvariants";
 import { orderCommand } from "./orderCommands";
 import { SelectableDragHandle } from "./SelectableDragHandle";
 import { splitRowCellIntoContainer } from "./rowEnterCommand";
 import { buildPageBuilderSchema, type InitialDocBuilder } from "./schema";
 import { sectionChromePlugin } from "./sectionChromePlugin";
 import { sectionHighlightPlugin } from "./sectionHighlightPlugin";
+import { TableToolbar } from "./TableToolbar";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
+import { unsplashPickerPlugin } from "./unsplashPicker";
+import { VariableAutocomplete } from "./VariableAutocomplete";
 
 const markExtensions: readonly Extension[] = [Bold, Italic, Underline, Strike];
 const systemExtensions: readonly Extension[] = [History];
@@ -137,7 +147,18 @@ export function PageBuilderEditor({
           // figure; without this, a pointerdown on a handle would grab the
           // block instead of resizing. The selector tells shuffle to ignore
           // pointerdowns there so the handle's own drag runs. See ImageNodeView.
-          ignoreSelector: ".pb-image-resize-handle",
+          // `.column-resize-handle` is prosemirror-tables' column-resize grip —
+          // same reason (a table is a draggable block).
+          // `.pb-image--pinned` is absolutely positioned (out of the grid); its
+          // own move handle repositions it, so shuffle must not grid-drag it.
+          // `.pp-labeled-draw` is the Labeled-image builder's marker surface — a
+          // pointerdown there drops/drags a marker (see MarkerImage).
+          ignoreSelector:
+            ".pb-image-resize-handle, .column-resize-handle, .pb-image--pinned, .pp-labeled-draw",
+          // Drag a block by grabbing anywhere on it, not just the type-label
+          // handle. A plain click (no movement) still places the text cursor —
+          // the plugin only commits to the drag once the pointer moves.
+          startDragInContentDOM: true,
         }),
         sectionChromePlugin(),
         blockHighlightPlugin(),
@@ -155,6 +176,10 @@ export function PageBuilderEditor({
         // move that didn't guard) gets a fresh empty section back. See
         // `pageInvariants`.
         ensurePageSectionsPlugin(),
+        // Keeps question items (MC, Rating, …) out of the header/footer bars —
+        // they belong in page sections (or descendants), and a question in a bar
+        // can't be graded. See `restrictBarItemsPlugin`.
+        restrictBarItemsPlugin(),
         // Reconciles the site-wide header/footer masters with the active page:
         // hides a master when the page detaches/hides it, and mounts a restore
         // ghost for a hidden bar. After activePagePlugin so it reads the new
@@ -166,6 +191,12 @@ export function PageBuilderEditor({
         // (single-column shuffle mode). Replaces the old per-value *Sync
         // components. See `editorStoreSync.ts`.
         editorStoreSyncPlugin(),
+        // Unsplash photo picker state (open flag + doc target). The picker UI
+        // is the left-panel "Photos" sheet; this holds where a picked photo
+        // lands and keeps that target valid across edits. Before
+        // editorStoreSyncPlugin reads it below — order only matters for the
+        // mirror, which runs in `view.update` after all plugins' `apply`.
+        unsplashPickerPlugin(),
         // Placeholder text in empty text blocks: "Start writing…" for
         // paragraphs, "Heading N" for headings (by level). Shown in every
         // empty block, not just the focused one.
@@ -177,9 +208,21 @@ export function PageBuilderEditor({
               ? `Heading ${(node.attrs["level"] as number) ?? 1}`
               : node.type.name === "paragraph"
                 ? "Start writing…"
-                : "",
+                : node.type.name === "image_caption"
+                  ? "+ Add a caption"
+                  : node.type.name === "item_explanation"
+                    ? "Explain the answer (shown after they answer)"
+                    : "",
         }).plugins?.(schema) ?? []),
         ...collectExtensionPlugins(schema),
+        // Table editing (prosemirror-tables): `columnResizing` adds the drag-to-
+        // size grips, `tableEditing` owns cell selection + the row/col commands.
+        // columnResizing must come before tableEditing (its own ordering rule).
+        columnResizing(),
+        tableEditing(),
+        // Tab / Shift-Tab move between cells while inside a table; `goToNextCell`
+        // returns false elsewhere, so it falls through to normal Tab handling.
+        keymap({ Tab: goToNextCell(1), "Shift-Tab": goToNextCell(-1) }),
         keymap(collectKeymap(schema)),
         // Z-order arrange shortcuts (Google Slides parity) for a block that
         // overlaps its row siblings. Each returns false when ordering doesn't
@@ -205,16 +248,29 @@ export function PageBuilderEditor({
       defaultState={editorState}
       nodeViewComponents={nodeViewComponents}
     >
-      <ShuffleSkeleton>
-        <ProseMirrorDoc />
-        <BlockResizeHandles />
-        <DragHandles handleComponent={SelectableDragHandle} />
-      </ShuffleSkeleton>
-      <BlockSettings />
-      <BlockMarginHandle />
-      <BlockContextMenu />
-      <TextSelectionToolbar />
-      {overlays}
+      {/* Inject builder tools (the "+ Add content" picker) into item node views.
+          Inside <ProseMirror> so the control's editor hooks resolve. */}
+      <ItemBuilderToolsProvider value={itemBuilderTools}>
+        <ShuffleSkeleton>
+          <ProseMirrorDoc />
+          <BlockResizeHandles />
+          <DragHandles handleComponent={SelectableDragHandle} />
+        </ShuffleSkeleton>
+        <BlockSettings />
+        <BlockMarginHandle />
+        <BlockContextMenu />
+        <TextSelectionToolbar />
+        <TableToolbar />
+        {/* Typeahead that pops when the author types `{{` — inserts a variable
+            token (e.g. {{score.percent}}). */}
+        <VariableAutocomplete />
+        {/* Item-contributed selection popovers (e.g. Fill Blanks' blank
+            settings) — each watches the selection and shows itself. */}
+        {ITEM_SELECTION_POPOVERS.map((Popover, i) => (
+          <Popover key={i} />
+        ))}
+        {overlays}
+      </ItemBuilderToolsProvider>
     </ProseMirror>
   );
 }

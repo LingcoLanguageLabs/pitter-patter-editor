@@ -5,12 +5,13 @@
  * Padding / radius / overlay come from `attrClassesPlugin` classes
  * (pp-padding-*, pp-radius-*, pp-overlay-*); the color is a `theme -X`
  * variant class (see below). The background image is the one thing
- * classes can't express (an arbitrary
- * URL), so it's applied as an inline `background-image` merged onto
- * whatever decoration style shuffle injected (e.g. `grid-row`). The
- * overlay is a CSS `::before` and the image is a CSS background — both
- * avoid adding non-PM children into the contentDOM, which would
- * confuse shuffle's `posAtCoords` drop-target math (see SectionNodeView).
+ * classes can't express (an arbitrary URL), so it's passed as a
+ * `--pp-card-image` custom property merged onto whatever decoration style
+ * shuffle injected (e.g. `grid-row`). The background (color + image) paints
+ * on a CSS `::before` layer and the overlay on `::after` — keeping both off
+ * the element itself lets `--pp-bg-opacity` fade the background without
+ * fading the content, and avoids adding non-PM children into the contentDOM,
+ * which would confuse shuffle's `posAtCoords` drop-target math.
  */
 
 import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
@@ -32,7 +33,7 @@ export function CardNodeView({
     style?: CSSProperties;
   };
   const style: CSSProperties | undefined = image
-    ? { ...injectedStyle, backgroundImage: `url("${image}")` }
+    ? ({ ...injectedStyle, "--pp-card-image": `url("${image}")` } as CSSProperties)
     : injectedStyle;
   return (
     <div

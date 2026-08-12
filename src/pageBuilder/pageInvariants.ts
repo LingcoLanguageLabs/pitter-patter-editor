@@ -20,6 +20,9 @@
  */
 
 import { Plugin } from "prosemirror-state";
+import type { Node as PmNode } from "prosemirror-model";
+
+import { isItemType } from "./items/registry";
 
 export function ensurePageSectionsPlugin() {
   return new Plugin({
@@ -56,6 +59,58 @@ export function ensurePageSectionsPlugin() {
         if (section) tr.insert(inserts[i]!, section);
       }
       return tr.docChanged ? tr : null;
+    },
+  });
+}
+
+/**
+ * Keeps learning-item questions (Multiple Choice, Rating, …) OUT of the
+ * header/footer bars: they only make sense in a page SECTION (or a descendant of
+ * one — a card/row inside a section is fine), never in the chrome that wraps
+ * every page. A question in a bar can't be graded either — `SiteRenderer`'s
+ * grading map only walks page sections — so it'd be silently inert.
+ *
+ * This can't be a schema `content` rule: the same `container`/`card`/`row` nodes
+ * live in BOTH sections (questions allowed) and bars (not), and content
+ * expressions are local — they can't depend on an ancestor. So it's an
+ * ancestor-aware transaction filter instead.
+ *
+ * It rejects only transactions that INCREASE the count of items nested in bars
+ * (not "any bar has an item"), so a doc that somehow already contains one never
+ * freezes the editor — only adding another is blocked. Pairs with the
+ * header/footer picker hiding the Questions group (clean UX; this is the net for
+ * drag / paste / nested inserts). Walks only the bar subtrees, so it's cheap.
+ */
+function countItemsInBars(doc: PmNode): number {
+  let count = 0;
+  const countInBar = (bar: PmNode) => {
+    bar.descendants((d) => {
+      if (isItemType(d.type.name)) count += 1;
+    });
+  };
+  // Bars appear as doc-level masters and as per-page overrides — both are
+  // direct children of `doc` or of a `page`, so no deep walk is needed.
+  doc.forEach((top) => {
+    if (top.type.name === "header" || top.type.name === "footer") {
+      countInBar(top);
+    } else if (top.type.name === "page") {
+      top.forEach((child) => {
+        if (child.type.name === "header" || child.type.name === "footer") {
+          countInBar(child);
+        }
+      });
+    }
+  });
+  return count;
+}
+
+export function restrictBarItemsPlugin() {
+  return new Plugin({
+    filterTransaction(tr, state) {
+      if (!tr.docChanged) return true;
+      // Allow anything that doesn't add a new question to a bar (moving one out,
+      // or leaving a pre-existing one untouched, both keep the count ≤ before).
+      return countItemsInBars(tr.doc) <= countItemsInBars(state.doc);
     },
   });
 }

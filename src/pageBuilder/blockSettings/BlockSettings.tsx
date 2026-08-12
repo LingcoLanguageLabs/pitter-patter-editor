@@ -45,11 +45,16 @@ import {
   isBlockResizing,
   isQuietSelection,
 } from "../blockHighlightPlugin";
+import { NodeSelection, TextSelection } from "prosemirror-state";
+
 import { canHaveTopMargin, isHorizontalStackChild } from "../BlockMarginHandle";
+import { getItemDefinition, isInlineItemNode, isItemType } from "../items/registry";
 import { blockMarginValue, CONTAINER_DEFAULT_MARGIN } from "../spacing";
 
+import { AttributesSection } from "./AttributesSection";
 import { BLOCK_FORMS, BLOCK_TITLES, type ActiveBlock } from "./forms";
 import { SpacingSection } from "./SpacingSection";
+import { StylesSection } from "./StylesSection";
 import {
   convertBlockType,
   isCurrentType,
@@ -64,11 +69,21 @@ export function BlockSettings() {
   // whose type has a settings form — unless the selection is "quiet"
   // (made by right-click): the context menu owns that interaction.
   const active = useMemo<ActiveBlock | null>(() => {
+    // An inline item node (e.g. a Fill Blanks `blank`) owns its own settings
+    // popover — don't also show the enclosing block's menu.
+    const sel = editorState.selection;
+    if (sel instanceof NodeSelection && isInlineItemNode(sel.node.type.name)) {
+      return null;
+    }
     const pos = getActiveBlockPos(editorState);
     if (pos == null || isQuietSelection(editorState)) return null;
     const node = editorState.doc.nodeAt(pos);
-    if (!node || !(node.type.name in BLOCK_FORMS)) return null;
-    return { pos, node, typeName: node.type.name as keyof typeof BLOCK_FORMS };
+    if (!node) return null;
+    // Show for built-in block types AND registered learning-item types.
+    if (!(node.type.name in BLOCK_FORMS) && !isItemType(node.type.name)) {
+      return null;
+    }
+    return { pos, node, typeName: node.type.name };
   }, [editorState]);
 
   // Hide the toolbar while resizing (the ring stays) — pagy suppresses
@@ -130,7 +145,50 @@ function BlockSettingsPopover({ active }: { active: ActiveBlock }) {
     );
   });
 
-  const Form = BLOCK_FORMS[active.typeName];
+  // The block's sole content child — today just the image's `image_caption`,
+  // always at `pos + 1` since that content model matches exactly one node.
+  // Three helpers for the Caption control in `ImageForm`: set an attr on it
+  // (alignment), focus a cursor inside it (the panel's "+ Add caption"), and
+  // clear its text (the panel's remove) — forms.tsx stays PM-import-free.
+  const captionChildPos = active.pos + 1;
+
+  const setCaptionAttr = useEditorEventCallback(
+    (view, name: string, value: unknown) => {
+      view.dispatch(
+        view.state.tr.setNodeAttribute(captionChildPos, name, value),
+      );
+    },
+  );
+
+  const focusCaption = useEditorEventCallback((view) => {
+    const pos = captionChildPos + 1;
+    view.dispatch(
+      view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)),
+    );
+    view.focus();
+  });
+
+  const clearCaption = useEditorEventCallback((view) => {
+    const captionNode = active.node.firstChild;
+    if (!captionNode) return;
+    const from = captionChildPos + 1;
+    view.dispatch(view.state.tr.delete(from, from + captionNode.content.size));
+  });
+
+  // Item types provide their settings panel via the registry (self-contained);
+  // built-in blocks use the central BLOCK_FORMS map.
+  const itemDef = getItemDefinition(active.node.type.name);
+  const ItemForm = itemDef?.SettingsForm;
+  const BuiltinForm = ItemForm
+    ? undefined
+    : BLOCK_FORMS[active.typeName as keyof typeof BLOCK_FORMS];
+
+  // Width clamps are image-only for now (keeping a floating image from
+  // overlapping content on a narrow section is the case they're for). Every
+  // block still carries the shared minW/maxW attrs; we just don't surface the
+  // control elsewhere.
+  const showWidthLimits =
+    active.node.type.name === "image" && "minW" in active.node.attrs;
 
   return createPortal(
     <div
@@ -160,7 +218,81 @@ function BlockSettingsPopover({ active }: { active: ActiveBlock }) {
         </div>
       </header>
       <div className="pb-block-settings-body">
-        <Form active={active} setAttr={setAttr} />
+        {ItemForm ? (
+          <ItemForm node={active.node} setAttr={setAttr} />
+        ) : BuiltinForm ? (
+          <BuiltinForm
+            active={active}
+            setAttr={setAttr}
+            setCaptionAttr={setCaptionAttr}
+            focusCaption={focusCaption}
+            clearCaption={clearCaption}
+          />
+        ) : null}
+        {/* Attributes group — semantic attrs the block carries: Language
+            (text-bearing blocks), a custom Placeholder (text prompt) + Alt text
+            (images). Shown when the block has any of them; each row renders only
+            when its attr is present. */}
+        {(active.node.attrs["lang"] !== undefined ||
+          active.node.attrs["placeholder"] !== undefined ||
+          active.node.attrs["alt"] !== undefined) && (
+          <AttributesSection
+            key={active.pos}
+            language={
+              active.node.attrs["lang"] !== undefined
+                ? {
+                    value: (active.node.attrs["lang"] as string) || "",
+                    onChange: (v) => setAttr("lang", v),
+                  }
+                : undefined
+            }
+            placeholder={
+              active.node.attrs["placeholder"] !== undefined
+                ? {
+                    value: (active.node.attrs["placeholder"] as string) || "",
+                    onChange: (v) => setAttr("placeholder", v),
+                  }
+                : undefined
+            }
+            alt={
+              active.node.attrs["alt"] !== undefined
+                ? {
+                    value: (active.node.attrs["alt"] as string) || "",
+                    onChange: (v) => setAttr("alt", v),
+                  }
+                : undefined
+            }
+          />
+        )}
+        {/* Styles group — opacity (visual blocks whose schema carries the
+            `opacity` attr) plus the px width clamps (image only, for now). Both
+            opt-in behind "+"; the section shows when the block carries either, so
+            it never renders an empty heading. */}
+        {(active.node.attrs["opacity"] !== undefined || showWidthLimits) && (
+          <StylesSection
+            key={active.pos}
+            opacity={
+              active.node.attrs["opacity"] !== undefined
+                ? {
+                    value:
+                      typeof active.node.attrs["opacity"] === "number"
+                        ? (active.node.attrs["opacity"] as number)
+                        : null,
+                    onChange: (v) => setAttr("opacity", v),
+                  }
+                : undefined
+            }
+            widthLimits={
+              showWidthLimits
+                ? {
+                    minW: (active.node.attrs["minW"] as number) ?? 0,
+                    maxW: (active.node.attrs["maxW"] as number) ?? 0,
+                    onChange: (name, v) => setAttr(name, v),
+                  }
+                : undefined
+            }
+          />
+        )}
         {/* Spacing group — the block's leading margin, wired to the same attr/
             snap scale as the canvas handle. `autoPx` is what Auto resolves to: a
             container child's default rhythm (so Auto fills the gap), else 0.
@@ -202,6 +334,7 @@ function BlockTypeSwitcher({
   const currentLabel =
     options?.find((o) => isCurrentType(node, o))?.label ??
     BLOCK_TITLES[node.type.name as keyof typeof BLOCK_FORMS] ??
+    getItemDefinition(node.type.name)?.catalog.label ??
     node.type.name;
 
   if (!options) {

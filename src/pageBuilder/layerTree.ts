@@ -20,7 +20,9 @@
 import type { Node as PmNode } from "prosemirror-model";
 
 import { pageList } from "./activePagePlugin";
+import { embedLabel } from "./embed";
 import { globalBar } from "./headerFooter";
+import { itemNodeLabel } from "./items/registry";
 
 /** Node types that can hold child layers (so the tree recurses into them and
  *  they can be drop targets). Everything else (text blocks, atoms) is a leaf. */
@@ -124,8 +126,27 @@ export function layerLabel(node: PmNode): string {
       return filename(a["src"] as string) || "Video";
     case "audio":
       return filename(a["src"] as string) || "Audio";
+    case "embed":
+      return embedLabel(a["src"] as string);
+    case "vector":
+      return (a["alt"] as string) || "Vector";
+    case "divider":
+      return "Divider";
+    case "accordion":
+      return "Accordion";
+    case "accordion_item":
+      return truncate(node.textContent) || "Row";
+    case "tabs":
+      return "Tabs";
+    case "tab":
+      return truncate(node.textContent) || "Tab";
+    case "table":
+      return "Table";
     default:
-      return type.charAt(0).toUpperCase() + type.slice(1);
+      // Learning items (and their child nodes) get their registered label.
+      return (
+        itemNodeLabel(type) ?? type.charAt(0).toUpperCase() + type.slice(1)
+      );
   }
 }
 

@@ -1,0 +1,136 @@
+/**
+ * Mark the Words styles — builder (`.pp-mt*`, `.pp-mttoken`) + completer
+ * (`.pp-mt-completer*`, `.pp-mt-token`). The graded verdict line is the shared
+ * `.pp-item-verdict` (items/shared); local color tokens with fallbacks so this
+ * file stands alone.
+ */
+
+.pp-mt,
+.pp-mt-completer {
+  --pp-mt-border: color-mix(in srgb, currentColor 16%, transparent);
+  --pp-mt-border-strong: color-mix(in srgb, currentColor 32%, transparent);
+  --pp-mt-accent: var(--color-primary, currentColor);
+  --pp-mt-correct: #16a34a;
+  --pp-mt-incorrect: #dc2626;
+}
+
+/* ── builder: question container ─────────────────────────────────── */
+.pp-mt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pp-mt-prompt,
+.pp-mt-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  outline: none;
+}
+
+.pp-mt-prompt-wrapper,
+.pp-mt-text-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* The markable-text region reads as a distinct, lightly-inset area so authors
+   see where the clickable sentence lives (vs the free-form prompt above). */
+.pp-mt-text-wrapper {
+  border: 1px dashed var(--pp-mt-border-strong);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+}
+
+.pp-mt-text-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  user-select: none;
+}
+
+.pp-mt-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: flex-start;
+  appearance: none;
+  border: 1px dashed var(--pp-mt-border-strong);
+  background: transparent;
+  color: inherit;
+  opacity: 0.75;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.pp-mt-add:hover {
+  opacity: 1;
+}
+
+/* A marked word in the editor — the highlighted answer key. */
+.pp-mttoken {
+  border-radius: 5px;
+  padding: 0.02em 0.16em;
+  background: color-mix(in srgb, var(--pp-mt-accent) 18%, transparent);
+  box-shadow: inset 0 -2px 0 0 color-mix(in srgb, var(--pp-mt-accent) 55%, transparent);
+}
+
+/* ── completer: clickable words ──────────────────────────────────── */
+.pp-mt-completer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pp-mt-completer-line {
+  margin: 0;
+  line-height: 2;
+}
+
+/* Words read as plain text with a clickable affordance, NOT chips — the student
+   shouldn't be told which words are "special". */
+.pp-mt-token {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  padding: 0.04em 0.22em;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+.pp-mt-token:hover {
+  background: color-mix(in srgb, currentColor 9%, transparent);
+}
+.pp-mt-token[data-selected] {
+  background: color-mix(in srgb, var(--pp-mt-accent) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pp-mt-accent) 55%, transparent);
+}
+
+/* Graded feedback — clicks stop responding to hover, states take over. */
+.pp-mt-completer-text[data-graded] .pp-mt-token {
+  cursor: default;
+}
+.pp-mt-token[data-state="correct"] {
+  background: color-mix(in srgb, var(--pp-mt-correct) 22%, transparent);
+  box-shadow: inset 0 0 0 1px var(--pp-mt-correct);
+  color: inherit;
+}
+.pp-mt-token[data-state="incorrect"] {
+  background: color-mix(in srgb, var(--pp-mt-incorrect) 18%, transparent);
+  box-shadow: inset 0 0 0 1px var(--pp-mt-incorrect);
+  text-decoration: line-through;
+  text-decoration-color: var(--pp-mt-incorrect);
+}
+/* A target the student missed — outlined, not filled, so it reads as "should
+   have clicked this" rather than "you got it right". */
+.pp-mt-token[data-state="missed"] {
+  box-shadow: inset 0 0 0 1px var(--pp-mt-correct);
+  background: transparent;
+}

@@ -6,6 +6,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "dev:server": "tsx --env-file-if-exists=.env scripts/dev-server.ts"
@@ -74,7 +76,8 @@
     "storybook": "^10",
     "tsx": "^4.21.0",
     "typescript": "^5.6.3",
-    "vite": "^8.0.5"
+    "vite": "^8.0.5",
+    "vitest": "^4.1.9"
   },
   "resolutions": {
     "prosemirror-view": "1.41.7",

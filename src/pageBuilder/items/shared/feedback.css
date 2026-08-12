@@ -1,0 +1,75 @@
+/**
+ * Shared prompt-level feedback block — rendered by every gradable completer once
+ * graded (<ItemFeedback>): an optional type summary line, the verdict headline,
+ * the authored explanation, and a Try-again button. Verdict colors derive from
+ * semantic green/red for correctness; completion verdicts stay neutral.
+ *
+ * `.pp-item-explanation` (the builder-side editable node) is styled here too, so
+ * the canvas shows the explanation area the same way the registry loads this CSS.
+ */
+
+.pp-item-feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.pp-item-feedback-summary {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.pp-item-verdict {
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+.pp-item-verdict[data-correct="true"],
+.pp-item-verdict[data-status="complete"] {
+  color: #16a34a;
+}
+.pp-item-verdict[data-correct="false"] {
+  color: #dc2626;
+}
+
+.pp-item-feedback-explanation {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, currentColor 78%, transparent);
+}
+
+.pp-item-tryagain {
+  margin-top: 0.25rem;
+  padding: 0.5rem 1.1rem;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.8125rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: inherit;
+  cursor: pointer;
+}
+.pp-item-tryagain:hover {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+/* Builder — the editable explanation node (its own `item_explanation` node).
+   Reads as a muted "feedback" area set off from the answer above it. Empty
+   shows the placeholder (createPlaceholder, Editor.tsx). */
+.pp-item-explanation {
+  margin-top: 0.75rem;
+  padding-top: 0.625rem;
+  border-top: 1px dashed color-mix(in srgb, currentColor 20%, transparent);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, currentColor 78%, transparent);
+}

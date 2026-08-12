@@ -31,6 +31,7 @@ import {
   ArrowsVertical,
 } from "@phosphor-icons/react";
 
+import { AttributesSection } from "./blockSettings/AttributesSection";
 import {
   Field,
   ImagePicker,
@@ -103,6 +104,7 @@ export function SectionSettings({
         const overlay = (attrs["overlay"] as string) || "";
         const theme = (attrs["theme"] as string | null) || "";
         const htmlId = (attrs["htmlId"] as string) || "";
+        const lang = (attrs["lang"] as string) || "";
         const hasMedia =
           (background === "image" && !!image) ||
           (background === "video" && !!video);
@@ -189,6 +191,12 @@ export function SectionSettings({
                 {idWarning ?? "Unique HTML ID"}
               </span>
             </Field>
+            {/* Attributes — Language for the whole section (its descendants
+                inherit the `lang`), the same group the block popover uses. */}
+            <AttributesSection
+              key={pos}
+              language={{ value: lang, onChange: (v) => setAttr("lang", v) }}
+            />
             {/* Spacing comes last, mirroring the block settings popover. */}
             <div className="pb-spacing">
               <div className="pb-spacing-head">

@@ -5,8 +5,12 @@
  *
  *   • Leading margin — per-block space before the block, on its stack's MAIN
  *     axis: a top margin in a vertical stack, a left margin in a horizontal one
- *     (`axis` orients label + scrub to match the canvas handle). Hidden until
- *     "+" (mirrors the canvas handle's Auto state); the ✕ removes it again.
+ *     (`axis` orients label + scrub to match the canvas handle). Opt-in via the
+ *     shared `SectionHeader` "+" menu (mirrors the canvas handle's Auto state);
+ *     the ✕ removes it again. Today margin is the section's only opt-in
+ *     property, so "+" is a direct toggle — the same `useOptInVisibility` +
+ *     `SectionHeader` pair Attributes/Styles use, ready to grow into a real
+ *     menu if a second spacing property joins it.
  *
  * Each row is a `ScrubField`: an icon you drag to scrub (same snap scale + px
  * as the canvas, ⇧ = coarse), a number you can type, and a caret with the
@@ -24,10 +28,11 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ArrowLineLeft, ArrowLineUp, CaretDown, Plus, X } from "@phosphor-icons/react";
+import { ArrowLineLeft, ArrowLineUp, CaretDown, X } from "@phosphor-icons/react";
 import { type PointerEvent as ReactPointerEvent, useEffect, useState } from "react";
 
 import { BLOCK_MARGIN_MAX, BLOCK_MARGIN_SNAP, snapToScale } from "../spacing";
+import { SectionHeader, useOptInVisibility } from "./forms";
 
 const MARGIN_PRESETS = [0, 4, 8, 12, 16, 24, 32, 48, 64, 80, 96, 120, 160, 240] as const;
 
@@ -46,28 +51,22 @@ export function SpacingSection({
     onChange: (next: number | null) => void;
   };
 }) {
-  // Opt-in: shown once it's explicit OR the user clicked "+".
-  const [added, setAdded] = useState(margin.value != null);
-  const showMargin = margin.value != null || added;
   const horizontal = margin.axis === "horizontal";
   const label = horizontal ? "Left margin" : "Top margin";
 
+  const { isVisible, add, remove } = useOptInVisibility(
+    margin.value != null ? ["margin"] : [],
+  );
+  const showMargin = isVisible("margin");
+
   return (
     <div className="pb-spacing">
-      <div className="pb-spacing-head">
-        <span className="pb-field-label">Spacing</span>
-        {!showMargin && (
-          <button
-            type="button"
-            className="pb-spacing-add"
-            aria-label={`Add ${label.toLowerCase()}`}
-            // Reveal at Auto — the user adjusts from there (not a magic default).
-            onClick={() => setAdded(true)}
-          >
-            <Plus size={14} weight="bold" />
-          </button>
-        )}
-      </div>
+      <SectionHeader
+        label="Spacing"
+        addable={showMargin ? [] : [{ key: "margin", label }]}
+        // Reveal at Auto — the user adjusts from there (not a magic default).
+        onAdd={add}
+      />
 
       {showMargin && (
         <ScrubField
@@ -81,7 +80,7 @@ export function SpacingSection({
           presets={MARGIN_PRESETS}
           onChange={margin.onChange}
           onRemove={() => {
-            setAdded(false);
+            remove("margin");
             margin.onChange(null);
           }}
         />

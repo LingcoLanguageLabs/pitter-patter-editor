@@ -3,16 +3,21 @@
  * active one — so the Pages rail and the future flowchart canvas always show
  * the real page, never a placeholder.
  *
- * How it stays cheap:
- *   • One page is rendered off-screen at a time (`PageSnapshotStage`), so
- *     peak cost is a single hidden page, never the whole deck.
+ * How it stays cheap (and non-blocking):
+ *   • The ACTIVE page is captured from the LIVE on-screen editor (`view.dom`),
+ *     NOT a second editor instance — it's already rendered, so we just
+ *     rasterize it (editing chrome stripped at capture time). Only pages that
+ *     are off-screen pay for a hidden `PageSnapshotStage` render.
+ *   • All snapshot work is debounced (a burst of edits → one pass) and
+ *     deferred to `requestIdleCallback`, so it never competes with typing or
+ *     navigation — it runs when the main thread is free.
+ *   • One capture (live or off-screen) runs at a time; the active page jumps
+ *     the queue, so the thumbnail you're most likely looking at refreshes first.
  *   • Dirty-tracking is by ProseMirror node *reference*. PM reuses unchanged
  *     subtrees across transactions, so a page whose node object is identical
  *     to the last one we snapshotted hasn't changed — we skip it. Editing one
  *     page only re-renders that page; reordering/renaming touches no
  *     content nodes, so nothing re-renders.
- *   • The active page jumps the queue, so the thumbnail you're most likely
- *     looking at refreshes first.
  *
  * Lives OUTSIDE the main `<ProseMirror>` (it mounts its own), reading the deck
  * from the store mirror (`editorStoreSyncPlugin` → `pages` / `pagesView`).
@@ -27,8 +32,27 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { pageList } from "./activePagePlugin";
 import { globalBar, resolvePageBarScope } from "./headerFooter";
+import { snapshotPage } from "./pageSnapshot";
 import { PageSnapshotStage } from "./PageSnapshotStage";
 import { usePageBuilderStore } from "./store";
+
+/** Coalesce a burst of edits into one snapshot pass (don't snapshot per
+ *  keystroke). */
+const DEBOUNCE_MS = 350;
+/** rIC deadline: snapshotting waits for an idle thread but is guaranteed to run
+ *  within this window even under sustained load. */
+const IDLE_TIMEOUT = 1500;
+
+/** Run `fn` when the main thread is idle so snapshotting never blocks typing or
+ *  navigation. Falls back to a short timeout where requestIdleCallback is
+ *  unavailable. */
+function onIdle(fn: () => void): void {
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => fn(), { timeout: IDLE_TIMEOUT });
+  } else {
+    setTimeout(fn, 200);
+  }
+}
 
 /** What a page's thumbnail depends on: the page node plus whichever global
  *  masters it inherits (so editing a master refreshes every page that shows
@@ -88,69 +112,118 @@ export function PageSnapshotFactory() {
   const pages = usePageBuilderStore((s) => s.pages);
   const activeId = usePageBuilderStore((s) => s.activePageId);
   const view = usePageBuilderStore((s) => s.pagesView);
+  const setPageThumb = usePageBuilderStore((s) => s.setPageThumb);
 
   /** Last signature we successfully kicked off a snapshot for, per page id. */
   const doneRef = useRef<Map<string, Sig>>(new Map());
   /** Pages whose current signature differs from `done` → awaiting a snapshot. */
   const pendingRef = useRef<Map<string, Sig>>(new Map());
-
+  /** A capture (live OR off-screen stage) is in flight — gate so only one runs
+   *  at a time, regardless of which path. */
+  const runningRef = useRef(false);
+  /** Off-screen job (NON-active pages only) driving `<PageSnapshotStage>`. */
   const [job, setJob] = useState<Job | null>(null);
 
+  // Latest activeId, readable from the deferred (idle) capture callback so it
+  // never saves the wrong page if you navigate away before it runs.
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
+  // pump is invoked from async callbacks; keep a stable handle to the latest.
+  const pumpRef = useRef<() => void>(() => {});
+
+  const markDone = useCallback((id: string, sig: Sig) => {
+    doneRef.current.set(id, sig);
+    if (pendingRef.current.get(id) === sig) pendingRef.current.delete(id);
+  }, []);
+
   const pump = useCallback(() => {
-    setJob((current) => {
-      if (current) return current; // a page is already rendering
-      if (!view || pendingRef.current.size === 0) return null;
-      // Prefer the page on screen; otherwise take any pending one.
-      const id =
-        activeId && pendingRef.current.has(activeId)
-          ? activeId
-          : (pendingRef.current.keys().next().value as string);
-      const sig = pendingRef.current.get(id)!;
+    if (runningRef.current || job || !view) return; // one capture at a time
+    if (pendingRef.current.size === 0) return;
+    // Prefer the page on screen; otherwise take any pending one.
+    const id =
+      activeId && pendingRef.current.has(activeId)
+        ? activeId
+        : (pendingRef.current.keys().next().value as string);
+    const sig = pendingRef.current.get(id)!;
+    runningRef.current = true;
+
+    if (id === activeId) {
+      // The active page is already rendered on screen — snapshot the LIVE
+      // editor (`view.dom` is the `.ProseMirror`: global header + active page +
+      // footer) instead of mounting a second editor just to re-render it.
+      // Editing chrome is stripped at capture time (pageSnapshot's filter).
+      onIdle(async () => {
+        // Bail if we navigated away mid-wait: the live DOM is now a different
+        // page; leave this one pending and let the queue re-pick it (off-screen).
+        if (activeIdRef.current !== id) {
+          runningRef.current = false;
+          pumpRef.current();
+          return;
+        }
+        try {
+          const url = await snapshotPage(view.dom as HTMLElement);
+          if (url && activeIdRef.current === id) setPageThumb(id, url);
+        } catch {
+          /* swallow — advance the queue regardless */
+        } finally {
+          markDone(id, sig);
+          runningRef.current = false;
+          pumpRef.current();
+        }
+      });
+    } else {
+      // Not on screen → render it off-screen once, scheduled at idle.
       const node = buildSyntheticPage(sig);
       const canvas = view.dom.closest(".pb-canvas") as HTMLElement | null;
       const width = canvas?.clientWidth || 960;
-      return { id, node, sig, width };
-    });
-  }, [view, activeId]);
+      onIdle(() => setJob({ id, node, sig, width }));
+    }
+  }, [view, activeId, job, setPageThumb, markDone]);
+  pumpRef.current = pump;
 
-  // Recompute the dirty set whenever the deck changes, then pump the queue.
+  // Recompute the dirty set when the deck changes — debounced so a burst of
+  // edits coalesces into one snapshot after you pause (never one per keystroke).
   useEffect(() => {
     if (!view) return;
-    const { doc } = view.state;
-    const list = pageList(doc);
-    const liveIds = new Set(list.map((p) => p.id));
-    for (const id of [...doneRef.current.keys()])
-      if (!liveIds.has(id)) doneRef.current.delete(id);
-    for (const id of [...pendingRef.current.keys()])
-      if (!liveIds.has(id)) pendingRef.current.delete(id);
-    for (const p of list) {
-      if (!p.id) continue;
-      const sig = pageSig(doc, p.node);
-      if (!sameSig(doneRef.current.get(p.id), sig))
-        pendingRef.current.set(p.id, sig);
-    }
-    pump();
-  }, [pages, activeId, view, pump]);
-
-  const handleDone = useCallback((id: string) => {
-    // Record the signature we just rendered; if it's still the latest for that
-    // id, it's no longer pending. (If the page or a master it inherits changed
-    // mid-render, the dirty pass replaced the pending Sig with a fresh object,
-    // so the reference check fails and it re-runs.)
-    setJob((current) => {
-      if (current && current.id === id) {
-        doneRef.current.set(id, current.sig);
-        if (pendingRef.current.get(id) === current.sig)
-          pendingRef.current.delete(id);
+    const t = setTimeout(() => {
+      const { doc } = view.state;
+      const list = pageList(doc);
+      const liveIds = new Set(list.map((p) => p.id));
+      for (const id of [...doneRef.current.keys()])
+        if (!liveIds.has(id)) doneRef.current.delete(id);
+      for (const id of [...pendingRef.current.keys()])
+        if (!liveIds.has(id)) pendingRef.current.delete(id);
+      for (const p of list) {
+        if (!p.id) continue;
+        const sig = pageSig(doc, p.node);
+        if (!sameSig(doneRef.current.get(p.id), sig))
+          pendingRef.current.set(p.id, sig);
       }
-      return null;
-    });
-  }, []);
+      pumpRef.current();
+    }, DEBOUNCE_MS);
+    return () => clearTimeout(t);
+    // pumpRef (not pump) is used inside, so job churn doesn't reset the timer.
+  }, [pages, activeId, view]);
 
-  // When a job clears, start the next one.
+  const handleDone = useCallback(
+    (id: string) => {
+      // Record the signature we just rendered; if it's still the latest for
+      // that id, it's no longer pending. (A mid-render change replaces the
+      // pending Sig with a fresh object, so the reference check re-runs it.)
+      setJob((current) => {
+        if (current && current.id === id) markDone(id, current.sig);
+        return null;
+      });
+      runningRef.current = false;
+    },
+    [markDone],
+  );
+
+  // When the off-screen job clears, start the next one (here, not in
+  // handleDone, so `pump` reads the post-render null `job`).
   useEffect(() => {
-    if (!job) pump();
-  }, [job, pump]);
+    if (!job) pumpRef.current();
+  }, [job]);
 
   if (!job) return null;
   return (

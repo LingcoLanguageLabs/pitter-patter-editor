@@ -149,12 +149,15 @@ export function headerClass(attrs: Record<string, unknown> | undefined): string 
 }
 
 /** Class string for a `footer` element — vertical padding `py-{unit}` (the same
- *  px model + class as a section) plus an optional `theme -X` scope. */
+ *  px model + class as a section), an optional `theme -X` scope, and `-fixed`
+ *  when glued to the bottom of the scroll viewport (mirrors `headerClass`). */
 export function footerClass(attrs: Record<string, unknown> | undefined): string {
-  const theme = (attrs?.["theme"] as string) || "";
+  const a = attrs ?? {};
+  const theme = (a["theme"] as string) || "";
   return [
     "pp-footer",
-    sectionPaddingClass(sectionPaddingPx(attrs)),
+    sectionPaddingClass(sectionPaddingPx(a)),
+    a["fixed"] ? "-fixed" : "",
     theme ? `theme -${theme}` : "",
   ]
     .filter(Boolean)

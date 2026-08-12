@@ -44,7 +44,11 @@ import {
   type TransitionType,
 } from "../transitions";
 import { curtainEffectFor, isCurtainsId } from "./curtainsEffects";
-import { RenderNode, SiteNavProvider } from "./renderNode";
+import { RenderNode } from "./renderNode";
+import { SiteNavProvider, type SiteNav } from "./siteNav";
+import { getItemDefinition } from "../items/registry";
+import { GradingProvider, type ItemLocation } from "../items/shared/grading";
+import { VariableScopeProvider } from "../variables/scope";
 import type { JsonNode } from "./shuffleLayout";
 
 import "@pitter-patter/shuffle/style/shuffle.css";
@@ -156,6 +160,81 @@ export function SiteRenderer({
     [pages, active.id],
   );
 
+  // Step the deck relative to the current page — drives the prev/next button
+  // actions. Out-of-range (no prev on the first page) is a no-op.
+  const navigateBy = useCallback(
+    (delta: number) => {
+      const idx = pages.findIndex((p) => pageId(p) === active.id);
+      if (idx === -1) return;
+      const target = pages[idx + delta];
+      if (target) navigate(pageId(target));
+    },
+    [pages, active.id, navigate],
+  );
+
+  const canNavigateBy = useCallback(
+    (delta: number) => {
+      const idx = pages.findIndex((p) => pageId(p) === active.id);
+      return idx !== -1 && !!pages[idx + delta];
+    },
+    [pages, active.id],
+  );
+
+  // sectionId (htmlId) → the page it lives on, so "Go to section" can switch
+  // pages before scrolling (only the active page is mounted).
+  const sectionPageMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const visit = (n: JsonNode, pid: string) => {
+      if (n.type === "section") {
+        const hid = n.attrs?.["htmlId"] as string | undefined;
+        if (hid) map.set(hid, pid);
+      }
+      (n.content ?? []).forEach((c) => visit(c, pid));
+    };
+    for (const p of pages) visit(p, pageId(p));
+    return map;
+  }, [pages]);
+
+  // Scroll to a section by its anchor id, switching to its page first if needed.
+  // After a page switch the new section mounts a few frames later (transitions
+  // animate it in), so poll on rAF until it appears, then smooth-scroll.
+  const goToSection = useCallback(
+    (sectionId: string) => {
+      if (!sectionId) return;
+      const scroll = () => {
+        const root = canvasRef.current;
+        if (!root) return false;
+        let el: Element | null = null;
+        try {
+          el = root.querySelector(`#${CSS.escape(sectionId)}`);
+        } catch {
+          el = null;
+        }
+        if (!el) return false;
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        return true;
+      };
+      const targetPage = sectionPageMap.get(sectionId);
+      if (targetPage && targetPage !== active.id) {
+        navigate(targetPage);
+        let tries = 0;
+        const tick = () => {
+          if (scroll() || tries++ > 60) return;
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      } else {
+        scroll();
+      }
+    },
+    [sectionPageMap, active.id, navigate],
+  );
+
+  const nav = useMemo<SiteNav>(
+    () => ({ navigate, navigateBy, canNavigateBy, goToSection }),
+    [navigate, navigateBy, canNavigateBy, goToSection],
+  );
+
   // Present-style keyboard stepping (opt-in). Read-only content, so there's no
   // input to steal these keys from.
   useEffect(() => {
@@ -184,6 +263,104 @@ export function SiteRenderer({
 
   const activePage =
     pages.find((p) => pageId(p) === active.id) ?? pages[0] ?? null;
+  // Deck position for the `page.*` variables (1-based number + total).
+  const activeIndex = pages.findIndex((p) => pageId(p) === active.id);
+  const pageNumber = (activeIndex >= 0 ? activeIndex : 0) + 1;
+  const pageCount = pages.length;
+
+  // Item map (itemId → page/section) for the grading store — lets a Check
+  // button resolve a scope to its prompts even when they're on an unmounted
+  // page. Sections are keyed by `htmlId` (the same id nav targets + the Check
+  // form auto-assigns when a section is picked).
+  const itemLocations = useMemo<ItemLocation[]>(() => {
+    const out: ItemLocation[] = [];
+    for (const p of pages) {
+      const pid = pageId(p);
+      const visit = (n: JsonNode, sectionId: string) => {
+        const sid =
+          n.type === "section"
+            ? (n.attrs?.["htmlId"] as string) || ""
+            : sectionId;
+        const itemId = (n.attrs?.["itemId"] as string) || "";
+        const def = getItemDefinition(n.type);
+        if (itemId && def) {
+          // Bind this item's registered grader to its serialized def so the
+          // grading store can score a response type-agnostically (each type
+          // owns its grade()). Serialize once here; ungradable types have no
+          // grader, so they only count toward `total`.
+          let grade: ItemLocation["grade"];
+          const graderFn = def.grade;
+          if (graderFn) {
+            const itemDef = def.serialize(n);
+            grade = (response) => graderFn(itemDef, response);
+          }
+          out.push({ itemId, pageId: pid, sectionId: sid, grade });
+        }
+        (n.content ?? []).forEach((c) => visit(c, sid));
+      };
+      (p.content ?? []).forEach((c) => visit(c, ""));
+    }
+    return out;
+  }, [pages]);
+
+  // "Current section" tracking: the section most in view on the active page, via
+  // an IntersectionObserver, reset per page. It drives two things:
+  //   • `currentSectionId` (grading) — the in-view section's `htmlId`, so a
+  //     pinned-bar "Check current section" grades what the reader is looking at.
+  //     Only id-bearing sections can be a grade target, so it ignores the rest.
+  //   • `currentSectionName` (the `section.name` variable) — read from the
+  //     section's `data-section-name` stamp, so it resolves for EVERY section,
+  //     including those with no `htmlId` (which emit no `id`).
+  const [currentSectionId, setCurrentSectionId] = useState("");
+  const [currentSectionName, setCurrentSectionName] = useState("");
+  useEffect(() => {
+    const root = canvasRef.current;
+    if (!root) return;
+    const sections = Array.from(
+      root.querySelectorAll<HTMLElement>('[data-node-type="section"]'),
+    );
+    if (sections.length === 0) {
+      setCurrentSectionId("");
+      setCurrentSectionName("");
+      return;
+    }
+    setCurrentSectionId(sections.find((s) => s.id)?.id ?? "");
+    setCurrentSectionName(sections[0]!.getAttribute("data-section-name") ?? "");
+    const ratios = new Map<HTMLElement, number>();
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          ratios.set(e.target as HTMLElement, e.intersectionRatio);
+        }
+        // Best overall → the name; best among id-bearing → the grade target (so
+        // `currentSectionId` keeps its id-only semantics).
+        let bestEl: HTMLElement | null = null;
+        let bestRatio = -1;
+        let bestIdEl: HTMLElement | null = null;
+        let bestIdRatio = -1;
+        for (const [el, r] of ratios) {
+          if (r > bestRatio) {
+            bestRatio = r;
+            bestEl = el;
+          }
+          if (el.id && r > bestIdRatio) {
+            bestIdRatio = r;
+            bestIdEl = el;
+          }
+        }
+        if (bestEl) {
+          setCurrentSectionName(bestEl.getAttribute("data-section-name") ?? "");
+        }
+        if (bestIdEl) setCurrentSectionId(bestIdEl.id);
+      },
+      { threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+    sections.forEach((s) => io.observe(s));
+    return () => io.disconnect();
+  }, [active.id]);
+
+  // `page.name` for the variable scope: the active page's title.
+  const pageName = (activePage?.attrs?.["title"] as string) || "Untitled";
 
   // Whether the active page shows each master: it must exist, the page must not
   // carry its own override of that kind, and the page must not hide it. (When
@@ -238,35 +415,51 @@ export function SiteRenderer({
                 under `.pb-canvas-scroll .ProseMirror` apply; this is a plain
                 div, not an editor. */}
             <div className="ProseMirror">
-              <SiteNavProvider navigate={navigate}>
-                {/* Masters bookend the page (and persist across transitions —
-                    they sit OUTSIDE the animating page wrapper). A page that
-                    overrides renders its own bar inside the page instead. */}
-                {showGlobalHeader && globalHeader && (
-                  <RenderNode node={globalHeader} index={0} />
-                )}
-                {animated ? (
-                  <AnimatePresence>
-                    <motion.div
-                      // `.pb-page-anim` is a subgrid pass-through stacked in one
-                      // grid row, so entering + leaving pages overlap during the
-                      // transition while the `.pb-page` subgrid columns survive.
-                      key={active.id}
-                      className="pb-page-anim"
-                      initial={isFirst ? false : motion3.initial}
-                      animate={motion3.animate}
-                      exit={motion3.exit}
-                      transition={timing}
-                    >
-                      {activePage && <RenderNode node={activePage} index={0} />}
-                    </motion.div>
-                  </AnimatePresence>
-                ) : (
-                  activePage && <RenderNode node={activePage} index={0} />
-                )}
-                {showGlobalFooter && globalFooter && (
-                  <RenderNode node={globalFooter} index={0} />
-                )}
+              <SiteNavProvider nav={nav}>
+                {/* Grading store wraps EVERYTHING (incl. the masters), so a
+                    Check button in a pinned header/footer can grade prompts on
+                    the page. Responses persist here across page transitions. */}
+                <GradingProvider
+                  items={itemLocations}
+                  currentPageId={active.id}
+                  currentSectionId={currentSectionId}
+                >
+                  <VariableScopeProvider
+                    pageNumber={pageNumber}
+                    pageCount={pageCount}
+                    pageName={pageName}
+                    sectionName={currentSectionName}
+                  >
+                  {/* Masters bookend the page (and persist across transitions —
+                      they sit OUTSIDE the animating page wrapper). A page that
+                      overrides renders its own bar inside the page instead. */}
+                  {showGlobalHeader && globalHeader && (
+                    <RenderNode node={globalHeader} index={0} />
+                  )}
+                  {animated ? (
+                    <AnimatePresence>
+                      <motion.div
+                        // `.pb-page-anim` is a subgrid pass-through stacked in one
+                        // grid row, so entering + leaving pages overlap during the
+                        // transition while the `.pb-page` subgrid columns survive.
+                        key={active.id}
+                        className="pb-page-anim"
+                        initial={isFirst ? false : motion3.initial}
+                        animate={motion3.animate}
+                        exit={motion3.exit}
+                        transition={timing}
+                      >
+                        {activePage && <RenderNode node={activePage} index={0} />}
+                      </motion.div>
+                    </AnimatePresence>
+                  ) : (
+                    activePage && <RenderNode node={activePage} index={0} />
+                  )}
+                  {showGlobalFooter && globalFooter && (
+                    <RenderNode node={globalFooter} index={0} />
+                  )}
+                  </VariableScopeProvider>
+                </GradingProvider>
               </SiteNavProvider>
             </div>
           </div>

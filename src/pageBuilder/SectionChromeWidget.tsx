@@ -40,6 +40,11 @@ import { SectionSettings } from "./SectionSettings";
 import { SectionSpacingBands } from "./SectionSpacingBands";
 import { findEnclosingSection } from "./sectionUtils";
 import { usePageBuilderStore } from "./store";
+import {
+  buildUnsplashPlaceholder,
+  isUnsplashEntry,
+  unsplashOpenInsert,
+} from "./unsplashPicker";
 
 export const SectionChromeWidget = forwardRef<
   HTMLDivElement,
@@ -56,13 +61,21 @@ export const SectionChromeWidget = forwardRef<
     (view, entry: BlockCatalogEntry) => {
       const info = findEnclosingSection(view.state, getPos());
       if (!info) return;
+      // Everything (except sections) lands at the end of this section's content.
+      const sectionEnd =
+        info.pos + 1 + (view.state.doc.nodeAt(info.pos)?.content.size ?? 0);
+      // Unsplash isn't a real node: clicking it opens the picker targeting that
+      // spot — the image is inserted only once a photo is chosen.
+      if (isUnsplashEntry(entry)) {
+        unsplashOpenInsert(sectionEnd)(view.state, view.dispatch);
+        return;
+      }
       const node = createBlockNode(view.state.schema, entry);
       const insertAt =
         entry.type === "section"
           ? // Sections go *after* this section.
             info.pos + info.nodeSize
-          : // Everything else goes at the end of this section's content.
-            info.pos + 1 + (view.state.doc.nodeAt(info.pos)?.content.size ?? 0);
+          : sectionEnd;
       view.dispatch(view.state.tr.insert(insertAt, node));
       view.focus();
     },
@@ -88,7 +101,12 @@ export const SectionChromeWidget = forwardRef<
    *  into the canvas to create that node (alongside click-to-insert). */
   const inflatableJSON = (entry: BlockCatalogEntry): string | undefined => {
     try {
-      return JSON.stringify(createBlockNode(editorState.schema, entry).toJSON());
+      // Unsplash drags in an image placeholder (empty + `unsplashPending`); the
+      // dropped NodeView opens the picker to fill it.
+      const node = isUnsplashEntry(entry)
+        ? buildUnsplashPlaceholder(editorState.schema)
+        : createBlockNode(editorState.schema, entry);
+      return node ? JSON.stringify(node.toJSON()) : undefined;
     } catch {
       return undefined;
     }

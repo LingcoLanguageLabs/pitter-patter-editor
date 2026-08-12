@@ -1,0 +1,129 @@
+/**
+ * Text Prompt styles — both surfaces.
+ *
+ *   .pp-text-prompt*           builder (the ProseMirror NodeViews)
+ *   .pp-text-prompt-completer* completer (the student render)
+ *
+ * Colors derive from `currentColor` (via color-mix) so the block adapts to
+ * whatever theme/section it sits in — no fixed light/dark assumptions, matching
+ * Multiple Choice. The answer field is shared by both surfaces (`.pp-text-prompt-input`).
+ */
+
+.pp-text-prompt,
+.pp-text-prompt-completer {
+  --pp-tp-border: color-mix(in srgb, currentColor 16%, transparent);
+  --pp-tp-border-strong: color-mix(in srgb, currentColor 32%, transparent);
+  --pp-tp-surface: color-mix(in srgb, currentColor 4%, transparent);
+  --pp-tp-radius: 10px;
+}
+
+/* ── builder ─────────────────────────────────────────────────────── */
+/* No background/border/label — the question reads as plain content; selection
+   ring + block menu provide its chrome (same as Multiple Choice). */
+.pp-text-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pp-text-prompt-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* Stem = a block container; its blocks (paragraph by default, plus any added
+   image/audio/heading/…) stack vertically. */
+.pp-text-prompt-stem-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.pp-text-prompt-stem {
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pp-text-prompt-field {
+  display: flex;
+}
+
+/* The stem's "+ Add to question" affordance — matches MC's dashed adder. */
+.pp-text-prompt-add {
+  align-self: flex-start;
+  appearance: none;
+  border: 1px dashed var(--pp-tp-border-strong);
+  background: transparent;
+  color: inherit;
+  opacity: 0.75;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.pp-text-prompt-add:hover {
+  opacity: 1;
+}
+.pp-text-prompt-add--stem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+/* ── answer field (shared by builder preview + completer) ─────────── */
+.pp-text-prompt-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  background: var(--pp-tp-surface);
+  border: 1px solid var(--pp-tp-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+.pp-text-prompt-input::placeholder {
+  color: color-mix(in srgb, currentColor 45%, transparent);
+}
+.pp-text-prompt-input:focus {
+  border-color: var(--pp-tp-border-strong);
+}
+/* Short answers: width is Fill (full column) or Compact (half). */
+.pp-text-prompt-input.-short.-fill {
+  width: 100%;
+}
+.pp-text-prompt-input.-short.-compact {
+  width: 50%;
+  max-width: 100%;
+}
+/* Long answers: a full-width resizable textarea (drag the corner vertically). */
+.pp-text-prompt-input.-long {
+  display: block;
+  width: 100%;
+  min-height: 4.5rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+/* ── completer ───────────────────────────────────────────────────── */
+.pp-text-prompt-completer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--pp-tp-border);
+  border-radius: var(--pp-tp-radius);
+  background: var(--pp-tp-surface);
+}
+
+/* Stem blocks render via the shared walker; stack them, no forced emphasis. */
+.pp-text-prompt-completer-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}

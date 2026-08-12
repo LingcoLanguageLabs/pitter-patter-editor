@@ -20,6 +20,7 @@ import { HEADER_TEMPLATES } from "./header";
 import { HERO_TEMPLATES } from "./hero";
 import { LOGOS_TEMPLATES } from "./logos";
 import { PRICING_TEMPLATES } from "./pricing";
+import { RESULTS_TEMPLATES } from "./results";
 import { TESTIMONIALS_TEMPLATES } from "./testimonials";
 
 export type { SectionTemplate } from "./builders";
@@ -41,6 +42,7 @@ export const SECTION_CATEGORIES: SectionCategory[] = [
   { name: "Pricing", templates: PRICING_TEMPLATES },
   { name: "FAQ", templates: FAQ_TEMPLATES },
   { name: "Call to action", templates: CTA_TEMPLATES },
+  { name: "Results", templates: RESULTS_TEMPLATES },
   { name: "Footer", templates: FOOTER_TEMPLATES },
 ];
 
@@ -58,6 +60,26 @@ export const BLANK_SECTION: JsonNode = {
     {
       type: "paragraph",
       attrs: { align: "center", size: "m", shuffleStart: 4, shuffleEnd: 9 },
+      content: [],
+    },
+  ],
+};
+
+/** The lone section a brand-new site starts with — top-aligned with a
+ *  full-width, left-aligned paragraph ready to type into. Differs from
+ *  {@link BLANK_SECTION} (which "Add a blank section" centres) on purpose. */
+export const BLANK_SITE_SECTION: JsonNode = {
+  type: "section",
+  attrs: {
+    padding: "large",
+    minHeight: "medium",
+    contentAlign: "top",
+    background: "solid",
+  },
+  content: [
+    {
+      type: "paragraph",
+      attrs: { align: "left", size: "m", shuffleStart: 1, shuffleEnd: 12 },
       content: [],
     },
   ],

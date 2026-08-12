@@ -1,0 +1,362 @@
+/**
+ * Categorization styles — builder (`.pp-cat*`) + completer
+ * (`.pp-cat-completer*`). Colors derive from `currentColor` (via color-mix) so
+ * the block adapts to its theme/section; correct/incorrect feedback uses fixed
+ * semantic greens/reds. Mirrors the MC/FB token approach.
+ */
+
+.pp-cat,
+.pp-cat-completer {
+  --pp-cat-border: color-mix(in srgb, currentColor 16%, transparent);
+  --pp-cat-border-strong: color-mix(in srgb, currentColor 32%, transparent);
+  --pp-cat-surface: color-mix(in srgb, currentColor 4%, transparent);
+  --pp-cat-accent: var(--color-primary, currentColor);
+  --pp-cat-correct: #16a34a;
+  --pp-cat-incorrect: #dc2626;
+  --pp-cat-radius: 10px;
+}
+
+/* ── builder ─────────────────────────────────────────────────────── */
+.pp-cat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+/* Prompt spans the full width; category buckets flow into responsive columns. */
+.pp-cat-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.625rem;
+  align-items: start;
+}
+
+.pp-cat-prompt-wrapper {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* The explanation is the trailing child of the grid — always a full-width row
+   below the buckets, never squeezed into a column. */
+.pp-cat-content > .pp-item-explanation {
+  grid-column: 1 / -1;
+}
+
+.pp-cat-prompt {
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pp-cat-category {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border: 1px solid var(--pp-cat-border);
+  border-radius: var(--pp-cat-radius);
+  background: var(--pp-cat-surface);
+}
+
+.pp-cat-category-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pp-cat-category-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.15rem 0.25rem;
+  border-radius: 6px;
+  outline: none;
+}
+.pp-cat-category-name:focus {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+.pp-cat-category-name::placeholder {
+  color: inherit;
+  opacity: 0.4;
+}
+
+.pp-cat-category-delete {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+  padding: 0.15rem;
+  border-radius: 6px;
+  flex: none;
+  display: inline-flex;
+  transition: opacity 0.12s ease;
+}
+.pp-cat-category:hover .pp-cat-category-delete,
+.pp-cat-category:focus-within .pp-cat-category-delete {
+  opacity: 0.5;
+}
+.pp-cat-category-delete:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--pp-cat-incorrect);
+}
+.pp-cat-category-delete:disabled {
+  opacity: 0;
+  cursor: not-allowed;
+}
+
+/* The items column doubles as the shuffle drop target — keep a min-height so an
+   emptied bucket still has an area to drop a card into. */
+.pp-cat-category-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  outline: none;
+}
+
+.pp-cat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--pp-cat-border);
+  border-radius: 8px;
+  background: var(--color-background, #fff);
+}
+
+.pp-cat-item-text {
+  flex: 1 1 auto;
+  outline: none;
+  min-height: 1.2em;
+}
+
+.pp-cat-item-delete {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+  padding: 0.1rem;
+  border-radius: 6px;
+  flex: none;
+  display: inline-flex;
+  transition: opacity 0.12s ease;
+}
+.pp-cat-item:hover .pp-cat-item-delete,
+.pp-cat-item:focus-within .pp-cat-item-delete {
+  opacity: 0.5;
+}
+.pp-cat-item-delete:hover {
+  opacity: 1;
+  color: var(--pp-cat-incorrect);
+}
+
+.pp-cat-add {
+  align-self: flex-start;
+  appearance: none;
+  border: 1px dashed var(--pp-cat-border-strong);
+  background: transparent;
+  color: inherit;
+  opacity: 0.75;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.pp-cat-add:hover {
+  opacity: 1;
+}
+.pp-cat-add--item {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+}
+.pp-cat-add--stem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+/* ── builder: matrix display ─────────────────────────────────────────
+   When the author picks "Matrix" (vs the default "Grid") in the block menu,
+   the builder mirrors the completer's presentation: the category buckets read
+   as the columns of one connected table — hairline gridlines via the classic
+   "1px gap reveals the container background" trick — with the question as a
+   full-width header cell and the explanation as a full-width footer cell.
+   Authoring is unchanged; only the layout differs. */
+/* Flex (not the grid above) so the columns match the category count exactly —
+   an auto-fit grid would leave phantom tracks that the table background reveals
+   as empty cells. Prompt + explanation wrap to their own full-width rows. */
+.pp-cat[data-display="matrix"] .pp-cat-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--pp-cat-border-strong);
+  border: 1px solid var(--pp-cat-border-strong);
+  border-radius: var(--pp-cat-radius);
+  overflow: hidden;
+}
+.pp-cat[data-display="matrix"] .pp-cat-prompt-wrapper,
+.pp-cat[data-display="matrix"] .pp-cat-category,
+.pp-cat[data-display="matrix"] .pp-cat-content > .pp-item-explanation {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-background, #fff);
+}
+.pp-cat[data-display="matrix"] .pp-cat-prompt-wrapper,
+.pp-cat[data-display="matrix"] .pp-cat-content > .pp-item-explanation {
+  flex: 1 1 100%;
+  padding: 0.625rem 0.75rem;
+}
+.pp-cat[data-display="matrix"] .pp-cat-category {
+  flex: 1 1 120px;
+  min-width: 120px;
+}
+.pp-cat[data-display="matrix"] .pp-cat-category {
+  gap: 0;
+  padding: 0;
+}
+.pp-cat[data-display="matrix"] .pp-cat-category-head {
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--pp-cat-border);
+  background: var(--pp-cat-surface);
+}
+.pp-cat[data-display="matrix"] .pp-cat-category-items {
+  padding: 0.5rem 0.55rem 0;
+}
+.pp-cat[data-display="matrix"] .pp-cat-add--item {
+  margin: 0.4rem 0.55rem 0.55rem;
+}
+
+/* ── completer (shared) ──────────────────────────────────────────── */
+.pp-cat-completer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--pp-cat-border);
+  border-radius: var(--pp-cat-radius);
+  background: var(--pp-cat-surface);
+}
+
+.pp-cat-completer-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ── completer: grid (dnd-kit) ───────────────────────────────────── */
+.pp-cat-pool,
+.pp-cat-bucket {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px dashed var(--pp-cat-border-strong);
+  border-radius: 8px;
+}
+.pp-cat-pool[data-over],
+.pp-cat-bucket[data-over] {
+  border-style: solid;
+  border-color: var(--pp-cat-accent);
+  background: color-mix(in srgb, var(--pp-cat-accent) 8%, transparent);
+}
+
+.pp-cat-buckets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.625rem;
+}
+
+.pp-cat-zone-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.pp-cat-zone-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-height: 2rem;
+  align-content: flex-start;
+}
+
+.pp-cat-card {
+  appearance: none;
+  border: 1px solid var(--pp-cat-border-strong);
+  background: var(--color-background, #fff);
+  color: inherit;
+  font: inherit;
+  border-radius: 6px;
+  padding: 0.2em 0.6em;
+  cursor: grab;
+  touch-action: none;
+  z-index: 1;
+}
+.pp-cat-card[data-dragging] {
+  cursor: grabbing;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  z-index: 5;
+}
+.pp-cat-card[data-state="correct"] {
+  border-color: var(--pp-cat-correct);
+  background: color-mix(in srgb, var(--pp-cat-correct) 14%, transparent);
+}
+.pp-cat-card[data-state="incorrect"] {
+  border-color: var(--pp-cat-incorrect);
+  background: color-mix(in srgb, var(--pp-cat-incorrect) 14%, transparent);
+}
+
+.pp-cat-pool-empty {
+  opacity: 0.5;
+  font-size: 0.875rem;
+}
+
+/* ── completer: matrix (radios) ──────────────────────────────────── */
+.pp-cat-matrix-scroll {
+  overflow-x: auto;
+}
+
+.pp-cat-matrix {
+  border-collapse: collapse;
+  width: 100%;
+}
+.pp-cat-matrix th,
+.pp-cat-matrix td {
+  border: 1px solid var(--pp-cat-border);
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+}
+.pp-cat-matrix thead th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.pp-cat-matrix-item {
+  text-align: left;
+  font-weight: 500;
+}
+.pp-cat-matrix td input {
+  cursor: pointer;
+  accent-color: var(--pp-cat-accent);
+}
+.pp-cat-matrix tbody tr[data-state="correct"] .pp-cat-matrix-item {
+  color: var(--pp-cat-correct);
+}
+.pp-cat-matrix tbody tr[data-state="incorrect"] .pp-cat-matrix-item {
+  color: var(--pp-cat-incorrect);
+}

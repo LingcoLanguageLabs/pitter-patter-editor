@@ -1,0 +1,218 @@
+/*
+ * Labeled image styles — builder (`.pp-labeled-image--edit`, numbered markers,
+ * settings rows) + completer (image + markers + info panel + chip row). Uses
+ * PAGE-THEME tokens only (`--color-primary` / `currentColor`), never `--pb-*`
+ * chrome tokens, so it renders correctly on the published site too.
+ */
+
+/* The accent var must be in scope for BOTH render surfaces: the builder node
+   view (`.pp-labeled`) AND the runtime completer (`.pp-labeled-completer`),
+   which is a separate root that never carries `.pp-labeled`. */
+.pp-labeled,
+.pp-labeled-completer {
+  --pp-li-accent: var(--color-primary, currentColor);
+}
+
+/* ── Shared image surface ─────────────────────────────────────────────── */
+.pp-labeled-image {
+  position: relative;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pp-labeled-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.pp-labeled-empty {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  font-size: 14px;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  border: 1px dashed color-mix(in srgb, currentColor 28%, transparent);
+  border-radius: 10px;
+}
+
+/* Marker dot — centered on its (x,y). */
+.pp-labeled-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--color-background, #fff);
+  background: color-mix(in srgb, currentColor 45%, transparent);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--color-shadow, #000) 35%, transparent);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.pp-labeled-marker:hover {
+  background: color-mix(in srgb, var(--pp-li-accent) 70%, currentColor);
+}
+.pp-labeled-marker[data-selected] {
+  background: var(--pp-li-accent);
+  transform: translate(-50%, -50%) scale(1.25);
+}
+
+/* ── Completer layout ─────────────────────────────────────────────────── */
+.pp-labeled-completer-prompt {
+  margin-bottom: 24px;
+}
+.pp-labeled-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px;
+  align-items: start;
+}
+.pp-labeled-layout > .pp-labeled-image {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+.pp-labeled-panel {
+  flex: 1 1 300px;
+  min-width: 0;
+}
+
+.pp-labeled-eyebrow {
+  margin: 0 0 12px;
+  font-family: var(--font-family-base, inherit);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pp-li-accent);
+}
+.pp-labeled-title {
+  margin: 0 0 12px;
+  font-family: var(--font-family-heading, inherit);
+  font-weight: var(--font-weight-heading, 700);
+  font-size: 28px;
+  line-height: 1.15;
+}
+.pp-labeled-body {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+}
+.pp-labeled-body--muted {
+  color: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+/* Chip row — the alternate selector (mirrors the reference's label buttons). */
+.pp-labeled-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+.pp-labeled-chip {
+  padding: 8px 14px;
+  font-family: var(--font-family-base, inherit);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: currentColor;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.pp-labeled-chip:hover {
+  border-color: color-mix(in srgb, var(--pp-li-accent) 55%, transparent);
+}
+.pp-labeled-chip[data-selected] {
+  background: var(--pp-li-accent);
+  border-color: var(--pp-li-accent);
+  color: var(--color-primary-foreground, #fff);
+}
+
+/* ── Builder surface ──────────────────────────────────────────────────── */
+.pp-labeled-content {
+  margin-bottom: 16px;
+}
+.pp-labeled-image--edit {
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+.pp-labeled-draw {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: crosshair;
+}
+.pp-labeled-marker--edit {
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  background: var(--pp-li-accent);
+  color: var(--color-primary-foreground, #fff);
+  cursor: grab;
+}
+.pp-labeled-marker--edit:active {
+  cursor: grabbing;
+}
+.pp-labeled-marker-index {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.pp-labeled-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+}
+
+/* ── Settings marker list ─────────────────────────────────────────────── */
+.pb-labeled-markers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pb-labeled-marker-row {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+}
+.pb-labeled-marker-num {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 50%;
+  background: var(--color-primary, #888);
+  color: var(--color-primary-foreground, #fff);
+}
+.pb-labeled-marker-fields {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.pb-labeled-marker-body {
+  resize: vertical;
+  font: inherit;
+}
+.pb-labeled-marker-del {
+  flex: 0 0 auto;
+  margin-top: 4px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  cursor: pointer;
+}
+.pb-labeled-marker-del:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: currentColor;
+}

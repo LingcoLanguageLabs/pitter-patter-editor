@@ -152,9 +152,12 @@ export function setSelectedBlocks(
 /** Clicks on these keep the selection alive — they're part of the block
  *  UI, not a "click off". The toolbar popover and shuffle's handles all
  *  live outside the editor DOM, so a plain outside-click check would
- *  otherwise treat interacting with them as a dismissal. */
+ *  otherwise treat interacting with them as a dismissal. `.pb-image-pick-pop`
+ *  is `ImagePicker`'s Unsplash/Upload popover (Image/Video/Audio/Card forms)
+ *  — a Radix popover portaled outside `.pb-block-settings`, so it needs its
+ *  own entry here too. */
 const KEEP_ALIVE_SELECTOR =
-  ".pb-block-settings, .pb-type-menu, .pb-context-menu, .pb-text-toolbar, .pb-link-popover, .pb-scrub-menu, .pb-space, .shuffle-drag-handle, .shuffle-left-resize-handle, .shuffle-right-resize-handle";
+  ".pb-block-settings, .pb-type-menu, .pb-context-menu, .pb-text-toolbar, .pb-link-popover, .pb-scrub-menu, .pb-space, .pb-image-pick-pop, .shuffle-drag-handle, .shuffle-left-resize-handle, .shuffle-right-resize-handle";
 
 /**
  * True when a pointer event lands inside the current (non-collapsed)

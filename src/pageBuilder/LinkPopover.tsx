@@ -39,7 +39,13 @@ import { createPortal } from "react-dom";
 import { TooltipButton, TooltipProvider } from "../editor/menu";
 
 import { Field, Segmented } from "./blockSettings/forms";
-import type { LinkVariant } from "./schema";
+import type { ButtonAction, LinkVariant } from "./schema";
+import {
+  ensureSectionHtmlId,
+  groupByPage,
+  listSections,
+} from "./sectionUtils";
+import { usePageBuilderStore } from "./store";
 
 export interface LinkRange {
   from: number;
@@ -50,7 +56,23 @@ interface LinkAttrs {
   href: string;
   newTab: boolean;
   variant: LinkVariant;
+  /** Same action vocabulary as buttons — a link can navigate too. */
+  action: ButtonAction;
+  pageId: string;
+  sectionId: string;
+  /** Edge behavior for a prev/next link: "dim" (default) or "hide". */
+  whenDisabled: "dim" | "hide";
 }
+
+const EMPTY_LINK: LinkAttrs = {
+  href: "",
+  newTab: false,
+  variant: "",
+  action: "url",
+  pageId: "",
+  sectionId: "",
+  whenDisabled: "dim",
+};
 
 /** First link mark's attrs inside the range, or null. Mark edits don't
  *  change node sizes, so the range captured at open stays valid for
@@ -79,6 +101,12 @@ export function LinkPopover({
 }) {
   const editorState = useEditorState();
   const attrs = readLinkAttrs(editorState, range);
+  const action = attrs?.action ?? "url";
+  const pages = usePageBuilderStore((s) => s.pages);
+  const sections = listSections(editorState);
+  const currentSection = sections.find(
+    (s) => s.htmlId && s.htmlId === attrs?.sectionId,
+  );
   // Local draft so the input keeps focus/caret while every keystroke
   // also writes through to the mark (pagy live-updates the same way).
   const [draft, setDraft] = useState(attrs?.href ?? "");
@@ -87,11 +115,7 @@ export function LinkPopover({
     (view, patch: Partial<LinkAttrs>) => {
       const linkType = view.state.schema.marks["link"];
       if (!linkType) return;
-      const current = readLinkAttrs(view.state, range) ?? {
-        href: "",
-        newTab: false,
-        variant: "" as LinkVariant,
-      };
+      const current = readLinkAttrs(view.state, range) ?? EMPTY_LINK;
       view.dispatch(
         view.state.tr.addMark(
           range.from,
@@ -102,13 +126,34 @@ export function LinkPopover({
     },
   );
 
+  // Pick a section target: assign the section a stable anchor id if it has none
+  // (so any section is linkable), then point the link at it.
+  const setSection = useEditorEventCallback((view, pos: number) => {
+    const id = ensureSectionHtmlId(view, pos);
+    if (!id) return;
+    const linkType = view.state.schema.marks["link"];
+    if (!linkType) return;
+    const current = readLinkAttrs(view.state, range) ?? EMPTY_LINK;
+    view.dispatch(
+      view.state.tr.addMark(
+        range.from,
+        range.to,
+        linkType.create({ ...current, action: "section", sectionId: id }),
+      ),
+    );
+  });
+
   /** Close, unwrapping an empty link (pagy's `closeLinkPopover`), and
    *  hand focus + the original text selection back to the editor. */
   const close = useEditorEventCallback((view, removeLink: boolean) => {
     const linkType = view.state.schema.marks["link"];
     if (linkType) {
       const current = readLinkAttrs(view.state, range);
-      if (removeLink || (current && !current.href)) {
+      // Unwrap an abandoned link: explicit remove, or a URL link left blank.
+      // Nav actions (page/section/prev/next) legitimately have an empty href, so
+      // they're never auto-unwrapped.
+      const blankUrl = !!current && current.action === "url" && !current.href;
+      if (removeLink || blankUrl) {
         view.dispatch(
           view.state.tr.removeMark(range.from, range.to, linkType),
         );
@@ -165,26 +210,120 @@ export function LinkPopover({
             </TooltipProvider>
           </header>
 
-          <Field label="URL">
-            <input
-              className="pb-text-input"
-              value={draft}
-              placeholder="Enter your link"
-              autoComplete="off"
-              // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus
+          <Field label="Action">
+            <select
+              className="pb-select"
+              aria-label="Link action"
+              value={action}
               onChange={(event) => {
-                setDraft(event.target.value);
-                patchAttrs({ href: event.target.value });
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  close(false);
+                const v = event.target.value as ButtonAction;
+                if (v === "page") {
+                  patchAttrs({
+                    action: v,
+                    pageId: attrs?.pageId || pages[0]?.id || "",
+                  });
+                } else {
+                  patchAttrs({ action: v });
                 }
               }}
-            />
+            >
+              <option value="url">Open URL</option>
+              <optgroup label="Go to">
+                <option value="prevPage">Previous page</option>
+                <option value="nextPage">Next page</option>
+                <option value="page">Page…</option>
+                <option value="section">Section…</option>
+              </optgroup>
+            </select>
           </Field>
+
+          {action === "url" && (
+            <Field label="URL">
+              <input
+                className="pb-text-input"
+                value={draft}
+                placeholder="Enter your link"
+                autoComplete="off"
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  patchAttrs({ href: event.target.value });
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    close(false);
+                  }
+                }}
+              />
+            </Field>
+          )}
+
+          {action === "page" && (
+            <Field label="Page">
+              <select
+                className="pb-select"
+                aria-label="Linked page"
+                value={attrs?.pageId ?? ""}
+                onChange={(event) => patchAttrs({ pageId: event.target.value })}
+              >
+                {pages.length === 0 && <option value="">No pages</option>}
+                {pages.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          {action === "section" && (
+            <Field label="Section">
+              <select
+                className="pb-select"
+                aria-label="Linked section"
+                value={currentSection ? String(currentSection.pos) : ""}
+                onChange={(event) => {
+                  const pos = Number(event.target.value);
+                  if (!Number.isNaN(pos)) setSection(pos);
+                }}
+              >
+                {sections.length === 0 ? (
+                  <option value="">No sections</option>
+                ) : (
+                  <>
+                    {!currentSection && (
+                      <option value="">Choose a section…</option>
+                    )}
+                    {groupByPage(sections).map((g, gi) => (
+                      <optgroup key={gi} label={g.pageTitle}>
+                        {g.rows.map((s) => (
+                          <option key={s.pos} value={s.pos}>
+                            {s.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </>
+                )}
+              </select>
+            </Field>
+          )}
+
+          {(action === "prevPage" || action === "nextPage") && (
+            <Field label="When unavailable">
+              <Segmented<"dim" | "hide">
+                value={attrs?.whenDisabled ?? "dim"}
+                ariaLabel="When unavailable"
+                options={[
+                  { value: "dim", label: "Dim" },
+                  { value: "hide", label: "Hide" },
+                ]}
+                onChange={(value) => patchAttrs({ whenDisabled: value })}
+              />
+            </Field>
+          )}
 
           <Field label="Style">
             <Segmented<LinkVariant>
@@ -198,17 +337,19 @@ export function LinkPopover({
             />
           </Field>
 
-          <Field label="Open in a new tab">
-            <Segmented<"no" | "yes">
-              value={attrs?.newTab ? "yes" : "no"}
-              ariaLabel="Open in a new tab"
-              options={[
-                { value: "no", label: "No" },
-                { value: "yes", label: "Yes" },
-              ]}
-              onChange={(value) => patchAttrs({ newTab: value === "yes" })}
-            />
-          </Field>
+          {action === "url" && (
+            <Field label="Open in a new tab">
+              <Segmented<"no" | "yes">
+                value={attrs?.newTab ? "yes" : "no"}
+                ariaLabel="Open in a new tab"
+                options={[
+                  { value: "no", label: "No" },
+                  { value: "yes", label: "Yes" },
+                ]}
+                onChange={(value) => patchAttrs({ newTab: value === "yes" })}
+              />
+            </Field>
+          )}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>,
