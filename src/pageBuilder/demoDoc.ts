@@ -207,6 +207,18 @@ export function buildLayoutTestDoc(schema: Schema): PmNode {
   return n["doc"]!.create(null, [
     n["page"]!.create({ id: "layout-1", title: "Layout" }, [
       n["section"]!.create(FULL, [
+        h(2, "Two-column row"),
+        n["row"]!.create(null, [
+          n["container"]!.create({ shuffleStart: 0, shuffleEnd: 6 }, [
+            h(3, "Left"),
+            p("Left column — should occupy the left half of the grid, beside the right column (not stacked)."),
+          ]),
+          n["container"]!.create({ shuffleStart: 6, shuffleEnd: 12 }, [
+            h(3, "Right"),
+            p("Right column — sits to the right of the left column on the same row."),
+          ]),
+        ]),
+        h(2, "Card"),
         n["card"]!.create({ padding: "l", radius: "large", theme: "primary" }, [
           h(3, "Card title"),
           p("Card body text inside a themed card with padding and a large radius."),
