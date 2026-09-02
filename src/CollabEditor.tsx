@@ -24,12 +24,12 @@ import {
   receiveCommitTransaction,
   type CollabClientConfig,
 } from "@pitter-patter/collab-client";
-import {
-  comment as commentMarkSpec,
-  comments,
-  createCommentThreadMark,
-  removeCommentThreadMarks,
-} from "@pitter-patter/comments-client";
+// import {
+//   comment as commentMarkSpec,
+//   comments,
+//   createCommentThreadMark,
+//   removeCommentThreadMarks,
+// } from "@pitter-patter/comments-client";
 import {
   LongPollListener as PresenceListener,
   PresenceClient,
@@ -38,11 +38,6 @@ import {
   type PresenceClientConfig,
 } from "@pitter-patter/presence-client";
 import { randomRef } from "@pitter-patter/refs";
-import {
-  VersionHistoryClient,
-  type Snapshot,
-  type VersionHistoryClientConfig,
-} from "@pitter-patter/version-history-client";
 import "@pitter-patter/presence-client/styles.css";
 import { baseKeymap } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
@@ -67,7 +62,7 @@ const DEFAULT_BACKEND = "http://localhost:3001";
 // excludes:"" lets multiple comments coexist on the same range).
 const collabSchema = new Schema({
   nodes: basicSchema.spec.nodes,
-  marks: basicSchema.spec.marks.addToEnd("comment", commentMarkSpec),
+  marks: basicSchema.spec.marks//.addToEnd("comment", commentMarkSpec),
 });
 
 // Random userId per browser tab — good enough for a demo. In a real
@@ -106,7 +101,7 @@ export function CollabEditor({
       plugins: [
         collab({ version: 0 }),
         presence(),
-        comments({ commentMarkType: collabSchema.marks["comment"]! }),
+        // comments({ commentMarkType: collabSchema.marks["comment"]! }),
         keymap(baseKeymap),
         reactKeys(),
       ],
@@ -137,7 +132,7 @@ export function CollabEditor({
           body: JSON.stringify(commit.toJSON()),
         });
       },
-      getCommits: collabListener.getCommits.bind(collabListener),
+      listener: collabListener,
       receiveCommits: (commits) => {
         setState((prev) =>
           commits.reduce(
@@ -160,7 +155,7 @@ export function CollabEditor({
           body: JSON.stringify(indicator),
         });
       },
-      getIndicators: presenceListener.getIndicators.bind(presenceListener),
+      listener: presenceListener,
       receiveIndicators: (indicators) => {
         setState((prev) => prev.apply(receivePresenceTransaction(prev, indicators)));
       },
@@ -168,21 +163,21 @@ export function CollabEditor({
     [backend, docId, presenceListener],
   );
 
-  const versionHistoryConfig = useMemo<VersionHistoryClientConfig>(
-    () => ({
-      getSnapshots: async (afterVersion) => {
-        const url = new URL(`${backend}/api/docs/${docId}/snapshots`);
-        if (afterVersion !== undefined) {
-          url.searchParams.set("version", afterVersion.toString());
-        }
-        const response = await fetch(url);
-        return (await response.json()) as Snapshot[];
-      },
-      receiveSnapshots: () => {},
-      pollDuration: 5_000,
-    }),
-    [backend, docId],
-  );
+  // const versionHistoryConfig = useMemo<VersionHistoryClientConfig>(
+  //   () => ({
+  //     getSnapshots: async (afterVersion) => {
+  //       const url = new URL(`${backend}/api/docs/${docId}/snapshots`);
+  //       if (afterVersion !== undefined) {
+  //         url.searchParams.set("version", afterVersion.toString());
+  //       }
+  //       const response = await fetch(url);
+  //       return (await response.json()) as Snapshot[];
+  //     },
+  //     receiveSnapshots: () => {},
+  //     pollDuration: 5_000,
+  //   }),
+  //   [backend, docId],
+  // );
 
   const [collabClient] = useState(() => new CollabClient(collabConfig));
   const [presenceClient] = useState(() => new PresenceClient(presenceConfig));
@@ -190,24 +185,24 @@ export function CollabEditor({
   // Snapshots — using the client's poll loop AND a setState reducer
   // so the sidebar updates without depending on the client's
   // receiveSnapshots callback (which is consumer-defined).
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
-  const [versionHistoryClient] = useState(
-    () =>
-      new VersionHistoryClient({
-        ...versionHistoryConfig,
-        receiveSnapshots: (next) => {
-          setSnapshots((prev) => {
-            const ids = new Set(prev.map((s) => s.snapshotId));
-            const merged = [...prev];
-            for (const s of next) {
-              if (!ids.has(s.snapshotId)) merged.push(s);
-            }
-            merged.sort((a, b) => a.version - b.version);
-            return merged;
-          });
-        },
-      }),
-  );
+  const [snapshots, setSnapshots] = useState<never[]>([]);
+  // const [versionHistoryClient] = useState(
+  //   () =>
+  //     new VersionHistoryClient({
+  //       ...versionHistoryConfig,
+  //       receiveSnapshots: (next) => {
+  //         setSnapshots((prev) => {
+  //           const ids = new Set(prev.map((s) => s.snapshotId));
+  //           const merged = [...prev];
+  //           for (const s of next) {
+  //             if (!ids.has(s.snapshotId)) merged.push(s);
+  //           }
+  //           merged.sort((a, b) => a.version - b.version);
+  //           return merged;
+  //         });
+  //       },
+  //     }),
+  // );
 
   // ─── Effects ────────────────────────────────────────────
 
@@ -235,11 +230,11 @@ export function CollabEditor({
     return () => ac.abort();
   }, [presenceClient]);
 
-  useEffect(() => {
-    const ac = new AbortController();
-    versionHistoryClient.poll(ac.signal).catch(console.error);
-    return () => ac.abort();
-  }, [versionHistoryClient]);
+  // useEffect(() => {
+  //   const ac = new AbortController();
+  //   versionHistoryClient.poll(ac.signal).catch(console.error);
+  //   return () => ac.abort();
+  // }, [versionHistoryClient]);
 
   // ─── Comments ──────────────────────────────────────────
 
@@ -273,9 +268,9 @@ export function CollabEditor({
       });
       if (!response.ok) return;
       // Apply the mark to the selected range.
-      const markType = collabSchema.marks["comment"]!;
-      const cmd = createCommentThreadMark(markType, id);
-      cmd(state, dispatchTransaction);
+      // const markType = collabSchema.marks["comment"]!;
+      // const cmd = createCommentThreadMark(markType, id);
+      // cmd(state, dispatchTransaction);
       await refreshThreads();
     },
     [backend, docId, state, dispatchTransaction, refreshThreads],
@@ -311,9 +306,9 @@ export function CollabEditor({
         method: "DELETE",
       });
       // Also strip the mark from the doc.
-      const markType = collabSchema.marks["comment"]!;
-      const cmd = removeCommentThreadMarks(markType, threadId);
-      cmd(state, dispatchTransaction);
+      // const markType = collabSchema.marks["comment"]!;
+      // const cmd = removeCommentThreadMarks(markType, threadId);
+      // cmd(state, dispatchTransaction);
       await refreshThreads();
     },
     [backend, docId, state, dispatchTransaction, refreshThreads],
@@ -391,7 +386,7 @@ export function CollabEditor({
           onUnresolve={(id) => resolveThread(id, false)}
           onDelete={deleteThread}
         />
-        <VersionHistorySidebar
+        {/*<VersionHistorySidebar
           snapshots={snapshots}
           onRestore={(snap) => {
             const restored = Node.fromJSON(collabSchema, snap.snapshotJSON);
@@ -402,7 +397,7 @@ export function CollabEditor({
             tr.replaceWith(0, state.doc.content.size, restored.content);
             dispatchTransaction(tr);
           }}
-        />
+        />*/}
       </aside>
     </div>
   );
@@ -599,13 +594,6 @@ function ThreadCard({
   );
 }
 
-// ─────────────────────────────────────────────────── Version history sidebar
-
-interface VersionHistorySidebarProps {
-  snapshots: Snapshot[];
-  onRestore: (snap: Snapshot) => void;
-}
-
 // ─────────────────────────────────────────────────── Presence avatars
 
 const PRESENCE_PALETTE = [
@@ -715,40 +703,40 @@ function avatarInitials(userId: string): string {
   return (tail.charAt(0) || "?").toUpperCase();
 }
 
-function VersionHistorySidebar({ snapshots, onRestore }: VersionHistorySidebarProps) {
-  return (
-    <section className="collab-sidebar">
-      <h3 className="collab-sidebar__title">Version history</h3>
-      {snapshots.length === 0 && (
-        <p className="collab-sidebar__empty">Snapshots appear as you type.</p>
-      )}
-      <ul className="collab-sidebar__list">
-        {snapshots
-          .slice()
-          .reverse()
-          .map((snap) => (
-            <li key={snap.snapshotId} className="snapshot-card">
-              <header className="snapshot-card__header">
-                <span className="snapshot-card__version">v{snap.version}</span>
-                <span className="snapshot-card__time">
-                  {new Date(snap.createdAt).toLocaleTimeString()}
-                </span>
-                <span className="snapshot-card__spacer" />
-                <button
-                  type="button"
-                  className="snapshot-card__btn"
-                  onClick={() => onRestore(snap)}
-                  title="Restore this version"
-                >
-                  Restore
-                </button>
-              </header>
-            </li>
-          ))}
-      </ul>
-    </section>
-  );
-}
+// function VersionHistorySidebar({ snapshots, onRestore }: VersionHistorySidebarProps) {
+//   return (
+//     <section className="collab-sidebar">
+//       <h3 className="collab-sidebar__title">Version history</h3>
+//       {snapshots.length === 0 && (
+//         <p className="collab-sidebar__empty">Snapshots appear as you type.</p>
+//       )}
+//       <ul className="collab-sidebar__list">
+//         {snapshots
+//           .slice()
+//           .reverse()
+//           .map((snap) => (
+//             <li key={snap.snapshotId} className="snapshot-card">
+//               <header className="snapshot-card__header">
+//                 <span className="snapshot-card__version">v{snap.version}</span>
+//                 <span className="snapshot-card__time">
+//                   {new Date(snap.createdAt).toLocaleTimeString()}
+//                 </span>
+//                 <span className="snapshot-card__spacer" />
+//                 <button
+//                   type="button"
+//                   className="snapshot-card__btn"
+//                   onClick={() => onRestore(snap)}
+//                   title="Restore this version"
+//                 >
+//                   Restore
+//                 </button>
+//               </header>
+//             </li>
+//           ))}
+//       </ul>
+//     </section>
+//   );
+// }
 
 // Suppress an unused-import warning while keeping useEditorEffect
 // available for future enhancements (e.g. scrolling threads into view).

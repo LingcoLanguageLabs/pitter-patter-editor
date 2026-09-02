@@ -16,6 +16,7 @@
 import {
   useEditorState,
   type NodeViewComponentProps,
+  useMergedDOMRefs,
 } from "@handlewithcare/react-prosemirror";
 
 import { getActivePageId } from "../activePagePlugin";
@@ -26,12 +27,13 @@ export function PageNodeView({
   children,
   ...props
 }: NodeViewComponentProps) {
+  const mergedRef = useMergedDOMRefs(ref, nodeProps.contentDOMRef)
   const id = (nodeProps.node.attrs["id"] as string) || "";
   const active = id !== "" && id === getActivePageId(useEditorState());
   const injectedClass = (props as { className?: string }).className ?? "";
   return (
     <div
-      ref={ref}
+      ref={mergedRef}
       {...props}
       className={`${injectedClass} pb-page`.trim()}
       data-node-type="page"

@@ -16,7 +16,7 @@
  * to remain editable.
  */
 
-import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
+import { type NodeViewComponentProps, useMergedDOMRefs } from "@handlewithcare/react-prosemirror";
 
 import { sectionPaddingClass, sectionPaddingPx } from "../spacing";
 
@@ -26,6 +26,7 @@ export function SectionNodeView({
   children,
   ...props
 }: NodeViewComponentProps) {
+  const mergedRef = useMergedDOMRefs(ref, nodeProps.contentDOMRef)
   const attrs = nodeProps.node.attrs;
   // Padding paints through the `py-{unit}` class (the NodeView, not toDOM, is
   // what renders in the editor), so the drag bands' px flows through here.
@@ -42,7 +43,7 @@ export function SectionNodeView({
   // posAtCoords never sees a foreign child in the contentDOM.
   return (
     <section
-      ref={ref}
+      ref={mergedRef}
       {...props}
       className={`${injectedClass} pp-section ${paddingClass}${theme ? ` theme -${theme}` : ""}`.trim()}
       data-node-type="section"

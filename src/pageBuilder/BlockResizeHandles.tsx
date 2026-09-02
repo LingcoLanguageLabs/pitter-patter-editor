@@ -45,7 +45,6 @@ export function BlockResizeHandles() {
   // `multiColumn` gate. Hide mid-drag (a block is being repositioned). And only
   // a resizable node gets handles (sections/atoms with no grid span don't).
   if (pos == null || node == null) return null;
-  if (shuffleState?.multiColumn === false) return null;
   if (shuffleState?.activeNodePos != null) return null;
   if (!supportsResize(node)) return null;
 

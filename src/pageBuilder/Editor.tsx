@@ -143,18 +143,6 @@ export function PageBuilderEditor({
         shuffle({
           hoverDecorations: (from, to) =>
             Decoration.node(from, to, { class: "pb-block-hovered" }),
-          // The image's internal resize handles live INSIDE the (draggable)
-          // figure; without this, a pointerdown on a handle would grab the
-          // block instead of resizing. The selector tells shuffle to ignore
-          // pointerdowns there so the handle's own drag runs. See ImageNodeView.
-          // `.column-resize-handle` is prosemirror-tables' column-resize grip —
-          // same reason (a table is a draggable block).
-          // `.pb-image--pinned` is absolutely positioned (out of the grid); its
-          // own move handle repositions it, so shuffle must not grid-drag it.
-          // `.pp-labeled-draw` is the Labeled-image builder's marker surface — a
-          // pointerdown there drops/drags a marker (see MarkerImage).
-          ignoreSelector:
-            ".pb-image-resize-handle, .column-resize-handle, .pb-image--pinned, .pp-labeled-draw",
           // Drag a block by grabbing anywhere on it, not just the type-label
           // handle. A plain click (no movement) still places the text cursor —
           // the plugin only commits to the drag once the pointer moves.

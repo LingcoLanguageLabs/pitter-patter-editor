@@ -8,7 +8,7 @@
  * ones the schema `toDOM` + runtime walker emit so editor and site match.
  */
 
-import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
+import { useMergedDOMRefs, type NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
 
 import { footerClass } from "../spacing";
 
@@ -18,11 +18,12 @@ export function FooterNodeView({
   children,
   ...props
 }: NodeViewComponentProps) {
+  const mergedRef = useMergedDOMRefs(ref, nodeProps.contentDOMRef)
   const attrs = nodeProps.node.attrs;
   const injectedClass = (props as { className?: string }).className ?? "";
   return (
     <footer
-      ref={ref}
+      ref={mergedRef}
       {...props}
       className={`${injectedClass} ${footerClass(attrs)}`.trim()}
       data-node-type="footer"

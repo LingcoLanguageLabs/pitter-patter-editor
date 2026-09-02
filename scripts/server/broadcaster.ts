@@ -97,29 +97,40 @@ export const presenceBroadcaster = {
       set.delete(listener);
     }
   },
-  async listenForPresence(
+  async createPresenceListener(
     docId: string,
     excludeClientId: string,
     refs: Record<string, string> = {},
-  ): Promise<void> {
-    return new Promise<void>((resolve) => {
-      const listener: PresenceListener = {
-        docId,
-        excludeClientId,
-        refs,
-        resolve,
-      };
-      let set = presenceListeners.get(docId);
-      if (!set) {
-        set = new Set();
-        presenceListeners.set(docId, set);
-      }
-      set.add(listener);
-      setTimeout(() => {
-        set?.delete(listener);
-        resolve();
-      }, PRESENCE_LISTEN_TIMEOUT_MS);
-    });
+  ) {
+    const {promise, resolve} = Promise.withResolvers()
+    const listener: PresenceListener = {
+      docId,
+      excludeClientId,
+      refs,
+      resolve,
+    };
+    let set = presenceListeners.get(docId);
+    if (!set) {
+      set = new Set();
+      presenceListeners.set(docId, set);
+    }
+    set.add(listener);
+    const listen = async () => {
+      return await Promise.race([
+        promise,
+        new Promise<boolean>((resolve) => {
+          setTimeout(() => resolve(false), PRESENCE_LISTEN_TIMEOUT_MS)
+        })
+      ]).finally(async () => {
+       set.delete(listener)
+      })
+    }
+
+    const abort = async () => {
+      set.delete(listener)
+    }
+
+    return {listen, abort}
   },
 };
 

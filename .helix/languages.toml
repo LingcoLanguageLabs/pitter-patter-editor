@@ -1,0 +1,7 @@
+[language-server.typescript-language-server.config]
+hostInfo = "helix"
+vtsls.autoUseWorkspaceTsdk = true
+typescript.updateImportsOnFileMove.enabled = "always"
+typescript.preferences.importModuleSpecifier = "non-relative"
+typescript.preferences.importModuleSpecifierEnding = "auto"
+typescript.tsdk = "./.yarn/sdks/typescript/lib"

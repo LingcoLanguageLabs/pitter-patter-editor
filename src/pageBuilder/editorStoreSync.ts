@@ -137,9 +137,6 @@ export function editorStoreSyncPlugin() {
       /** store → editor: mobile preview ⇒ shuffle single-column stack mode. */
       const applyMobile = (mobile: boolean) => {
         const multiColumn = !mobile;
-        if (shufflePluginKey.getState(view.state)?.multiColumn === multiColumn) {
-          return;
-        }
         view.dispatch(
           view.state.tr.setMeta(shufflePluginKey, {
             type: "setMultiColumn",

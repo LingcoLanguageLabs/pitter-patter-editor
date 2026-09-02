@@ -14,7 +14,7 @@
  * which would confuse shuffle's `posAtCoords` drop-target math.
  */
 
-import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
+import { useMergedDOMRefs, type NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
 import type { CSSProperties } from "react";
 
 export function CardNodeView({
@@ -23,6 +23,7 @@ export function CardNodeView({
   children,
   ...props
 }: NodeViewComponentProps) {
+  const mergedRef = useMergedDOMRefs(ref, nodeProps.contentDOMRef)
   const image = (nodeProps.node.attrs["image"] as string) || "";
   // `theme -X` (default included) re-establishes the card's own palette via
   // themeToCss's `.theme.-X` scope, so it's self-contained regardless of the
@@ -37,7 +38,7 @@ export function CardNodeView({
     : injectedStyle;
   return (
     <div
-      ref={ref}
+      ref={mergedRef}
       {...props}
       className={`${injectedClass} pp-card theme -${theme || "default"}`.trim()}
       data-node-type="card"

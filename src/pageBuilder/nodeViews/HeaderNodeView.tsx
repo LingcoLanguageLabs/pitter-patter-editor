@@ -10,7 +10,7 @@
  * schema `toDOM` + the runtime walker, so editor and published render match).
  */
 
-import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
+import { useMergedDOMRefs, type NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
 
 import { headerClass } from "../spacing";
 
@@ -20,11 +20,12 @@ export function HeaderNodeView({
   children,
   ...props
 }: NodeViewComponentProps) {
+  const mergedRef = useMergedDOMRefs(ref, nodeProps.contentDOMRef)
   const attrs = nodeProps.node.attrs;
   const injectedClass = (props as { className?: string }).className ?? "";
   return (
     <header
-      ref={ref}
+      ref={mergedRef}
       {...props}
       className={`${injectedClass} ${headerClass(attrs)}`.trim()}
       data-node-type="header"

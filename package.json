@@ -19,19 +19,15 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@emotion/is-prop-valid": "^1.4.0",
     "@floating-ui/react": "^0.27.0",
-    "@handlewithcare/react-prosemirror": "^3.0.5",
+    "@handlewithcare/react-prosemirror": "^3.2.7",
     "@hono/node-server": "^2.0.1",
     "@phosphor-icons/react": "^2.1.7",
-    "@pitter-patter/collab-client": "portal:../pitter-patter/packages/collab-client",
-    "@pitter-patter/collab-server": "portal:../pitter-patter/packages/collab-server",
-    "@pitter-patter/comments-client": "portal:../pitter-patter/packages/comments-client",
-    "@pitter-patter/comments-server": "portal:../pitter-patter/packages/comments-server",
-    "@pitter-patter/presence-client": "portal:../pitter-patter/packages/presence-client",
-    "@pitter-patter/presence-server": "portal:../pitter-patter/packages/presence-server",
+    "@pitter-patter/collab-client": "^0.1.0",
+    "@pitter-patter/collab-server": "^0.1.0",
+    "@pitter-patter/presence-client": "^0.2.0",
+    "@pitter-patter/presence-server": "^0.1.0",
     "@pitter-patter/refs": "^0.1.0",
-    "@pitter-patter/shuffle": "portal:../pitter-patter/packages/shuffle",
-    "@pitter-patter/version-history-client": "portal:../pitter-patter/packages/version-history-client",
-    "@pitter-patter/version-history-server": "portal:../pitter-patter/packages/version-history-server",
+    "@pitter-patter/shuffle": "^0.3.2",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
     "@radix-ui/react-popover": "^1.1.6",
     "@radix-ui/react-select": "^2.2.6",
@@ -56,7 +52,7 @@
     "prosemirror-state": "^1.4.3",
     "prosemirror-tables": "^1.7.1",
     "prosemirror-transform": "^1.10.4",
-    "prosemirror-view": "1.41.7",
+    "prosemirror-view": "1.42.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-reconciler": "^0.32.0",
@@ -80,31 +76,12 @@
     "vitest": "^4.1.9"
   },
   "resolutions": {
-    "prosemirror-view": "1.41.7",
-    "@pitter-patter/collab-client@workspace:^": "portal:../pitter-patter/packages/collab-client",
-    "@pitter-patter/collab-client@workspace:*": "portal:../pitter-patter/packages/collab-client",
-    "@pitter-patter/collab-server@workspace:^": "portal:../pitter-patter/packages/collab-server",
-    "@pitter-patter/collab-server@workspace:*": "portal:../pitter-patter/packages/collab-server",
-    "@pitter-patter/comments-client@workspace:^": "portal:../pitter-patter/packages/comments-client",
-    "@pitter-patter/comments-client@workspace:*": "portal:../pitter-patter/packages/comments-client",
-    "@pitter-patter/comments-server@workspace:^": "portal:../pitter-patter/packages/comments-server",
-    "@pitter-patter/comments-server@workspace:*": "portal:../pitter-patter/packages/comments-server",
-    "@pitter-patter/presence-client@workspace:^": "portal:../pitter-patter/packages/presence-client",
-    "@pitter-patter/presence-client@workspace:*": "portal:../pitter-patter/packages/presence-client",
-    "@pitter-patter/presence-server@workspace:^": "portal:../pitter-patter/packages/presence-server",
-    "@pitter-patter/presence-server@workspace:*": "portal:../pitter-patter/packages/presence-server",
-    "@pitter-patter/refs@workspace:^": "npm:^0.1.0",
-    "@pitter-patter/refs@workspace:*": "npm:^0.1.0",
-    "@pitter-patter/shuffle@workspace:^": "portal:../pitter-patter/packages/shuffle",
-    "@pitter-patter/shuffle@workspace:*": "portal:../pitter-patter/packages/shuffle",
-    "@pitter-patter/version-history-client@workspace:^": "portal:../pitter-patter/packages/version-history-client",
-    "@pitter-patter/version-history-client@workspace:*": "portal:../pitter-patter/packages/version-history-client",
-    "@pitter-patter/version-history-server@workspace:^": "portal:../pitter-patter/packages/version-history-server",
-    "@pitter-patter/version-history-server@workspace:*": "portal:../pitter-patter/packages/version-history-server"
+    "prosemirror-view": "1.42.0"
   },
   "dependenciesMeta": {
     "@handlewithcare/react-prosemirror@3.0.5": {
       "unplugged": true
     }
-  }
+  },
+  "packageManager": "yarn@4.18.0+sha512.fcb8716fe7cd0eece141ffc18b92193a9df9204c1ba83189c288835223fc0bbe64af473bab0d5e9927a7daeb5caf2bb07eb2787cc9338ca040ea125f2a1f2f7e"
 }

@@ -19,7 +19,6 @@ import {
   PresenceAuthority,
   type PresenceIndicator,
 } from "@pitter-patter/presence-server";
-import { withVersionHistory } from "@pitter-patter/version-history-server";
 import type { CommitJSON } from "@stepwisehq/prosemirror-collab-commit/collab-commit";
 import { Hono } from "hono";
 import { schema as basicSchema } from "prosemirror-schema-basic";
@@ -51,7 +50,6 @@ import {
 type Tx = null;
 
 const collabAuthority = new CollabAuthority<Tx>(
-  withVersionHistory(
     {
       schema: basicSchema,
       runWithTransaction: async (callback) => callback(null),
@@ -74,38 +72,6 @@ const collabAuthority = new CollabAuthority<Tx>(
       },
       broadcastManager: collabBroadcaster,
     },
-    {
-      getLatestSnapshot: async (_tr, docId) => {
-        const snap = getLatestSnapshot(docId);
-        if (!snap) {
-          return { snapshotId: "", createdAt: 0, version: -1 };
-        }
-        return {
-          snapshotId: snap.snapshotId,
-          createdAt: snap.createdAt,
-          version: snap.version,
-        };
-      },
-      createSnapshot: async (_tr, docId, version, snapshotJSON) => {
-        appendSnapshot({
-          snapshotId: `snap-${docId}-${version}-${Date.now()}`,
-          docId,
-          version,
-          content: snapshotJSON,
-          createdAt: Date.now(),
-        });
-      },
-      // Snapshot when the user pauses for a while (default 30s) or
-      // after sustained editing without a snapshot (default 2min).
-      // Real apps usually go 5min / 15min — these are tuned faster so
-      // the version history sidebar populates over a demo session.
-      shouldCreateSnapshot: (now, lastUpdated, lastSnapshot) => {
-        const idleMs = now - lastUpdated;
-        const sinceSnapshotMs = now - lastSnapshot;
-        return idleMs > 30_000 || sinceSnapshotMs > 120_000;
-      },
-    },
-  ),
 );
 
 const presenceAuthority = new PresenceAuthority({

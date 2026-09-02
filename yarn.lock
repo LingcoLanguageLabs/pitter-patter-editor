@@ -655,7 +655,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@handlewithcare/react-prosemirror@npm:^3.0.5, @handlewithcare/react-prosemirror@npm:^3.2.4":
+"@handlewithcare/react-prosemirror@npm:^3.2.7":
   version: 3.2.7
   resolution: "@handlewithcare/react-prosemirror@npm:3.2.7"
   dependencies:
@@ -1095,21 +1095,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pitter-patter/collab-client@portal:../pitter-patter/packages/collab-client::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/collab-client@portal:../pitter-patter/packages/collab-client::locator=pitter-patter-editor%40workspace%3A."
+"@pitter-patter/collab-client@npm:^0.1.0, @pitter-patter/collab-client@npm:^0.1.3":
+  version: 0.1.3
+  resolution: "@pitter-patter/collab-client@npm:0.1.3"
   dependencies:
     "@stepwisehq/prosemirror-collab-commit": "npm:^1.0.0"
   peerDependencies:
     prosemirror-model: ^1.0.0
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
+  checksum: 10c0/b7289de5faa07a55113e631866525f50de8ebea0a3d8a1e8907dbdb47895406517ce49597d1d8c0648cce2790cae386ea884101b23167d37d3bbf0f4fef7a4e6
   languageName: node
-  linkType: soft
+  linkType: hard
 
-"@pitter-patter/collab-server@portal:../pitter-patter/packages/collab-server::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/collab-server@portal:../pitter-patter/packages/collab-server::locator=pitter-patter-editor%40workspace%3A."
+"@pitter-patter/collab-server@npm:^0.1.0":
+  version: 0.1.3
+  resolution: "@pitter-patter/collab-server@npm:0.1.3"
   dependencies:
     "@stepwisehq/prosemirror-collab-commit": "npm:^1.0.3"
     redis: "npm:^5.8.2"
@@ -1117,47 +1118,16 @@ __metadata:
     prosemirror-model: ^1.0.0
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
+  checksum: 10c0/e2f8fe882e87e41d52704fb8cbd92faa3f4930e411582eb368390af152cb18219fe30e647b5841574befcf68a2e2244ea0cc57522d93cbe03ead3a23fcfa82f1
   languageName: node
-  linkType: soft
+  linkType: hard
 
-"@pitter-patter/comments-client@portal:../pitter-patter/packages/comments-client::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/comments-client@portal:../pitter-patter/packages/comments-client::locator=pitter-patter-editor%40workspace%3A."
+"@pitter-patter/presence-client@npm:^0.2.0":
+  version: 0.2.1
+  resolution: "@pitter-patter/presence-client@npm:0.2.1"
   dependencies:
-    "@handlewithcare/react-prosemirror": "npm:^3.2.4"
-    "@pitter-patter/collab-client": "workspace:^"
-    "@pitter-patter/refs": "workspace:^"
-    classnames: "npm:^2.5.1"
-    prosemirror-commands: "npm:^1.7.1"
-    react: "npm:^19.2.0"
-    react-dom: "npm:^19.2.0"
-    react-reconciler: "npm:^0.32.0"
-  peerDependencies:
-    prosemirror-model: ^1.0.0
-    prosemirror-state: ^1.0.0
-    prosemirror-transform: ^1.0.0
-    prosemirror-view: ^1.0.0
-  languageName: node
-  linkType: soft
-
-"@pitter-patter/comments-server@portal:../pitter-patter/packages/comments-server::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/comments-server@portal:../pitter-patter/packages/comments-server::locator=pitter-patter-editor%40workspace%3A."
-  dependencies:
-    "@pitter-patter/collab-client": "workspace:^"
-    prosemirror-model: "npm:^1.25.4"
-    prosemirror-state: "npm:^1.4.4"
-    prosemirror-transform: "npm:^1.12.0"
-    redis: "npm:^5.8.2"
-  languageName: node
-  linkType: soft
-
-"@pitter-patter/presence-client@portal:../pitter-patter/packages/presence-client::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/presence-client@portal:../pitter-patter/packages/presence-client::locator=pitter-patter-editor%40workspace%3A."
-  dependencies:
-    "@pitter-patter/collab-client": "workspace:^"
-    "@pitter-patter/refs": "workspace:^"
+    "@pitter-patter/collab-client": "npm:^0.1.3"
+    "@pitter-patter/refs": "npm:^0.1.3"
     classnames: "npm:^2.5.1"
   peerDependencies:
     "@handlewithcare/react-prosemirror": ^3.0.6
@@ -1177,16 +1147,25 @@ __metadata:
       optional: true
     react-reconciler:
       optional: true
+  checksum: 10c0/98b382c002780e28db43c5e7c2395974af251752e63820573018b66ac6213f08ef9343111f602f146f8d8ad4a66d5a3d9522fa3c6ff7a8221dac421d5e603eaa
   languageName: node
-  linkType: soft
+  linkType: hard
 
-"@pitter-patter/presence-server@portal:../pitter-patter/packages/presence-server::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/presence-server@portal:../pitter-patter/packages/presence-server::locator=pitter-patter-editor%40workspace%3A."
+"@pitter-patter/presence-server@npm:^0.1.0":
+  version: 0.1.3
+  resolution: "@pitter-patter/presence-server@npm:0.1.3"
   dependencies:
     redis: "npm:^5.8.2"
+  checksum: 10c0/8be0ce6a0fe6497790fbccfdff73d5e2d98fa63c72010bd5b0ed3da56b16e59e96a0ad47af35ade7f0447f77157035b1c1b07c41f5d3b83fa1f4ca76c91153a0
   languageName: node
-  linkType: soft
+  linkType: hard
+
+"@pitter-patter/refs@npm:0.1.3, @pitter-patter/refs@npm:^0.1.3":
+  version: 0.1.3
+  resolution: "@pitter-patter/refs@npm:0.1.3"
+  checksum: 10c0/ef5889bd6a19d9a6c9392408a91318b434110ef5483944800de88cdb04155dddf022a7314155f334e19b98e854514198b1a4b3b36d9765b6c316f98e99114ee5
+  languageName: node
+  linkType: hard
 
 "@pitter-patter/refs@npm:^0.1.0":
   version: 0.1.0
@@ -1195,11 +1174,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pitter-patter/shuffle@portal:../pitter-patter/packages/shuffle::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/shuffle@portal:../pitter-patter/packages/shuffle::locator=pitter-patter-editor%40workspace%3A."
+"@pitter-patter/shuffle@npm:^0.3.2":
+  version: 0.3.2
+  resolution: "@pitter-patter/shuffle@npm:0.3.2"
   dependencies:
-    "@pitter-patter/refs": "workspace:*"
+    "@pitter-patter/refs": "npm:0.1.3"
     animejs: "npm:^4.3.6"
     change-case: "npm:^5.4.4"
     classnames: "npm:^2.5.1"
@@ -1216,33 +1195,9 @@ __metadata:
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
     prosemirror-view: ^1.0.0
+  checksum: 10c0/4644c5720b3429ead7917d2fd6fbed4a15aaf72472285812d155ef089ff67047cde04c0fef04cffcb3dc166b349cf894b01da5e02d07642a22150865a26b6c59
   languageName: node
-  linkType: soft
-
-"@pitter-patter/version-history-client@portal:../pitter-patter/packages/version-history-client::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/version-history-client@portal:../pitter-patter/packages/version-history-client::locator=pitter-patter-editor%40workspace%3A."
-  dependencies:
-    "@pitter-patter/collab-client": "workspace:^"
-  peerDependencies:
-    prosemirror-model: ^1.0.0
-    prosemirror-state: ^1.0.0
-    prosemirror-transform: ^1.0.0
-    prosemirror-view: ^1.0.0
-  languageName: node
-  linkType: soft
-
-"@pitter-patter/version-history-server@portal:../pitter-patter/packages/version-history-server::locator=pitter-patter-editor%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@pitter-patter/version-history-server@portal:../pitter-patter/packages/version-history-server::locator=pitter-patter-editor%40workspace%3A."
-  peerDependencies:
-    "@pitter-patter/collab-server": "workspace:^"
-    "@stepwisehq/prosemirror-collab-commit": ^1.0.0
-    prosemirror-model: ^1.0.0
-    prosemirror-state: ^1.0.0
-    prosemirror-transform: ^1.0.0
-  languageName: node
-  linkType: soft
+  linkType: hard
 
 "@radix-ui/number@npm:1.1.1":
   version: 1.1.1
@@ -3767,19 +3722,15 @@ __metadata:
     "@dnd-kit/utilities": "npm:^3.2.2"
     "@emotion/is-prop-valid": "npm:^1.4.0"
     "@floating-ui/react": "npm:^0.27.0"
-    "@handlewithcare/react-prosemirror": "npm:^3.0.5"
+    "@handlewithcare/react-prosemirror": "npm:^3.2.7"
     "@hono/node-server": "npm:^2.0.1"
     "@phosphor-icons/react": "npm:^2.1.7"
-    "@pitter-patter/collab-client": "portal:../pitter-patter/packages/collab-client"
-    "@pitter-patter/collab-server": "portal:../pitter-patter/packages/collab-server"
-    "@pitter-patter/comments-client": "portal:../pitter-patter/packages/comments-client"
-    "@pitter-patter/comments-server": "portal:../pitter-patter/packages/comments-server"
-    "@pitter-patter/presence-client": "portal:../pitter-patter/packages/presence-client"
-    "@pitter-patter/presence-server": "portal:../pitter-patter/packages/presence-server"
+    "@pitter-patter/collab-client": "npm:^0.1.0"
+    "@pitter-patter/collab-server": "npm:^0.1.0"
+    "@pitter-patter/presence-client": "npm:^0.2.0"
+    "@pitter-patter/presence-server": "npm:^0.1.0"
     "@pitter-patter/refs": "npm:^0.1.0"
-    "@pitter-patter/shuffle": "portal:../pitter-patter/packages/shuffle"
-    "@pitter-patter/version-history-client": "portal:../pitter-patter/packages/version-history-client"
-    "@pitter-patter/version-history-server": "portal:../pitter-patter/packages/version-history-server"
+    "@pitter-patter/shuffle": "npm:^0.3.2"
     "@radix-ui/react-dropdown-menu": "npm:^2.1.6"
     "@radix-ui/react-popover": "npm:^1.1.6"
     "@radix-ui/react-select": "npm:^2.2.6"
@@ -3813,7 +3764,7 @@ __metadata:
     prosemirror-state: "npm:^1.4.3"
     prosemirror-tables: "npm:^1.7.1"
     prosemirror-transform: "npm:^1.10.4"
-    prosemirror-view: "npm:1.41.7"
+    prosemirror-view: "npm:1.42.0"
     react: "npm:^19.2.0"
     react-dom: "npm:^19.2.0"
     react-reconciler: "npm:^0.32.0"
@@ -3925,7 +3876,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prosemirror-model@npm:^1.0.0, prosemirror-model@npm:^1.20.0, prosemirror-model@npm:^1.21.0, prosemirror-model@npm:^1.25.0, prosemirror-model@npm:^1.25.3, prosemirror-model@npm:^1.25.4":
+"prosemirror-model@npm:^1.0.0, prosemirror-model@npm:^1.21.0, prosemirror-model@npm:^1.25.0, prosemirror-model@npm:^1.25.3, prosemirror-model@npm:^1.25.4, prosemirror-model@npm:^1.25.8":
   version: 1.25.11
   resolution: "prosemirror-model@npm:1.25.11"
   dependencies:
@@ -3978,7 +3929,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prosemirror-transform@npm:^1.0.0, prosemirror-transform@npm:^1.1.0, prosemirror-transform@npm:^1.10.2, prosemirror-transform@npm:^1.10.4, prosemirror-transform@npm:^1.10.5, prosemirror-transform@npm:^1.12.0, prosemirror-transform@npm:^1.7.3":
+"prosemirror-transform@npm:^1.0.0, prosemirror-transform@npm:^1.1.0, prosemirror-transform@npm:^1.10.2, prosemirror-transform@npm:^1.10.4, prosemirror-transform@npm:^1.10.5, prosemirror-transform@npm:^1.7.3":
   version: 1.12.0
   resolution: "prosemirror-transform@npm:1.12.0"
   dependencies:
@@ -3987,14 +3938,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prosemirror-view@npm:1.41.7":
-  version: 1.41.7
-  resolution: "prosemirror-view@npm:1.41.7"
+"prosemirror-view@npm:1.42.0":
+  version: 1.42.0
+  resolution: "prosemirror-view@npm:1.42.0"
   dependencies:
-    prosemirror-model: "npm:^1.20.0"
+    prosemirror-model: "npm:^1.25.8"
     prosemirror-state: "npm:^1.0.0"
     prosemirror-transform: "npm:^1.1.0"
-  checksum: 10c0/e4291023c2bc9a600754015ff5a1c781abf8a4e7598e68fd4f5efd3d3550846408137225ade759d4e7caa4fb65c06cf3b71df522321a0fe07ac23c0413c06950
+  checksum: 10c0/92f5a6ca4bbb9f961f93307f544e4fb9bbd694184cef76c440707745439117165f4a5ef6e71d36f7576776bcb0f16a5ee48c9722e472992bd4b384ff2ee07911
   languageName: node
   linkType: hard
 
