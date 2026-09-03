@@ -27,7 +27,7 @@
     "@pitter-patter/presence-client": "^0.2.0",
     "@pitter-patter/presence-server": "^0.1.0",
     "@pitter-patter/refs": "^0.1.0",
-    "@pitter-patter/shuffle": "^0.3.2",
+    "@pitter-patter/shuffle": "^0.3.3",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
     "@radix-ui/react-popover": "^1.1.6",
     "@radix-ui/react-select": "^2.2.6",

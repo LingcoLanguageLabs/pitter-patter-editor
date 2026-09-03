@@ -1174,9 +1174,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pitter-patter/shuffle@npm:^0.3.2":
-  version: 0.3.2
-  resolution: "@pitter-patter/shuffle@npm:0.3.2"
+"@pitter-patter/shuffle@npm:^0.3.3":
+  version: 0.3.3
+  resolution: "@pitter-patter/shuffle@npm:0.3.3"
   dependencies:
     "@pitter-patter/refs": "npm:0.1.3"
     animejs: "npm:^4.3.6"
@@ -1195,7 +1195,7 @@ __metadata:
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
     prosemirror-view: ^1.0.0
-  checksum: 10c0/4644c5720b3429ead7917d2fd6fbed4a15aaf72472285812d155ef089ff67047cde04c0fef04cffcb3dc166b349cf894b01da5e02d07642a22150865a26b6c59
+  checksum: 10c0/0f8e0ec3d4ba3d31ae54df1ce06471983965ce2626c64e27f64d0b9f7f326d3ae2f20f989505a5b6b3ad9b2fc6f7a12dcc41dbd9c7a477ce6b5a69b92b8a86ce
   languageName: node
   linkType: hard
 
@@ -3730,7 +3730,7 @@ __metadata:
     "@pitter-patter/presence-client": "npm:^0.2.0"
     "@pitter-patter/presence-server": "npm:^0.1.0"
     "@pitter-patter/refs": "npm:^0.1.0"
-    "@pitter-patter/shuffle": "npm:^0.3.2"
+    "@pitter-patter/shuffle": "npm:^0.3.3"
     "@radix-ui/react-dropdown-menu": "npm:^2.1.6"
     "@radix-ui/react-popover": "npm:^1.1.6"
     "@radix-ui/react-select": "npm:^2.2.6"
