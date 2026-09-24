@@ -655,9 +655,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@handlewithcare/react-prosemirror@npm:^3.2.7":
-  version: 3.2.7
-  resolution: "@handlewithcare/react-prosemirror@npm:3.2.7"
+"@handlewithcare/react-prosemirror@npm:^3.2.9":
+  version: 3.2.9
+  resolution: "@handlewithcare/react-prosemirror@npm:3.2.9"
   dependencies:
     classnames: "npm:^2.5.1"
   peerDependencies:
@@ -666,7 +666,7 @@ __metadata:
     "@tiptap/react": ^3.0.0
     prosemirror-model: ^1.0.0
     prosemirror-state: ^1.0.0
-    prosemirror-view: 1.42.0
+    prosemirror-view: 1.42.3
     react: ">=17 <20"
     react-dom: ">=17 <20"
     react-reconciler: ">=0.26.1 <=0.33.0"
@@ -677,7 +677,7 @@ __metadata:
       optional: true
     "@tiptap/react":
       optional: true
-  checksum: 10c0/02b060be766d335c6ae340ae10f1ceb95f475edd3736f6973173a67cad4e08ceda9d8db4bbc5e4a8b9b6b477c715a9a08637138c2ef8b67362e29df7482a36aa
+  checksum: 10c0/324835b58b3d4713d01053b2547c8ad94655ce1701300ddba83e5b507c0ad2ec711cce68d1205e388123fa9641f954e2ae0d6396aab6f8a4240ee4193e2ad25b
   languageName: node
   linkType: hard
 
@@ -1174,9 +1174,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pitter-patter/shuffle@npm:^0.3.4":
-  version: 0.3.4
-  resolution: "@pitter-patter/shuffle@npm:0.3.4"
+"@pitter-patter/shuffle@npm:^0.3.6":
+  version: 0.3.6
+  resolution: "@pitter-patter/shuffle@npm:0.3.6"
   dependencies:
     "@pitter-patter/refs": "npm:0.1.3"
     animejs: "npm:^4.3.6"
@@ -1195,7 +1195,7 @@ __metadata:
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
     prosemirror-view: ^1.0.0
-  checksum: 10c0/821fbeebd7d2b49ac889706f1693cc9631fbd66796c62040a4df02279e1e503acfd9fb5ee10f0c36b29371f40f9b058bf2c26e3789b1792d83a545f8d1088954
+  checksum: 10c0/30747eb40c5d8c62038cd249f88106ce83de01fcd099995fbfe4d7b60c98b36870f5e2635f46da49603ba4b1b943c7eff0a34b5fe785d26439a5ffe1e2eb7c00
   languageName: node
   linkType: hard
 
@@ -3722,7 +3722,7 @@ __metadata:
     "@dnd-kit/utilities": "npm:^3.2.2"
     "@emotion/is-prop-valid": "npm:^1.4.0"
     "@floating-ui/react": "npm:^0.27.0"
-    "@handlewithcare/react-prosemirror": "npm:^3.2.7"
+    "@handlewithcare/react-prosemirror": "npm:^3.2.9"
     "@hono/node-server": "npm:^2.0.1"
     "@phosphor-icons/react": "npm:^2.1.7"
     "@pitter-patter/collab-client": "npm:^0.1.0"
@@ -3730,7 +3730,7 @@ __metadata:
     "@pitter-patter/presence-client": "npm:^0.2.0"
     "@pitter-patter/presence-server": "npm:^0.1.0"
     "@pitter-patter/refs": "npm:^0.1.0"
-    "@pitter-patter/shuffle": "npm:^0.3.4"
+    "@pitter-patter/shuffle": "npm:^0.3.6"
     "@radix-ui/react-dropdown-menu": "npm:^2.1.6"
     "@radix-ui/react-popover": "npm:^1.1.6"
     "@radix-ui/react-select": "npm:^2.2.6"
@@ -3938,14 +3938,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prosemirror-view@npm:1.42.0":
-  version: 1.42.0
-  resolution: "prosemirror-view@npm:1.42.0"
+"prosemirror-view@npm:1.42.3":
+  version: 1.42.3
+  resolution: "prosemirror-view@npm:1.42.3"
   dependencies:
     prosemirror-model: "npm:^1.25.8"
     prosemirror-state: "npm:^1.0.0"
     prosemirror-transform: "npm:^1.1.0"
-  checksum: 10c0/92f5a6ca4bbb9f961f93307f544e4fb9bbd694184cef76c440707745439117165f4a5ef6e71d36f7576776bcb0f16a5ee48c9722e472992bd4b384ff2ee07911
+  checksum: 10c0/42fb27a28378ff843468caa1b99ecf9a74b3b170b25b7009954bcaa11379f6aa10e885c44fa29fe8dd2d892904890ade47952e61acc1512bda4dc926eb2a1bd9
   languageName: node
   linkType: hard
 
