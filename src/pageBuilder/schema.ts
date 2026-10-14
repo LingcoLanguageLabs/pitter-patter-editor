@@ -1742,7 +1742,7 @@ export function buildPageBuilderSchema(base: Schema): Schema {
   // style), and the Row settings control drives that attr directly. An
   // earlier `alignContent` attr/class duplicated it but was inert — no class
   // can beat the inline style — so it's gone.
-  const withShuffle = addShuffleNodes(withPageRoot, "block+", "block");
+  const withShuffle = addShuffleNodes(withPageRoot, "block*", "block");
   const withMargin = addBlockMarginAttr(withShuffle);
   const withWidthLimits = addWidthLimitAttrs(withMargin);
   const withOpacity = addOpacityAttr(withWidthLimits);

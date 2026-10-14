@@ -37,7 +37,7 @@ const baseNodes = basic.spec.nodes
 
 const schema = addShuffleNodes(
   new Schema({ nodes: baseNodes, marks: basic.spec.marks }),
-  "block+",
+  "block*",
   "block",
 );
 
