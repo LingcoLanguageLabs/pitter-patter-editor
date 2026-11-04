@@ -1095,22 +1095,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pitter-patter/collab-client@npm:^0.1.0, @pitter-patter/collab-client@npm:^0.1.3":
-  version: 0.1.3
-  resolution: "@pitter-patter/collab-client@npm:0.1.3"
+"@pitter-patter/collab-client@npm:^0.1.4":
+  version: 0.1.4
+  resolution: "@pitter-patter/collab-client@npm:0.1.4"
   dependencies:
     "@stepwisehq/prosemirror-collab-commit": "npm:^1.0.0"
   peerDependencies:
     prosemirror-model: ^1.0.0
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
-  checksum: 10c0/b7289de5faa07a55113e631866525f50de8ebea0a3d8a1e8907dbdb47895406517ce49597d1d8c0648cce2790cae386ea884101b23167d37d3bbf0f4fef7a4e6
+  checksum: 10c0/2c76644fe39b38b53542cfc8bd2eb73bf6a8670d4f19591479b1de0a16afe35e881a8027a97b6b75ca207d213c153ba6194180e2c4e721487cc5f927f98c113e
   languageName: node
   linkType: hard
 
-"@pitter-patter/collab-server@npm:^0.1.0":
-  version: 0.1.3
-  resolution: "@pitter-patter/collab-server@npm:0.1.3"
+"@pitter-patter/collab-server@npm:^0.1.5":
+  version: 0.1.5
+  resolution: "@pitter-patter/collab-server@npm:0.1.5"
   dependencies:
     "@stepwisehq/prosemirror-collab-commit": "npm:^1.0.3"
     redis: "npm:^5.8.2"
@@ -1118,15 +1118,15 @@ __metadata:
     prosemirror-model: ^1.0.0
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
-  checksum: 10c0/e2f8fe882e87e41d52704fb8cbd92faa3f4930e411582eb368390af152cb18219fe30e647b5841574befcf68a2e2244ea0cc57522d93cbe03ead3a23fcfa82f1
+  checksum: 10c0/c246ea029584954daa3d820573c69b1a75a69b9402a4c62cacb070cf2dbb59318c1a3037aea17c178fe00f0fffb50aa5f4762bbe07bfa42e66083c50286f3ff5
   languageName: node
   linkType: hard
 
-"@pitter-patter/presence-client@npm:^0.2.0":
-  version: 0.2.1
-  resolution: "@pitter-patter/presence-client@npm:0.2.1"
+"@pitter-patter/presence-client@npm:^0.2.3":
+  version: 0.2.3
+  resolution: "@pitter-patter/presence-client@npm:0.2.3"
   dependencies:
-    "@pitter-patter/collab-client": "npm:^0.1.3"
+    "@pitter-patter/collab-client": "npm:^0.1.4"
     "@pitter-patter/refs": "npm:^0.1.3"
     classnames: "npm:^2.5.1"
   peerDependencies:
@@ -1147,16 +1147,16 @@ __metadata:
       optional: true
     react-reconciler:
       optional: true
-  checksum: 10c0/98b382c002780e28db43c5e7c2395974af251752e63820573018b66ac6213f08ef9343111f602f146f8d8ad4a66d5a3d9522fa3c6ff7a8221dac421d5e603eaa
+  checksum: 10c0/7290c6a6afa31779a70b774a33728f928528228a8321897a1af6d9c3b835b540dee5e4506137c0f4b86586cac4e18aeb742325b36778bda204a6d54d471da728
   languageName: node
   linkType: hard
 
-"@pitter-patter/presence-server@npm:^0.1.0":
-  version: 0.1.3
-  resolution: "@pitter-patter/presence-server@npm:0.1.3"
+"@pitter-patter/presence-server@npm:^0.2.0":
+  version: 0.2.0
+  resolution: "@pitter-patter/presence-server@npm:0.2.0"
   dependencies:
     redis: "npm:^5.8.2"
-  checksum: 10c0/8be0ce6a0fe6497790fbccfdff73d5e2d98fa63c72010bd5b0ed3da56b16e59e96a0ad47af35ade7f0447f77157035b1c1b07c41f5d3b83fa1f4ca76c91153a0
+  checksum: 10c0/71bf1a211ae81471aba8afcca41769fdc1b77297997aa5532a30d7a32f8cd67cbb4a1ee665301d5a2e52b8054e35ca1c1bd2880bb03659aedbcffa2364875104
   languageName: node
   linkType: hard
 
@@ -1167,16 +1167,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pitter-patter/refs@npm:^0.1.0":
-  version: 0.1.0
-  resolution: "@pitter-patter/refs@npm:0.1.0"
-  checksum: 10c0/7e8f27bedd09315687f77f93778806ef6b04bae64bc80cdfbd24499811ac5ac91a9d34edc20fbf7ae00ec1cac690d8e66be76a8520e1d14dff9ecd2fc0e2391d
-  languageName: node
-  linkType: hard
-
-"@pitter-patter/shuffle@npm:0.3.7":
-  version: 0.3.7
-  resolution: "@pitter-patter/shuffle@npm:0.3.7"
+"@pitter-patter/shuffle@npm:^0.3.8":
+  version: 0.3.8
+  resolution: "@pitter-patter/shuffle@npm:0.3.8"
   dependencies:
     "@pitter-patter/refs": "npm:0.1.3"
     animejs: "npm:^4.3.6"
@@ -1195,7 +1188,7 @@ __metadata:
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
     prosemirror-view: ^1.0.0
-  checksum: 10c0/697a5895a70d1792500f8f80bc60997f13baab97b7c06c83a85b2812e2955cc1e330a944254bef3fe192be308fbc04ef1c8960b1a17c41bc78b3562287594759
+  checksum: 10c0/89ed48a3ad5dc7166b20c152a6d0f479ca8115c64c6504c96d54550544feb37c2e5f6b93b8d419c5639ddd4c7de8879ad3c65e5ae88e42c34dbe15f0e79f68cd
   languageName: node
   linkType: hard
 
@@ -3725,12 +3718,12 @@ __metadata:
     "@handlewithcare/react-prosemirror": "npm:^3.2.9"
     "@hono/node-server": "npm:^2.0.1"
     "@phosphor-icons/react": "npm:^2.1.7"
-    "@pitter-patter/collab-client": "npm:^0.1.0"
-    "@pitter-patter/collab-server": "npm:^0.1.0"
-    "@pitter-patter/presence-client": "npm:^0.2.0"
-    "@pitter-patter/presence-server": "npm:^0.1.0"
-    "@pitter-patter/refs": "npm:^0.1.0"
-    "@pitter-patter/shuffle": "npm:0.3.7"
+    "@pitter-patter/collab-client": "npm:^0.1.4"
+    "@pitter-patter/collab-server": "npm:^0.1.5"
+    "@pitter-patter/presence-client": "npm:^0.2.3"
+    "@pitter-patter/presence-server": "npm:^0.2.0"
+    "@pitter-patter/refs": "npm:^0.1.3"
+    "@pitter-patter/shuffle": "npm:^0.3.8"
     "@radix-ui/react-dropdown-menu": "npm:^2.1.6"
     "@radix-ui/react-popover": "npm:^1.1.6"
     "@radix-ui/react-select": "npm:^2.2.6"
