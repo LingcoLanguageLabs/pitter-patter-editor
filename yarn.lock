@@ -1122,9 +1122,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pitter-patter/presence-client@npm:^0.2.3":
-  version: 0.2.3
-  resolution: "@pitter-patter/presence-client@npm:0.2.3"
+"@pitter-patter/presence-client@npm:^0.2.4":
+  version: 0.2.4
+  resolution: "@pitter-patter/presence-client@npm:0.2.4"
   dependencies:
     "@pitter-patter/collab-client": "npm:^0.1.4"
     "@pitter-patter/refs": "npm:^0.1.3"
@@ -1147,7 +1147,7 @@ __metadata:
       optional: true
     react-reconciler:
       optional: true
-  checksum: 10c0/7290c6a6afa31779a70b774a33728f928528228a8321897a1af6d9c3b835b540dee5e4506137c0f4b86586cac4e18aeb742325b36778bda204a6d54d471da728
+  checksum: 10c0/8037819b0bc520da55cb9aceb5f45191b4e7eddf933e4302bdaea38fa42d62df250586067f2280525a6420e75ce84cc2f8829412b29d335c2e0b62de8c138bb0
   languageName: node
   linkType: hard
 
@@ -1167,9 +1167,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pitter-patter/shuffle@npm:^0.3.8":
-  version: 0.3.8
-  resolution: "@pitter-patter/shuffle@npm:0.3.8"
+"@pitter-patter/shuffle@npm:^0.3.9":
+  version: 0.3.9
+  resolution: "@pitter-patter/shuffle@npm:0.3.9"
   dependencies:
     "@pitter-patter/refs": "npm:0.1.3"
     animejs: "npm:^4.3.6"
@@ -1188,7 +1188,7 @@ __metadata:
     prosemirror-state: ^1.0.0
     prosemirror-transform: ^1.0.0
     prosemirror-view: ^1.0.0
-  checksum: 10c0/89ed48a3ad5dc7166b20c152a6d0f479ca8115c64c6504c96d54550544feb37c2e5f6b93b8d419c5639ddd4c7de8879ad3c65e5ae88e42c34dbe15f0e79f68cd
+  checksum: 10c0/f24d7d953ede154cf28ab39241f23df567089156f9589dba902ae65f85d19e7bd54c99b2c00634a9da58be962f668d6a5bbe65dea4ab4120c85d287fa264c54e
   languageName: node
   linkType: hard
 
@@ -3720,10 +3720,10 @@ __metadata:
     "@phosphor-icons/react": "npm:^2.1.7"
     "@pitter-patter/collab-client": "npm:^0.1.4"
     "@pitter-patter/collab-server": "npm:^0.1.5"
-    "@pitter-patter/presence-client": "npm:^0.2.3"
+    "@pitter-patter/presence-client": "npm:^0.2.4"
     "@pitter-patter/presence-server": "npm:^0.2.0"
     "@pitter-patter/refs": "npm:^0.1.3"
-    "@pitter-patter/shuffle": "npm:^0.3.8"
+    "@pitter-patter/shuffle": "npm:^0.3.9"
     "@radix-ui/react-dropdown-menu": "npm:^2.1.6"
     "@radix-ui/react-popover": "npm:^1.1.6"
     "@radix-ui/react-select": "npm:^2.2.6"
